@@ -9,7 +9,7 @@ You can also view the full working table of Topics and relevance to our report [
 
 ## Relevant Vocab:
 
-_See full list of definitions [here]_(https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/1.1.0/arf/#2-definitions)
+_See full list of definitions [here](https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/1.1.0/arf/#2-definitions)_
 
 - **Relying Party** - verifier
 - **Wallet Holder / User** - prover
@@ -28,8 +28,7 @@ _See full list of definitions [here]_(https://eu-digital-identity-wallet.github.
 
 Data minimization:
 
-- PID Provider Trusted List (required) (Topic 1, Requirement OIA_12) -- theoretically can make issuer private (with e.g. Merkle inclusion proof). this is useful if the issuer has not issued many credentials, or the knowledge of the issuer itself provides a lot of information.
--
+- PID Provider Trusted List (required) (Topic 1, Requirement OIA_12) -- theoretically can make issuer private (with e.g. Merkle inclusion proof); useful if the issuer has not issued many credentials, or the knowledge of the issuer itself provides a lot of information.
 
 Unlinkability:
 
@@ -39,7 +38,7 @@ Unlinkability:
 
 Custom linkability:
 
-- Self-maintained pseudonyms (proposal) (Topic 11) -- the pseudonym is a public nullifier output of the zkSNARK = hash(pk, random_salt), to eliminate need for an external pseudonym provider and allow for multiple pseudonyms controlled by the user
+- Self-maintained pseudonyms (proposal) (Topic 11) -- the pseudonym is a public nullifier output of the zkSNARK = `hash(pk, random_salt)`, to eliminate need for an external pseudonym provider and allow for multiple pseudonyms controlled by the user
 
 ## Annex 2 Requirements Review
 
