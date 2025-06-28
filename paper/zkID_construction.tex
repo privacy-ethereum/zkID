@@ -135,17 +135,20 @@ The verifier will check that this equals the re-randomized commitment $com_i$ fr
 \section{Cost analysis}
 
 Spartan ZK sumcheck with hyrax communication cost (proof length):
-- prover sends over polynomials for each of n = log|W| dimensions, which can be represented by 2 field elements each ---> 2n = 2 log|W| F elts
-- challenges r_i are public
-- one pedersen + IPA for linear relations on the padded transcript. have f_n(r_n) be a public output tho in the last column... --> 2 log n = 2 log (log|W|) G elts
-- one pedersen + IPA for the opening of the polynomial (aka proving the last row of public output vector is PCS opening) --> 2 log |W| G elts
+\begin{itemize}
+    \item prover sends over polynomials for each of $n = \log|W|$ dimensions, which can be represented by 2 field elements each $\longrightarrow$ $2n = 2 \log|W|$ F elts
+    \item challenges $r_i$ are public
+    \item one pedersen + IPA for linear relations on the padded transcript. have $f_n(r_n)$ be a public output tho in the last column... $\longrightarrow$ $2 \log n = 2 \log (\log|W|)$ G elts
+    \item one pedersen + IPA for the opening of the polynomial (aka proving the last row of public output vector is PCS opening) $\longrightarrow$ $2 \log |W|$ G elts
+\end{itemize}
 
 verification time:
-- linear relations on sumcheck: O(log|W|) group operations
-- MLE opening: O(|W|) group operations 
+\begin{itemize}
+    \item linear relations on sumcheck: $O(\log|W|)$ group operations
+    \item MLE opening: $O(|W|)$ group operations 
+\end{itemize}
 
-so opening the ML in ZK is the main bottleneck for proving. sumcheck is not that bad because the input size of stuff is already log|W|
-
+(so opening the ML in ZK is the main bottleneck for proving. sumcheck is not that bad because the input size of stuff is already $\log|W|$)
 % \begin{enumerate}
 %     \item What are key techniques that will be used in our schemes?
 %     \begin{itemize}

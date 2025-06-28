@@ -15,6 +15,7 @@
 %%%% 2. PACKAGES %%%%
 \usepackage{lipsum} % Example package -- can be removed
 \usepackage{booktabs}
+\usepackage{mdframed}
 
 
 %%% COMMANDS
@@ -118,62 +119,7 @@
 \label{sec:contribution}
 \textit{main deliveries: 1. describe zkID; 2. the detailed construction}
 
-\begin{enumerate}
-    \item What are key techniques that will be used in our schemes?
-    \begin{itemize}
-        \item What are its inputs and outputs?
-        \item Participants and requirements of the techniques.
-    \end{itemize}
-    \item Describes the complete scheme, from preparation to verification. 
-    \begin{itemize}
-        \item The preliminaries of users when they use our system.
-        \item What is the difference between the preparation of this scheme and the traditional way?
-        \item Some questions we also answer here but just with a compact version, the detailed or proof will be shown in Security or Appendix section.
-        \begin{itemize}
-            \item Is it a dishonest majority setting or something else? 
-            \item What happens when the setting is broken?
-            \item What trust assumptions are our scheme based on?
-            \item Is this quantum-resistant? If not, is it upgradable to quantum-resistant?
-            \item The correctness, soundness, and zk.
-        \end{itemize}
-    \end{itemize}
-    \item Discuss about the compatibility of our system when upgrading from an older system.
-    \begin{enumerate}
-        \item What happens with the older system?
-        \begin{itemize}
-            \item Is it required to change the issuance process? 
-            \item Is it a breaking change or just a soft update?
-            \item What happens with the issued ID, can it be re-used, and re-issued with a new scheme?
-            % should be revoked
-            \item \textbf{It depends on the answer about the final construction. But we have some design constraints that should be followed, which are described in slide 111 of \href{https://docs.google.com/presentation/d/1C4D8zK4gAdafgIEW-2m_qDyyT39gWo0mmFYpwmA8N3M/edit?slide=id.g338a079cb64_0_31\#slide=id.g338a079cb64_0_31}{this doc}} 
-        \end{itemize} 
-        \item What about the new PID?
-        \begin{enumerate}
-            \item What is the difference between the PID of the new scheme and the current version? Is it added more data fields to the current struct?
-            \item If not, is the process from PID to scheme input straightforward (and provable?)?
-% \textbf{            \item What if the Issuer or the ID owner wants to revoke some IDs, does it require the Issuer to update frequently? -- still need to add this}            \item If the Issuer needs to update frequently, what if they are disconnected for a while? 
-            \item What is the trust assumption?
-        \end{enumerate}
-    \end{enumerate}
-    \item After show the detailed construction, we will show more detailed about why our construction should be considered with some detailed.
-    \begin{enumerate}
-        \item What are the main advantages that make zkID outperform other solutions? 
-            \item TODO: wait for benchmarks from the technical team 
-        \item What are the trade-offs if users take our advancement?
-    \end{enumerate}
-\end{enumerate}
-
-
-
-% \subsection{VCDM}
-% \label{subsec:vcdm}
-% \paragraph{}
-
-% \subsection{ZK wrapper for digital signature}
-% \label{subsec:zkwrapper}
-% \paragraph{}
-
-
+\input{zkID_construction.tex}
 
 \section{Experiments}
 \label{sec:experiments}
@@ -236,12 +182,11 @@ Give a detailed answer and analysis for:
 
 %%%% 8. BILBIOGRAPHY %%%%
 \bibliographystyle{alpha}
-\bibliography{abbrev3,crypto,biblio}
-%%%% NOTES
+\bibliography{abbrev0,crypto,biblio}
+%%%% NOTESr
 % - Download abbrev3.bib and crypto.bib from https://cryptobib.di.ens.fr/
 % - Use biblio.bib for additional references not in the cryptobib database.
 %   If possible, take them from DBLP.
-
 
 \section{Appendix: EUDI Annex 2 Requirements}
 
