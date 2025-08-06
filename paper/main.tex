@@ -16,6 +16,10 @@
 \usepackage{lipsum} % Example package -- can be removed
 \usepackage{booktabs}
 \usepackage{mdframed}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
 
 
 %%% COMMANDS
@@ -59,62 +63,60 @@
 
 
 %%%% 7. PAPER CONTENT %%%%
-\section{Introduction}
-\label{sec:introduction}
+% \section{Introduction}
+% \label{sec:introduction}
 % Introducing DI and Selective disclosure. From Selective Disclosure to VCs lead to Anonymous credential.
 % In Anonymous credential, talking about related works and their main approaches.
-\textit{In this section, we will present the definition of the scheme, the need for it, and our scope of work.}
-\input{intro.tex}
-\subsection{Problems and our scope of work}
-\begin{itemize}
-    \item What are we trying to solve, which pain points? 
-    \begin{itemize}
-        \item \textbf{\href{https://mirror.xyz/privacy-scaling-explorations.eth/zRM7qQSt_igfoSxdSa0Pts9MFdAoD96DD3m43bPQJT8}{This doc} dive deeper in the current problems and some current tool could be used \\ in future solutions}
-        \item \textbf{Answer described in this docs, \href{https://www.notion.so/pse-team/External-zkID-ZKP-Wallet-Unit-Proposal-1bad57e8dd7e80c98d73fc7e7666375d?pvs=25\#1bad57e8dd7e8059a446ca7b1dc31323}{Short-term Deliverables $\&$ Further Exploration}}
-        \item \textbf{And in this \href{https://pse.dev/en/projects/zk-id}{doc}} 
-    \end{itemize}
-\end{itemize}
-\subsection{Our achievements}
-\begin{itemize}
-    \item We need to describe zkID as simple as possible. What is it based on, like, well-known terms, and well-known algorithms?... \textit{I don't know the final zkID construction yet. Based on \href{https://pse-team.notion.site/zkID-Team-Strategy-Proposal-db3c5788dc7a4916a33e580a79177053}{\textbf{this proposal}}, I think there is a PoC construction, but I don't have access permission to it.}
-    \jbel{the full architecture and POC don't exist yet -- there are several streams going in parallel (some people thinking about architecture, some people benchmarking to inform that, some people creating a POC)}
-    \begin{itemize}
-        \item What are the main achievements, main results of our work?
-        \item What are the properties that our scheme satisfies?
-        \item What is the best experiment results and the environment of it?
-    \end{itemize} 
-\end{itemize}
-\subsection{Related work and how they make things right}
-\begin{itemize}
-    \item Before us, are there any solutions for these problems, and what are their pros and cons?
-    \begin{itemize}
-        \item \textbf{Overrall about current approaches is listed in \href{https://docs.google.com/presentation/d/1YROCEHK_t10wo5CukgYWmS1nuYKZi46NJBu-XZ8zXiw/edit?slide=id.p\#slide=id.p}{this presentation} (also in \href{https://docs.google.com/presentation/d/1HqFtSiS2hVHaSS8-u-8iecVFeMehMGBtZJnnbnXj83c/edit?slide=id.g34d4bb36836_0_262\#slide=id.g34d4bb36836_0_262}{this shorter version}), 
- need to dig deeper to know how they solve these problems above.}
-        \item \textbf{\href{https://docs.google.com/presentation/d/1C4D8zK4gAdafgIEW-2m_qDyyT39gWo0mmFYpwmA8N3M/edit?slide=id.g312b09519cd_0_8\#slide=id.g312b09519cd_0_8}{This slide} also describe similar content but dive deeper in technical, and have the proposal design constraints.}
-        \begin{itemize}
-            \item Google solution: Tradeoffs and Considerations. 
-                \begin{itemize}
-                    \item Pros: 
-                \end{itemize}
+% \textit{In this section, we will present the definition of the scheme, the need for it, and our scope of work.}
+% \input{intro.tex}
+% \subsection{Problems and our scope of work}
+% \begin{itemize}
+%     \item What are we trying to solve, which pain points? 
+%     \begin{itemize}
+%         \item \textbf{\href{https://mirror.xyz/privacy-scaling-explorations.eth/zRM7qQSt_igfoSxdSa0Pts9MFdAoD96DD3m43bPQJT8}{This doc} dive deeper in the current problems and some current tool could be used \\ in future solutions}
+%         \item \textbf{Answer described in this docs, \href{https://www.notion.so/pse-team/External-zkID-ZKP-Wallet-Unit-Proposal-1bad57e8dd7e80c98d73fc7e7666375d?pvs=25\#1bad57e8dd7e8059a446ca7b1dc31323}{Short-term Deliverables $\&$ Further Exploration}}
+%         \item \textbf{And in this \href{https://pse.dev/en/projects/zk-id}{doc}} 
+%     \end{itemize}
+% \end{itemize}
+% \subsection{Our achievements}
+% \begin{itemize}
+%     \item We need to describe zkID as simple as possible. What is it based on, like, well-known terms, and well-known algorithms?... \textit{I don't know the final zkID construction yet. Based on \href{https://pse-team.notion.site/zkID-Team-Strategy-Proposal-db3c5788dc7a4916a33e580a79177053}{\textbf{this proposal}}, I think there is a PoC construction, but I don't have access permission to it.}
+%     \jbel{the full architecture and POC don't exist yet -- there are several streams going in parallel (some people thinking about architecture, some people benchmarking to inform that, some people creating a POC)}
+%     \begin{itemize}
+%         \item What are the main achievements, main results of our work?
+%         \item What are the properties that our scheme satisfies?
+%         \item What is the best experiment results and the environment of it?
+%     \end{itemize} 
+% \end{itemize}
+% \subsection{Related work and how they make things right}
+% \begin{itemize}
+%     \item Before us, are there any solutions for these problems, and what are their pros and cons?
+%     \begin{itemize}
+%         \item \textbf{Overrall about current approaches is listed in \href{https://docs.google.com/presentation/d/1YROCEHK_t10wo5CukgYWmS1nuYKZi46NJBu-XZ8zXiw/edit?slide=id.p\#slide=id.p}{this presentation} (also in \href{https://docs.google.com/presentation/d/1HqFtSiS2hVHaSS8-u-8iecVFeMehMGBtZJnnbnXj83c/edit?slide=id.g34d4bb36836_0_262\#slide=id.g34d4bb36836_0_262}{this shorter version}), 
+%  need to dig deeper to know how they solve these problems above.}
+%         \item \textbf{\href{https://docs.google.com/presentation/d/1C4D8zK4gAdafgIEW-2m_qDyyT39gWo0mmFYpwmA8N3M/edit?slide=id.g312b09519cd_0_8\#slide=id.g312b09519cd_0_8}{This slide} also describe similar content but dive deeper in technical, and have the proposal design constraints.}
+%         \begin{itemize}
+%             \item Google solution: Tradeoffs and Considerations. 
+%                 \begin{itemize}
+%                     \item Pros: 
+%                 \end{itemize}
                 
-            \item Microsoft solution: Tradeoffs and Considerations.
-            \item Our zkID:
-                * preprocessing 
-        \end{itemize}
-    \end{itemize} 
-\end{itemize}
+%             \item Microsoft solution: Tradeoffs and Considerations.
+%             \item Our zkID:
+%                 * preprocessing 
+%         \end{itemize}
+%     \end{itemize} 
+% \end{itemize}
 
 
-\section{Preliminaries}
+\section{Introduction}
+\label{sec:introduction}
+\input{intro}
+
+\section{Preliminaries - WIP}
 \label{sec:preliminaries}
-\textit{Foundational concepts to understand zkID}
-
-\begin{enumerate}
-   \item  High level overview of the parties and the trust assumptions with each one
-   \
-\end{enumerate}
-
-
+% \ndhy{This section is a work in progress. It will be completed in the next few days.}
+\input{preliminaries}
 \section{Our zkID}
 \label{sec:contribution}
 \textit{main deliveries: 1. describe zkID; 2. the detailed construction}
@@ -182,7 +184,7 @@ Give a detailed answer and analysis for:
 
 %%%% 8. BILBIOGRAPHY %%%%
 \bibliographystyle{alpha}
-\bibliography{abbrev0,crypto,biblio}
+\bibliography{abbrev0,crypto,biblio,references}
 %%%% NOTESr
 % - Download abbrev3.bib and crypto.bib from https://cryptobib.di.ens.fr/
 % - Use biblio.bib for additional references not in the cryptobib database.

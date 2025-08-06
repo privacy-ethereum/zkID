@@ -1,0 +1,45 @@
+% \ndhy{This section is a work in progress. It will be completed in the next few days.}
+\paragraph{Notation.}
+For $n\in\mathbb{N}$, let $[n]=\{1,\dots,n\}$.
+Vectors are in bold, e.g., $\mathbf{a}=(a_1,\ldots,a_\ell)$.
+Concatenation is $\|$.
+For a (possibly randomized) algorithm $\mathsf{Alg}$, we write $y \leftarrow \mathsf{Alg}(x)$ for its output.
+The security parameter is $\lambda$, and $\mathrm{negl}(\lambda)$ denotes a negligible function.
+\subsection{Algebraic setting and basic primitives}
+\label{subsec:algebra}
+Let $\mathbb{F}$ be a prime field of order $q$ and $\mathbb{G}$ a cyclic group of order $q$ with generator $g$, where discrete logarithms are hard.
+We use SHA\mbox{-}256 as $\mathsf{H}:\{0,1\}^\ast\!\rightarrow\!\{0,1\}^{256}$.
+The issuer uses a digital signature scheme $\mathsf{Sig}_I=(\mathsf{KeyGen}_I,\mathsf{Sign}_I,\mathsf{Verify}_I)$ (e.g., ECDSA/RSA), and the device uses $\mathsf{Sig}_D$ for nonce-bound session signatures; both are assumed EUF\mbox{-}CMA.
+
+\paragraph{Pedersen vector commitments.}
+Fix generators $\mathbf{g}=(g_1,\ldots,g_\ell)$ and $h$ in $\mathbb{G}$.
+For $\mathbf{a}\in\mathbb{F}^\ell$ and $r\in\mathbb{F}$ define
+\[
+\mathsf{Com}(\mathbf{a};r)=\prod_{i=1}^{\ell} g_i^{a_i}\cdot h^{r}\in\mathbb{G}.
+\]
+$\mathsf{Com}$ is perfectly hiding and binding under discrete\mbox{-}log hardness.
+We will need efficient \emph{openings} and \emph{equality proofs} for Pedersen commitments; we realize these via inner-product arguments (IPAs) in the Hyrax framework~\cite{SP:WTSTW18}.
+
+\subsection{Zero-knowledge proving interface}
+\label{subsec:zk-interface}
+We use a \emph{transparent} general-purpose SNARK in the Spartan family~\cite{C:Setty20}, instantiated over $\mathbb{F}$ for R1CS relations.
+Algorithms are
+\[
+\mathsf{pp} \leftarrow \mathsf{Setup}(1^\lambda),\quad
+\pi \leftarrow \mathsf{Prove}(\mathsf{pp},x,w),\quad
+b \leftarrow \mathsf{Verify}(\mathsf{pp},x,\pi)\in\{0,1\},
+\]
+where $x$ is public input and $w$ the witness.
+(We reference succinct CRS-based systems such as Groth16~\cite{groth2016size} later only for performance comparisons.)
+
+\subsection{Relations used by \textsf{zkID}}
+\label{subsec:relations}
+Let $\mathsf{Parse}$ be a deterministic parser that extracts $(\mathbf{a},\mathbf{s},\mathbf{h},\sigma_I,\mathsf{meta})$ from a token $\tau$ (attributes, salts, digests, issuer signature, metadata), consistent with the chosen format (SD\mbox{-}JWT/mDL).
+
+\paragraph{Prepare relation $\mathcal{R}_{\mathrm{prep}}$.}
+\dots
+\paragraph{Show relation $\mathcal{R}_{\mathrm{show}}$.}
+\dots
+
+\subsection{Security model}
+\label{subsec:security-model}
