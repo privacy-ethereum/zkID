@@ -8,7 +8,8 @@ There are two (2) key ideas to highlight within our proposed architecture:
 \end{itemize}
 
 For the first item, we note that pre-processing proofs for the ``prepare'' relation is possible because the relation is independent of the presentation, including the choice of disclosures or predicate proofs. Further optimizations can likely be made to only parse the discosures of certain attributes within the credential if it is known that the Wallet User will rarely or never present certain disclosures to external verifiers.
-The second idea differs from the linking circuits approach that Google uses \cite{cryptoeprint:2024/2010}. Note that Google verifiably computes a hiding and binding MAC of the shared witnesses as a public output of the circuit, which the verifier checks consistency of in plain. Although this is only a few linear relations, it requires the prover to also commit to their portion of the key to prevent forging. We instead simply manually separate out the disclosures $m_1, \dots, m_n$ into a designated column when committing to the witness, which is already needed to prove the circuit relation, and the verifier checks consistency of these commitments when verifying each circuit's proof.
+
+The second items differs from the linking circuits approach that Google uses \cite{cryptoeprint:2024/2010}. Note that Google verifiably computes a hiding and binding MAC of the shared witnesses as a public output of the circuit, which the verifier checks consistency of in plain. Although this is only a few linear relations, it requires the prover to also commit to their portion of the key to prevent forging. We instead simply manually separate out the disclosures $m_1, \dots, m_n$ into a designated column when committing to the witness, which is already needed to prove the circuit relation, and the verifier checks consistency of these commitments when verifying each circuit's proof.
 
 Throughout the remainder of this section, we refer to the EUDI's Wallet User as the ``Prover'', the Relying Party as the ``Verifier'', and the ``EUDI Attestation Authority (EAA)''. Below, we briefly detail a high-level flow of the interaction between the Issuer, Prover, and Verifier.
 
@@ -132,23 +133,161 @@ As part of the proof for presentation $i \in [m]$, the prover computes the Hyrax
 notably with the same randomness $r_i$ as during the \texttt{prepareBatch} process, in the proof generation. 
 The verifier will check that this equals the re-randomized commitment $com_i$ from proof $\pi_i$ for circuit $C_1$. 
 
+\section{Adding ZK}
+
+Our construction uses Circom in the frontend to compile our computation into an R1CS instance, witness pair $(x=(\mathbb{F}, A, B, C, io, n, m), \vec{w})$, 
+which we then feed into the Spartan IOP coupled with Hyrax-style Pedersen polynomial commitments.
+
+Recall that our R1CS relation looks like the following:
+$$
+(A \cdot \vec{z}) \circ (B \cdot \vec{z}) - (C \cdot \vec{z}) = 0
+$$
+where our square matrices $A, B, C$ have size $n$.
+
+Recall that Spartan converts an R1CS relation into the following zero-check:
+$$
+\sum_{x \in \{0,1\}^{\log n}} \widetilde{eq}(x, \tau) 
+\bigg[\bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{A}(x,y) \widetilde{Z}(y)\bigg)
+\bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{B}(x,y) \widetilde{Z}(y)\bigg)
+- \bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{C}(x,y) \widetilde{Z}(y)\bigg)\bigg] = 0
+$$
+for some random challenge $\tau \in \mathbb{F}$
+
+The Spartan protocol consists of several sumchecks in parallel. There are various existing techniques to make sumcheck ZK. 
+We employ one using similar methods as in Zhang et. al. \cite{cryptoeprint:2019/1482}, which adds random pads to the sumcheck transcript.
+
+In particular, suppose at each round $i$ of the sumcheck protocol, the prover sends over $s_i(X) := \sum_{} F(r_1, \dots, r_{i-1}, X, x_{i+1}, \dots, x_m)$ 
+where $r_i$ is the Verifier challenge sent for round $i$. Then instead of having the verifier check the sumcheck, the prover will prove in ZK that the unpadded transcript satisfies the verifier's (linear) checks.
+To do this, the prover will need to commit to the random pads ahead of time. 
+Then, as long as the Fiat-shamir challenges is generated from the transcript including these random pad commitments, the prover cannot simply lie about the pads to satisfy the sumcheck relation.
+
+\begin{mdframed}[style=zkprotocolwithheader, frametitle=Adding ZK to sumcheck]
+    \begin{enumerate}
+        \item Prover commits to pads $r_i(X)$ for all $i \in [\log n]$. These are linear polynomials, and can thus be represented by its $2$ coefficients $r_i[0]$ and $r_i[1]$.
+        \item Instead of sending partial sums 
+        \begin{equation*}
+        s_i(X) := \sum_{(x_{i+1}, \dots, x_n) \in \{0,1\}^{n-i}} F(r_1, \dots, r_{i-1}, X, x_{i+1}, \dots, x_n)
+        \end{equation*}
+        for each round of sumcheck, the Prover sends polys $s'_i(X) = s_i(X) + r_i(X)$, essentially a one-time-padded transcript.
+        \item It suffices to show the following linear relation in zero-knowledge, 
+        \begin{equation*}
+        \left[\begin{array}{c|c|c}
+        A & B & C
+        \end{array}\right]
+        \left[\begin{array}{c}
+            \vec{S} \\
+            \hline
+            \vec{R} \\
+            \hline
+            C \\
+            F(r) \\
+        \end{array}\right]
+        = 
+        \vec{0}
+        \end{equation*}
+        where $\vec{S} = [s'_1[0], s'_1[1], \dots, s'_n[0], s'_n[1]]^T$ 
+        is the column vector of sumcheck transcripts such that $s'_i = s'_i(X) = s'_i[0]X + s'_i[1]$, and
+        where $\vec{R} = [r_1[0], r_1[1], \dots, r_n[0], r_n[1]]^T$ 
+        is the column vector of random pads, and
+        where matrices $A,B,C$ are given by
+        \begin{equation*}
+            A = 
+            \begin{bmatrix}
+                1 & 2 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & 0 \\
+                -r_1 & -1 & 1 & 2 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & 0 \\
+                0 & 0 & -r_2 & -1 & 1 & 2 & 0 & \cdots & 0 & 0 & 0 & 0 \\
+                \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots & \vdots & \vdots \\
+                0 & 0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & -r_{n-1} & -1 & 1 & 2 \\
+                0 & 0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & r_n & 1 \\
+            \end{bmatrix}
+        \end{equation*}
+        \begin{equation*}
+            B = 
+            \begin{bmatrix}
+                -1 & -2 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & 0 & -1 & 0 \\
+                r_1 & 1 & -1 & -2 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & 0 & 0 & 0 \\
+                0 & 0 & r_2 & 1 & -1 & -2 & 0 & \cdots & 0 & 0 & 0 & 0 & 0 & 0\\
+                \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots \\
+                0 & 0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & r_{n-1} & 1 & -1 & -2 & 0 & 0\\
+                0 & 0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & -r_n & -1 & 0 & -1\\
+            \end{bmatrix}
+        \end{equation*}
+        \begin{equation*}
+            C = 
+            \begin{bmatrix}
+                -1 & 0 \\
+                0 & 0 \\
+                0 & 0\\
+                \vdots & \vdots \\
+                0 & 0\\
+                0 & -1\\
+            \end{bmatrix}
+        \end{equation*}
+
+    \item The Prover computes a public random challenge $\alpha$ (e.g. hashing the transcript) and compresses the relation into a dot product
+    \begin{equation} \label{eqn:rlc-vector-reln}
+        [\vec{u}]
+        \left[\begin{array}{c}
+            \vec{S} \\
+            \hline
+            \vec{R} \\
+            \hline
+            C \\
+            F(r) \\
+        \end{array}\right]
+        = 
+        \vec{0}
+    \end{equation}
+    where $\vec{u} = [1, \alpha, \alpha^2, \dots, \alpha^n] \left[\begin{array}{c|c|c}
+        A & B & C
+    \end{array}\right]$ is a random linear combination of the rows.
+    \item The Prover and Verifier engage in a proof-of-dot product protocol to prove the relation above, such as an Inner Product Argument used in Bulletproofs \cite{cryptoeprint:2017/1066}
+    \end{enumerate}
+\end{mdframed}
+
+
+    % 1. Prover commits to pads r_i(X) (just linear polys)
+    % 2. 
+    % 3. Prover and verifier engage in mini SNARK to prove linear relations (using a ZK dot product)
+    % 4. Prover has to show opening - using a zk dot product (e.g. IPA)
+
+% for i = 1: 
+% linear constraint s'_i(0)-r_i(0) + s'_i(1)-r_i(1) = C
+% for i = 2 to m (where m = log n)
+% linear constraint s'_i(0)-r_i(0) + s'_i(1)-r_i(1) = s'_{i-1}(r_{i-1})-r'_{i-1}(r_{i-1})
+
+% check s'_m(r_m)-r_i(r_m) = f_r where f_r is the claimed value of f(r_1, ... r_m)
+% in a separate zkproof, check the opening of f(r_1, ... r_m) from the commitment of f with an IPA
+
+% can use the IPA extractor to construct the snark witness extractor 
+% IPA proof of knowledge soundness is in the bulletproof paper Appendix A: (https://eprint.iacr.org/2017/1066.pdf) 
+% IPA extractor - proves you know/can get the vectors satisfying to the product relation, 
+% which means can extract pads such that, when subtracted from sumcheck transcript, creates valid sumcheck transcript
+% which is equivalent to extracting a valid transcript for spartan sumchecks, 
+% which is equivalent to knowing witness passing the relation.
+
 \section{Cost analysis}
 
-Spartan ZK sumcheck with hyrax communication cost (proof length):
+The following section computes the Prover and Verifier costs of Spartan instantiated with Hyrax Pedersen commitments on R1CS instances $(x = \big(\mathbb{F}, A, B, C, io, n, m),\, \vec{w})$, 
+where $io$ denotes the vector of public inputs/outputs, $n = |\vec{w}|$ is the dimension of our matrices, 
+and $m$ is the number of nonzero entries in our matrices $A,B,C$. We let $Z = (\vec{w}, io, 1)$. 
+It is often reasonable to assume that our R1CS matrices are sparse, i.e. $m = O(n)$. However, we present the costs below independent of this assumption.
+
 \begin{itemize}
-    \item prover sends over polynomials for each of $n = \log|W|$ dimensions, which can be represented by 2 field elements each $\longrightarrow$ $2n = 2 \log|W|$ F elts
-    \item challenges $r_i$ are public
-    \item one pedersen + IPA for linear relations on the padded transcript. have $f_n(r_n)$ be a public output tho in the last column... $\longrightarrow$ $2 \log n = 2 \log (\log|W|)$ G elts
-    \item one pedersen + IPA for the opening of the polynomial (aka proving the last row of public output vector is PCS opening) $\longrightarrow$ $2 \log |W|$ G elts
+    \item \textbf{Prover time}: (1) $O(m)$ to generate sumcheck transcript, (2) $O(m)$ to evaluate MLEs of $A,B,C$, (3) $O(n)$ to commit to the MLE of $Z$ (computing $\sqrt{n}$ MSMs of size $\sqrt{n}$) and opening the MLE of $Z$, for a total cost of $O(m)$.
+    \item \textbf{Proof length}: (1) $O(\log n) \cdot |\mathbb{F}|$ length of the sumcheck transcript, (2) $O(\sqrt{n}) \cdot |\mathbb{G}|$ length commitment to MLE of $Z$, (3) $O(\log n) \cdot |\mathbb{G}|$ length of argument opening MLE of $Z$, for a total length of $O(\sqrt{n})$ group or field elements.
+    \item \textbf{Verifier time}: (1) $O(\log n)$ to verify sumcheck transcript, (2) $O(m)$ to evaluate the MLEs of $A,B,C$ (with sparse commitment scheme and memory checking), (3) $O(\sqrt{n})$ to open the MLE of $Z$, for a total of $O(m + \sqrt{n})$.
 \end{itemize}
 
-verification time:
+With the ZK modifications to Spartan, we can see the asymptotic costs remain the same, as follows:
+
 \begin{itemize}
-    \item linear relations on sumcheck: $O(\log|W|)$ group operations
-    \item MLE opening: $O(|W|)$ group operations 
+    \item \textbf{Prover time}: additionally computes $O(\log n)$ constant-size commitments to the sumcheck transcript pads $r_i$, and $O(\log n)$ engages in new sumcheck relation IPA (or some other ZK dot product argument) for vector of length $O(\log n)$, which still gives $O(m)$ prover work.
+    \item \textbf{Proof length}: sumcheck and openings are the same length but just padded, but added on $O(\log n)$ size $|\mathbb{G}|$ commitments, and a length $O(\log\log n)$ sumcheck relation IPA proof, which still gives a proof length of $O(\sqrt n)$ group or field elements.
+    \item \textbf{Verifier time}: no longer needs to do $O(\log n)$ (sumcheck), but still needs $O(m)$ (evaluating MLEs of $A,B,C$) + $O(\sqrt{n})$ (opening MLE of Z) + $O(\log n)$ for sumcheck relation IPA verification, which still gives $\Rightarrow O(m + \sqrt{n})$ runtime.
 \end{itemize}
 
-(so opening the ML in ZK is the main bottleneck for proving. sumcheck is not that bad because the input size of stuff is already $\log|W|$)
+
 % \begin{enumerate}
 %     \item What are key techniques that will be used in our schemes?
 %     \begin{itemize}
