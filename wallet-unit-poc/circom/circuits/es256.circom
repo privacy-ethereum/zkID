@@ -10,8 +10,6 @@ include "ecdsa/ecdsa.circom";
 include "utils.circom";
 
 template ES256(
-    n,
-    k,
     maxMessageLength
 ) {
     signal input message[maxMessageLength];

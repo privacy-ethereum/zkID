@@ -11,9 +11,6 @@ include "utils.circom";
 
 // Prepare Circuit
 template JWT(
-    n,
-    k,
-
     maxMessageLength,
     maxB64HeaderLength,
     maxB64PayloadLength,
@@ -53,7 +50,7 @@ template JWT(
            
     ClaimComparator(maxMatches, maxSubstringLength)(claimHasher.claimHashes ,claimLengths, matchSubstring, matchLength);
 
-    component es256 = ES256(n,k,maxMessageLength);
+    component es256 = ES256(maxMessageLength);
     es256.message <== message;
     es256.messageLength <== messageLength;
     es256.sig_r <== sig_r;

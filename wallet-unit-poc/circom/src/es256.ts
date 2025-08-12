@@ -7,8 +7,6 @@ import { Field } from "@noble/curves/abstract/modular";
 
 // ES256 Circuit Parameters
 export interface Es256CircuitParams {
-  n: number;
-  k: number;
   maxMessageLength: number;
 }
 
@@ -29,9 +27,7 @@ export interface PemPublicKey {
 // Generate ES256 Circuit Parameters
 export function generateEs256CircuitParams(params: number[]): Es256CircuitParams {
   return {
-    n: params[0],
-    k: params[1],
-    maxMessageLength: params[2],
+    maxMessageLength: params[0],
   };
 }
 
@@ -67,7 +63,7 @@ export function generateES256Inputs(
 
   // internal check
   let pubkey = new p256.Point(x, y, 1n);
-  let check = p256.verify(sig.toString("hex"), Buffer.from(sha256(message)).toString("hex"), pubkey.toHex());
+  let check = p256.verify(sig, sha256(message), pubkey.toRawBytes());
   assert.ok(check, "internal check of signature failed");
 
   // generate padded message

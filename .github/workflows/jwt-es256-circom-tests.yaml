@@ -1,4 +1,4 @@
-name: tests
+name: circom-tests
 
 on:
   push:
@@ -23,17 +23,23 @@ jobs:
             nasm \
             nlohmann-json3-dev
 
-      - name: Download Circom Binary v2.2.1
+      - name: Download Circom Binary v2.2.2
         run: |
-          wget -qO /home/runner/work/circom https://github.com/iden3/circom/releases/download/v2.2.1/circom-linux-amd64
+          wget -qO /home/runner/work/circom https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
           chmod +x /home/runner/work/circom
           sudo mv /home/runner/work/circom /bin/circom
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Print Circom version
         run: circom --version
 
       - name: Install dependencies
-        run: cd wallet-unit-poc/packages/jwt-es256-circom && yarn
+        run: cd wallet-unit-poc/circom && yarn
 
       - name: Run tests
-        run: cd wallet-unit-poc/packages/jwt-es256-circom && yarn test
+        run: cd wallet-unit-poc/circom && yarn test

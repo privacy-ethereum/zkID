@@ -2,10 +2,14 @@
   "compilerOptions": {
     "target": "ES2021",
     "module": "commonjs",
-    "types": ["mocha", "node"],
+    "types": [
+      "mocha",
+      "node"
+    ],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "allowImportingTsExtensions": true,
+    "noEmit": true,
     "strict": true
   }
 }

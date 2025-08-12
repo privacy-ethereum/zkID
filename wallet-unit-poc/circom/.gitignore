@@ -120,3 +120,8 @@ tmp.ptau
 # ignore auto generated test circuits
 circuits/test
 ptau
+
+# Generated files
+/target/
+
+Cargo.lock

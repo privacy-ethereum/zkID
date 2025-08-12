@@ -1,5 +1,0 @@
-{
-  "version": "2.1.6",
-  "protocol": "groth16",
-  "prime": "secq256r1"
-}

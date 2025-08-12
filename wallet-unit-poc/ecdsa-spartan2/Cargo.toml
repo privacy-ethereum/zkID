@@ -1,0 +1,16 @@
+[package]
+name = "ecdsa-spartan2"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+circom-scotia = "0.2.0"
+spartan2 = { version = "0.3.0", default-features = false }
+bellpepper = "0.4.0"
+bellpepper-core = "0.4.0"
+ff = { version = "0.13.0", features = ["derive"] }
+serde_json = "1.0.140"
+serde = "1.0.219"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "time"] }
+sha2 = "0.10.7"
