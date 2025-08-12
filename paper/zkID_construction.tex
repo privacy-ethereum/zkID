@@ -3,26 +3,26 @@ At a high-level, we propose a generic zkSNARK wrapper over a credential, which w
 There are two (2) key ideas to highlight within our proposed architecture:
 
 \begin{itemize}
-    \item \textbf{Pre-processing batches of re-randomized proofs} of issuer-signature and credential-parsing, to re-use across each new presentation. We call this the `prepare` relation.
-    \item \textbf{Committing to the credential disclosures with Hyrax commitments} \cite{cryptoeprint:2017/1132} to get linking across circuits ``for free''
+    \item \textbf{Pre-processing batches of re-randomized proofs} of issuer-signature and credential-parsing, to re-use across each new presentation. We call this the ``prepare'' relation.
+    \item \textbf{Committing to the credential disclosures with Hyrax commitments} \cite{cryptoeprint:2017/1132}, which allows us to re-use (or ``link'') witnesses across circuits ``for free''
 \end{itemize}
 
 For the first item, we note that pre-processing proofs for the ``prepare'' relation is possible because the relation is independent of the presentation, including the choice of disclosures or predicate proofs. Further optimizations can likely be made to only parse the discosures of certain attributes within the credential if it is known that the Wallet User will rarely or never present certain disclosures to external verifiers.
 
 The second items differs from the linking circuits approach that Google uses \cite{cryptoeprint:2024/2010}. Note that Google verifiably computes a hiding and binding MAC of the shared witnesses as a public output of the circuit, which the verifier checks consistency of in plain. Although this is only a few linear relations, it requires the prover to also commit to their portion of the key to prevent forging. We instead simply manually separate out the disclosures $m_1, \dots, m_n$ into a designated column when committing to the witness, which is already needed to prove the circuit relation, and the verifier checks consistency of these commitments when verifying each circuit's proof.
 
-Throughout the remainder of this section, we refer to the EUDI's Wallet User as the ``Prover'', the Relying Party as the ``Verifier'', and the ``EUDI Attestation Authority (EAA)''. Below, we briefly detail a high-level flow of the interaction between the Issuer, Prover, and Verifier.
+Throughout the remainder of this section, we refer to the EUDI's Wallet User as the ``Prover'', the Relying Party as the ``Verifier'', and the EUDI Attestation Authority (EAA) as the ``Issuer''. Below, we briefly detail a high-level flow of the interaction between the Issuer, Prover, and Verifier.
 
-\subsubsection{High-Level Credential Issuance and Presentation Flow}\label{sec:high-level-flow}
+\subsection{High-Level Credential Issuance and Presentation Flow}\label{sec:high-level-flow}
 
 \begin{enumerate}
 \item The Prover receives a signed credential from an Issuer to be stored securely in their wallet, issued to the Wallet Secure Cryptographic Device (WSCD) public key.
 \item At presentation time, the Verifier sends over challenge $\texttt{nonce}_V$ for device-binding
 \item The Prover signs the challenge \texttt{nonce} with the public key $p_U$ controlled by their WSCD and specified in their credential
-\item The Prover computes a zero-knowledge proof $\pi$ of SD-JWT parsing, verification of the SD-JWT Issuer signature, 
+\item The Prover computes two separate but linked zero-knowledge proofs $\pi_{\text{``prepare''}}, \pi_{\text{``show''}}$ which together cover the following statements: SD-JWT parsing, verification of the SD-JWT Issuer signature, 
 proper disclosures and/or arbitrary predicates on the disclosures, and device-binding 
-(i.e.\ checks the \texttt{nonce} signature against their public key); The Prover sends $\pi$ to the Verifier.
-\item The Verifier receives and verifies the $\pi$, and grants Prover access to some service based on their credential disclosures.
+(i.e.\ checks the \texttt{nonce} signature against their public key); then sends $\pi_{\text{``prepare''}}, \pi_{\text{``show''}}$ to the Verifier.
+\item The Verifier verifies $\pi_{\text{``prepare''}}, \pi_{\text{``show''}}$ independently, and also verify that they are linked; grants Prover access to some service based on their credential disclosures.
 \end{enumerate}
 
 \subsection{Underlying ZK Circuit}
@@ -65,8 +65,8 @@ Pre-computing these proofs will save significant time per presentation, and redu
 One issue that arises is the need to ensure consistency of witnesses across these separate circuits, or what we call ``linking proofs''. 
 At a high level, as opposed to Google's MAC approach \cite{cryptoeprint:2024/2010}, the prover sends Hyrax commitments to the parts of the witness re-used across circuits, 
 which ends up being just the raw messages $\{m_i\}_i$. 
-The verifier can then check consistency of these witnesses across the circuits $C_i$ by comparing the commitments they receive as part of the proof. 
-This approach gives us linking ``for free'', as the Prover alreadys compute these Hyrax commitments as part of the proof.
+The verifier can then check consistency of these witnesses across the circuits $C_i$ by comparing the Hyrax commitments they receive as part of the proof. 
+This approach gives us linking ``for free'', as the Prover alreadys needs to compute these Hyrax commitments as part of the proof.
 
 We also want to highlight that we are no longer splitting up circuits by their field operations 
 (e.g. SHA256 attestations over a binary extension field and an ECDSA verifications over a prime field), but rather we only split up our circuit by pre-processing and per-presentation relations. 
@@ -98,10 +98,10 @@ We define circuit $C(x = (PK_I), w_i = S, w = (\{m_i\}_{i=1}^N))$ as follows:
 
 To produce zkSNARK proofs for this circuit $C_1$, the prover will proceed in two phases:
 \begin{enumerate}
-\item \texttt{prepareCommit}: Computes a Hyrax commitment $com = com(m_1, \dots, m_N; r_1)$ for all $i \in [m]$ to the witness column containing message hashes $m_i$ using initial randomness $r_1$. 
+\item \texttt{prepareCommit}: Computes a Hyrax commitment $com_1 = com(m_1, \dots, m_N; r_1)$ to the witness column containing message hashes $\{m_i\}_{i \in [N]}$ using initial randomness $r_1$. 
 \item \texttt{prepareBatch}: 
     \begin{enumerate}
-        \item Re-randomizes these commitments $com_i = com(m_1, \dots, m_N; r_i) = com \cdot g_{N+1}^{r_i-r_1}$ for all $i \in [m]$, 
+        \item Re-randomizes this initial commitment to get a batch of commitments $com_i = com(m_1, \dots, m_N; r_i) = com_1 \cdot g_{N+1}^{r_i-r_1}$ for all $i \in [m]$, 
         where our batch size $m$ depends on the frequency of proof generation and demand for the credential
         \item Continues the Spartan sumcheck IOP on each $com_i$ to produce a batch of proofs $\{\pi_i\}$ for $i \in [m]$ of the ``prepare'' relation.
     \end{enumerate}
@@ -120,7 +120,7 @@ Again, we will use T256 curve for our backend proving system so that the holder 
 
 \begin{mdframed}[style=zkprotocolwithheader, frametitle=Circuit $C_2$ for the \texttt{show} relation]
 
-We define circuit $C(x = (\{f_i\}_{i=1}^K, \{p_i\}_{i=1}^K), w = \{m_i\}_{i=1}^N)$ as follows:
+We define circuit $C_2(x = (\{f_i\}_{i=1}^K, \{p_i\}_{i=1}^K), w = \{m_i\}_{i=1}^N)$ as follows:
 
 \begin{enumerate}
 \item Assert $p_i = f_i(m_1, \dots, m_n) \quad \forall i \in [n]$, i.e. correct evaluation of the predicates
@@ -130,17 +130,17 @@ We define circuit $C(x = (\{f_i\}_{i=1}^K, \{p_i\}_{i=1}^K), w = \{m_i\}_{i=1}^N
 \end{mdframed}
 
 As part of the proof for presentation $i \in [m]$, the prover computes the Hyrax commitment over the Tom256 curve $com(m_1, \dots, m_N; r_i)$, 
-notably with the same randomness $r_i$ as during the \texttt{prepareBatch} process, in the proof generation. 
+notably with the same randomness $r_i$ used during the \texttt{prepareBatch} process, in the proof generation. 
 The verifier will check that this equals the re-randomized commitment $com_i$ from proof $\pi_i$ for circuit $C_1$. 
 
-\section{Adding ZK}
+\subsection{Adding ZK to Spartan}
 
 Our construction uses Circom in the frontend to compile our computation into an R1CS instance, witness pair $(x=(\mathbb{F}, A, B, C, io, n, m), \vec{w})$, 
 which we then feed into the Spartan IOP coupled with Hyrax-style Pedersen polynomial commitments.
 
 Recall that our R1CS relation looks like the following:
 $$
-(A \cdot \vec{z}) \circ (B \cdot \vec{z}) - (C \cdot \vec{z}) = 0
+(A \cdot \vec{Z}) \circ (B \cdot \vec{Z}) - (C \cdot \vec{Z}) = 0
 $$
 where our square matrices $A, B, C$ have size $n$.
 
@@ -152,6 +152,12 @@ $$
 - \bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{C}(x,y) \widetilde{Z}(y)\bigg)\bigg] = 0
 $$
 for some random challenge $\tau \in \mathbb{F}$
+
+There are two components in Spartan that we need to modify to be ZK. 
+The first is making the sumchecks ZK. 
+The second is to ensure that the opening $\widetilde{Z}$ using the commitment to $\vec{Z}$ does not leak information about our witness $\vec{w}$.
+
+\subsubsection{Adding ZK to sumcheck}
 
 The Spartan protocol consists of several sumchecks in parallel. There are various existing techniques to make sumcheck ZK. 
 We employ one using similar methods as in Zhang et. al. \cite{cryptoeprint:2019/1482}, which adds random pads to the sumcheck transcript.
@@ -245,6 +251,13 @@ Then, as long as the Fiat-shamir challenges is generated from the transcript inc
     \end{enumerate}
 \end{mdframed}
 
+\subsubsection{Adding ZK to the opening of $\widetilde{Z}$}\label{subsubsec:zk-open-Z}
+
+In order to add ZK to the opening of, we simply append $Z$ with random pads, which is equivalent to assigning random evaluations on the remaining points in the hypercube $\{0,1\}^{\log n}$.
+so that $\widetilde{Z'}(x_1, \dots, x_{\log n}) = \widetilde{Z}(x_1, \dots, x_{\log n}) + \sum_{x \in P}eq(r, x)Z(x)$,
+where $P$ is the set of points in $\{0,1\}^{\log n}$ that used to be assigned $0$ by default, but were filled with random pads. Notice that if any of $Z(x)$ are random, then $\sum_{x \in P}eq(r, x)Z(x)$ is random.
+If $n=|Z|$ is not already a power of $2$, then we can simply fill at least one of the remaining evaluations on $\{0,1\}^{\log n}$ with a single random pad. 
+If $n=2^m$, we can add another dimension to the hypercube of evaluations of $Z$. 
 
     % 1. Prover commits to pads r_i(X) (just linear polys)
     % 2. 
@@ -266,7 +279,7 @@ Then, as long as the Fiat-shamir challenges is generated from the transcript inc
 % which is equivalent to extracting a valid transcript for spartan sumchecks, 
 % which is equivalent to knowing witness passing the relation.
 
-\section{Cost analysis}
+\subsection{Cost analysis}
 
 The following section computes the Prover and Verifier costs of Spartan instantiated with Hyrax Pedersen commitments on R1CS instances $(x = \big(\mathbb{F}, A, B, C, io, n, m),\, \vec{w})$, 
 where $io$ denotes the vector of public inputs/outputs, $n = |\vec{w}|$ is the dimension of our matrices, 
@@ -286,6 +299,32 @@ With the ZK modifications to Spartan, we can see the asymptotic costs remain the
     \item \textbf{Proof length}: sumcheck and openings are the same length but just padded, but added on $O(\log n)$ size $|\mathbb{G}|$ commitments, and a length $O(\log\log n)$ sumcheck relation IPA proof, which still gives a proof length of $O(\sqrt n)$ group or field elements.
     \item \textbf{Verifier time}: no longer needs to do $O(\log n)$ (sumcheck), but still needs $O(m)$ (evaluating MLEs of $A,B,C$) + $O(\sqrt{n})$ (opening MLE of Z) + $O(\log n)$ for sumcheck relation IPA verification, which still gives $\Rightarrow O(m + \sqrt{n})$ runtime.
 \end{itemize}
+
+\subsection{Security analysis}
+
+The correctness follows immediately from the correctness of and the fact that we are using the same randomness for the Hyrax commitments across the ``show'' and ``prepare'' circuits.  
+
+The soundness of our protocol follows from the soundness of Spartan. In particular, we can extract the full witness credential from the ``prepare'' relation.
+
+Intuitively, zero-knowledge follows from the hiding property of the commitment scheme as well as the zero knowledge property of the Spartan zkSNARK proving system;
+For proof $i$, simulator can randomly sample the linked commitment $com_i$ both distributions to reuse across both proofs, both in the commitment itself and also in the IPA used to open the Hyrax commitment to $Z(r_1, \dots, r_{\log{n}})$. 
+We can show that this commitment is independent of the rest of the view of the Verifier, which consists of the following:
+
+\begin{itemize}
+    \item Sumcheck polynomials $\{s'_i(X)\}_{i \in [\log n]}$ for each of the sumchecks in Spartan
+    \item $\{r_i\}$ Fiat-Shamir challenges during the sumcheck
+    \item Transcript from the IPA on the sumcheck relation in ZK
+    \item $\{com(z_i)\}_{i in [\log n]}$ Hyrax commitment to $Z$, which involves a Pedersen commitment to each of the rows of a $\log n \times \log n$ matrix representation of $\vec{Z}$
+    \item Transcript from the IPA for opening $Z(r_1, \dots, r_n)$
+    \item The claimed value of $Z(r_1, \dots, r_n)$
+\end{itemize}
+
+Since we appended random pads to $\vec{Z}$ in our ZK modifiction in Section \ref{subsubsec:zk-open-Z}, the distribution of $Z(r_1, \dots, r_n)$ is random and independent of $Z$, and therefore independent of $\{m_i\}_i$.
+Furthermore, $s'_i(X)$ have totally random pads on them and their distribution is independent of $Z$, and therefore independent of $\{m_i\}_i$.
+Assuming the hiding property of the Pedersen commitment schemes for messages sent during an IPA, we can also use the simulators for the IPAs without changing their joint distribution with the rest of the transcript.
+% i think this works: com (a, h(a)) ~ com (b, h(a)) ~ com (b, c) from hiding property that com(a) ~ com(b) for a =/= b.
+
+Then, we can simply run the piece-wise simulators for each zkSNARK proof for circuits $C_1$ and $C_2$ to simulate the remainder of the view. 
 
 
 % \begin{enumerate}
