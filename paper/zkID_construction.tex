@@ -3,11 +3,11 @@ At a high-level, we propose a generic zkSNARK wrapper over a credential, which w
 There are two (2) key ideas to highlight within our proposed architecture:
 
 \begin{itemize}
-    \item \textbf{Pre-processing batches of re-randomized proofs} of issuer-signature and credential-parsing, to re-use across each new presentation. We call this the ``prepare'' relation.
+    \item \textbf{Pre-processing batches of re-randomized proofs} of issuer-signature and credential-parsing, to re-use across each new presentation. We call this the \texttt{prepare} relation.
     \item \textbf{Committing to the credential disclosures with Hyrax commitments} \cite{cryptoeprint:2017/1132}, which allows us to re-use (or ``link'') witnesses across circuits ``for free''
 \end{itemize}
 
-For the first item, we note that pre-processing proofs for the ``prepare'' relation is possible because the relation is independent of the presentation, including the choice of disclosures or predicate proofs. Further optimizations can likely be made to only parse the discosures of certain attributes within the credential if it is known that the Wallet User will rarely or never present certain disclosures to external verifiers.
+For the first item, we note that pre-processing proofs for the \texttt{prepare} relation is possible because the relation is independent of the presentation, including the choice of disclosures or predicate proofs. Further optimizations can likely be made to only parse the discosures of certain attributes within the credential if it is known that the Wallet User will rarely or never present certain disclosures to external verifiers.
 
 The second items differs from the linking circuits approach that Google uses \cite{cryptoeprint:2024/2010}. Note that Google verifiably computes a hiding and binding MAC of the shared witnesses as a public output of the circuit, which the verifier checks consistency of in plain. Although this is only a few linear relations, it requires the prover to also commit to their portion of the key to prevent forging. We instead simply manually separate out the disclosures $m_1, \dots, m_n$ into a designated column when committing to the witness, which is already needed to prove the circuit relation, and the verifier checks consistency of these commitments when verifying each circuit's proof.
 
@@ -19,10 +19,10 @@ Throughout the remainder of this section, we refer to the EUDI's Wallet User as 
 \item The Prover receives a signed credential from an Issuer to be stored securely in their wallet, issued to the Wallet Secure Cryptographic Device (WSCD) public key.
 \item At presentation time, the Verifier sends over challenge $\texttt{nonce}_V$ for device-binding
 \item The Prover signs the challenge \texttt{nonce} with the public key $p_U$ controlled by their WSCD and specified in their credential
-\item The Prover computes two separate but linked zero-knowledge proofs $\pi_{\text{``prepare''}}, \pi_{\text{``show''}}$ which together cover the following statements: SD-JWT parsing, verification of the SD-JWT Issuer signature, 
+\item The Prover computes two separate but linked zero-knowledge proofs $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ which together cover the following statements: SD-JWT parsing, verification of the SD-JWT Issuer signature, 
 proper disclosures and/or arbitrary predicates on the disclosures, and device-binding 
-(i.e.\ checks the \texttt{nonce} signature against their public key); then sends $\pi_{\text{``prepare''}}, \pi_{\text{``show''}}$ to the Verifier.
-\item The Verifier verifies $\pi_{\text{``prepare''}}, \pi_{\text{``show''}}$ independently, and also verify that they are linked; grants Prover access to some service based on their credential disclosures.
+(i.e.\ checks the \texttt{nonce} signature against their public key); then sends $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ to the Verifier.
+\item The Verifier verifies $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ independently, and also verify that they are linked; grants Prover access to some service based on their credential disclosures.
 \end{enumerate}
 
 \subsection{Underlying ZK Circuit}
@@ -71,7 +71,7 @@ This approach gives us linking ``for free'', as the Prover alreadys needs to com
 We also want to highlight that we are no longer splitting up circuits by their field operations 
 (e.g. SHA256 attestations over a binary extension field and an ECDSA verifications over a prime field), but rather we only split up our circuit by pre-processing and per-presentation relations. 
 In particular, the circuit for \texttt{prepare} will necessarily involve wrong-field arithmetic by including both the SHA256 hashes and the Issuer ECDSA signature verification. 
-However, because of our ability to pre-compute proofs of the ``prepare'' relation, the more important thing is to choose curves that allow for i) efficient show relations and ii) linking the prepare and show relation. 
+However, because of our ability to pre-compute proofs of the \texttt{prepare} relation, the more important thing is to choose curves that allow for i) efficient show relations and ii) linking the prepare and show relation. 
 Since the verifier can only check equality of Hyrax Pedersen commitments defined over the same curve, we must use the same curve for proving both the \texttt{prepare} and \texttt{show} relations.
 Thus we choose a curve with a scalar field equivalent to the base field of the nonce signature $\sigma_{\text{nonce}}$ for efficient signature verification. 
 Because most Hardware Security Modules (HSMs) sign over the P256 curve, we choose the Tom256 (T256) curve for our backend, which has scalar field equivalent to the base field of P256. 
@@ -103,11 +103,12 @@ To produce zkSNARK proofs for this circuit $C_1$, the prover will proceed in two
     \begin{enumerate}
         \item Re-randomizes this initial commitment to get a batch of commitments $com_i = com(m_1, \dots, m_N; r_i) = com_1 \cdot g_{N+1}^{r_i-r_1}$ for all $i \in [m]$, 
         where our batch size $m$ depends on the frequency of proof generation and demand for the credential
-        \item Continues the Spartan sumcheck IOP on each $com_i$ to produce a batch of proofs $\{\pi_i\}$ for $i \in [m]$ of the ``prepare'' relation.
+        \item Continues the Spartan sumcheck IOP on each $com_i$ to produce a batch of proofs $\{\pi_{\texttt{prepare}}^{(i)}\}$ for $i \in [m]$ of the \texttt{prepare} relation.
     \end{enumerate}
 \end{enumerate}
     
-The prover will run \texttt{prepareBatch} periodically to both generate re-randomized commitments $com_i$ and store their randomness $r_i$ (for linking purposes), as well as generate and store batches of issuer-signature proofs $\pi_i$ that can be used for each presentation.
+The prover will run \texttt{prepareBatch} periodically to both generate re-randomized commitments $com_i$ and store their randomness $r_i$ (for linking purposes), 
+as well as generate and store batches of issuer-signature proofs $\pi_{\texttt{prepare}}^{(i)}$ that can be used for each presentation.
 
 \subsubsection{The \texttt{show} relation:}
 
@@ -129,9 +130,9 @@ We define circuit $C_2(x = (\{f_i\}_{i=1}^K, \{p_i\}_{i=1}^K), w = \{m_i\}_{i=1}
 
 \end{mdframed}
 
-As part of the proof for presentation $i \in [m]$, the prover computes the Hyrax commitment over the Tom256 curve $com(m_1, \dots, m_N; r_i)$, 
-notably with the same randomness $r_i$ used during the \texttt{prepareBatch} process, in the proof generation. 
-The verifier will check that this equals the re-randomized commitment $com_i$ from proof $\pi_i$ for circuit $C_1$. 
+As part of computing proof $\pi_{\texttt{show}}^{(i)}$ for presentation $i \in [m]$, the prover computes the Hyrax commitment over the Tom256 curve $com(m_1, \dots, m_N; r_i)$, 
+notably with \textit{the same} randomness $r_i$ used during the \texttt{prepareBatch} process.
+The verifier will check that this equals the re-randomized commitment $com_i$ from proof $\pi_{\texttt{prepare}}^{(i)}$ for circuit $C_1$. 
 
 \subsection{Adding ZK to Spartan}
 
@@ -302,9 +303,9 @@ With the ZK modifications to Spartan, we can see the asymptotic costs remain the
 
 \subsection{Security analysis}
 
-The correctness follows immediately from the correctness of and the fact that we are using the same randomness for the Hyrax commitments across the ``show'' and ``prepare'' circuits.  
+The correctness follows immediately from the correctness of the Spartan SNARK and the fact that the Prover uses the same randomness for the Hyrax commitments across the \texttt{show} and \texttt{prepare} circuits for each presentation $i$.  
 
-The soundness of our protocol follows from the soundness of Spartan. In particular, we can extract the full witness credential from the ``prepare'' relation.
+The soundness of our protocol follows from the soundness of Spartan. In particular, we can extract the full witness credential from the \texttt{prepare} relation.
 
 Intuitively, zero-knowledge follows from the hiding property of the commitment scheme as well as the zero knowledge property of the Spartan zkSNARK proving system;
 For proof $i$, simulator can randomly sample the linked commitment $com_i$ both distributions to reuse across both proofs, both in the commitment itself and also in the IPA used to open the Hyrax commitment to $Z(r_1, \dots, r_{\log{n}})$. 
