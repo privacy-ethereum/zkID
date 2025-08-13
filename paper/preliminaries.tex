@@ -20,9 +20,34 @@ For $\mathbf{a}\in\mathbb{F}^\ell$ and $r\in\mathbb{F}$ define
 $\mathsf{Com}$ is perfectly hiding and binding under discrete\mbox{-}log hardness.
 We will need efficient \emph{openings} and \emph{equality proofs} for Pedersen commitments; we realize these via inner-product arguments (IPAs) in the Hyrax framework~\cite{SP:WTSTW18}.
 
+\paragraph{Hyrax commitments.}
+Hyrax commitments \cite{SP:WTSTW18} allow us to commit to a multilinear extension $\widetilde{P}$ of a function $P:\{0,1\}^n \rightarrow \mathbb{F}$. We can express $\widetilde{P}(x_1, \dots, x_n)$ as a vector-matrix-vector product $\vec{v_L} P \vec{v_R}$, where:
+\begin{itemize}
+    \item $P$ is a square matrix of evaluations of $P$ on the $\{0,1\}^{n}$ hypercube, represented as $\langle \vec{p_i}\rangle_{i \in 2^{n/2}}$ where $\vec{p_i} \in \mathbb{F}^{2^{n/2}}$ are rows of $P$
+    \item $\vec{v_L}(x_1, \dots, x_{n/2}) = \langle \widetilde{\chi}_{(b_1, \dots, b_{n/2})}(x_1, \dots, x_{n/2})\rangle _{(b_1, \dots, b_{n/2})\in \{0,1\}^{n/2}}$, and 
+    \item $\vec{v_R}(x_{n/2+1}, \dots, x_{n}) = \langle \widetilde{\chi}_{(b_{n/2+1}, \dots, b_{n})}(x_{n/2}, \dots, x_{n})\rangle_{(b_{n/2}, \dots, b_{n}) \in \{0,1\}^{n/2}}$,
+\end{itemize}
+and $\widetilde{\chi}_{b_1, \dots, b_m} (x_1, \dots, x_m) = \prod_{i \in [m]} \widetilde{\chi}_{b_i}(x_i)$, where
+$\widetilde{\chi_{b_i}}(x_i)$ is the multilinear extension of the function $\chi_{b_i}(x_i): \{0,1\} \rightarrow \mathbb{F}$ given by $\chi_{b_i}(x_i) = x_ib_i + (1-x_i)(1-b_i)$ which equals $1$ if $x_i = b_i$ and $0$ otherwise.
+
+Then our Hyrax commitment scheme is given by:
+\begin{itemize}
+    \item $\textbf{Setup}(1^{\lambda}, n) = (g_i)_{i \in 2^{n/2}}$ where $g_i \in \mathbb{G}$ are elements of the elliptic curve group $\mathbb{G}$ over which we compute our Pedersen commitments.
+    \item $\textbf{Commit}_h(pp, P) \rightarrow (C,S)$, where 
+    $C = \{C_i\}_{i \in 2^{n/2}}$ and $S = \{S_i\}_{i \in 2^{n/2}}$, and
+    $(C_i, S_i) \leftarrow Commit_p(pp, \langle \vec{p_i} \rangle)$
+    where $Commit_p$ is the Pedersen vector commitment scheme.
+    \item $\textbf{Eval}_h(pp, C, r, v, n; P, S)$, where $r$ is the opening point and $v$ is the claimed evaluation of $P(r)$, is given by:
+    \begin{itemize}
+        \item Prover and Verifier compute $\vec{v_L} = \vec{v_L}(r_1, \dots, r_{n/2})$, $\vec{v_R} = \vec{v_R}(r_{n/2+1}, \dots, r_{n})$, 
+    and $c = \sum_{i \in {n/2}} \vec{v_L}_i C_i$ (where addition is over $\mathbb{G}$)
+        \item Prover and Verifir engage in an interactive IPA protocol to prove that $P(r)$ is a dot product of $v_R$ and $c$ 
+    \end{itemize} 
+\end{itemize} 
+
 \subsection{Zero-knowledge proving interface}
 \label{subsec:zk-interface}
-We use a \emph{transparent} general-purpose SNARK in the Spartan family~\cite{C:Setty20}, instantiated over $\mathbb{F}$ for R1CS relations.
+We use a \emph{transparent} general-purpose SNARK in the Spartan family~\cite{C:Setty20}, instantiated over $\mathbb{F}$ for R1CS instances.
 Algorithms are
 \[
 \mathsf{pp} \leftarrow \mathsf{Setup}(1^\lambda),\quad
@@ -32,14 +57,65 @@ b \leftarrow \mathsf{Verify}(\mathsf{pp},x,\pi)\in\{0,1\},
 where $x$ is public input and $w$ the witness.
 (We reference succinct CRS-based systems such as Groth16~\cite{groth2016size} later only for performance comparisons.)
 
-\subsection{Relations used by \textsf{zkID}}
-\label{subsec:relations}
-Let $\mathsf{Parse}$ be a deterministic parser that extracts $(\mathbf{a},\mathbf{s},\mathbf{h},\sigma_I,\mathsf{meta})$ from a token $\tau$ (attributes, salts, digests, issuer signature, metadata), consistent with the chosen format (SD\mbox{-}JWT/mDL).
+\paragraph{R1CS instance.}
+An \textit{R1CS instance} is a tuple $(\mathbb{F}, A, B, C, io, n, m)$, 
+where $io$ denotes the public input and output of the instance, 
+$A, B, C \in \mathbb{F}^{n \times n}$, where $m \geq |io| + 1$
+and there are at most $m$ non-zero entries in each matrix. An instance is said to be \textit{satisfiable}
+if there exists a witness $\vec{w} \in F^{n - |io| - 1}$ such that
+$(A \cdot Z) \circ (B \cdot Z) = (C \cdot Z),$
+where $\vec{Z} = (io, 1, \vec{w})$, and $\circ$ is the Hadamard (entry-wise) product.
 
-\paragraph{Prepare relation $\mathcal{R}_{\mathrm{prep}}$.}
-\dots
-\paragraph{Show relation $\mathcal{R}_{\mathrm{show}}$.}
-\dots
+\paragraph{} Throughout the paper, assume that we are dealing with sparse R1CS instances, where $m = O(n)$.
+
+\paragraph{R1CS as a language} We let the language 
+\[
+R_{\text{R1CS}} = \{ \langle x = (\mathbb{F}, A, B, C, io, n, m): \text{$x$ is satisfiable }\rangle \}.
+\]
+The language $R_{\text{R1CS}}$ is NP-complete.
+
+\paragraph{} A Spartan zero-knowledge proof is an argument of knowledge for the R1CS language.
+The Prover can prove not only that a given instance $x \in R_{\text{R1CS}}$, but knowledge of the corresponding witness $\vec{w}$.   
+At a high level, this application considers R1CS instances that represent the computational structure of ownership of a valid credential, along with any other desired properties about the credential. 
+Thus a valid argument of knowledge implies knowledge of the underlying credential that has the claimed properties, which is necessary for real-world authentication.
+
+% \subsection{Relations used by \textsf{zkID}}
+% \label{subsec:relations}
+% Let $\mathsf{Parse}$ be a deterministic parser that extracts $(\mathbf{a},\mathbf{s},\mathbf{h},\sigma_I,\mathsf{meta})$ from a token $\tau$ (attributes, salts, digests, issuer signature, metadata), consistent with the chosen format (SD\mbox{-}JWT/mDL).
+
+% \paragraph{Prepare relation $\mathcal{R}_{\mathrm{prep}}$.}
+% \dots
+% \paragraph{Show relation $\mathcal{R}_{\mathrm{show}}$.}
+% \dots
+
+\subsection{High-Level Credential Presentation Flow}\label{sec:high-level-flow}
+
+The following outlines the high-level protocol for a credential presentation.
+
+\begin{enumerate}
+\item The Prover receives a signed credential from an Issuer to be stored securely in their wallet, issued to the Wallet Secure Cryptographic Device (WSCD) public key.
+\item At presentation time, the Verifier sends over challenge $\texttt{nonce}_V$ for device-binding verification
+\item The Prover signs the challenge \texttt{nonce} with the public key $p_U$ controlled by their WSCD and specified in their credential
+\item The Prover computes two separate but linked zero-knowledge proofs $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ which together cover the following statements: SD-JWT parsing, verification of the SD-JWT Issuer signature, 
+proper disclosures and/or arbitrary predicates on the disclosures, and device-binding 
+(i.e.\ checks the \texttt{nonce} signature against their public key); then sends $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ to the Verifier.
+\item The Verifier verifies $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ independently, and also verify that they are linked; grants Prover access to some service based on their credential disclosures.
+\end{enumerate}
 
 \subsection{Security model}
 \label{subsec:security-model}
+
+In our security model, we assume that the Prover is malicious, and that each Verifier is semi-honest, meaning that if the Prover presents a valid proof that they own a credential with some property, the Verifier will grant access to any services for which the property suffices.
+
+
+For security on the Verifier's side, our soundness analysis considers the probability that a Prover without real ownership of a valid credential can generate a false proof of ownership. 
+
+
+For security on the Prover's side, we guarantee that our proofs are zero-knowledge, so that a semi-honest computationally bounded Verifier cannot get any additional private information about the Prover's credential given the proof, beyond what is publically revealed in the proof.
+In particular, we do not consider the case where the Verifier is malicious, where e.g. a false Verifier pretends to be an authorized Verifier. The problem of Verifier identity lies outside the scope of this paper.
+
+
+Futhermore, we assume that Verifiers can collude, i.e. that Verifiers $V_1, \dots, V_N$ that have receieved proofs $\{\pi_1\}, \dots, \{\pi_N\}$ from a given Prover $P$ can compute functions $f(\pi_1, \dots, \pi_N)$. 
+Therefore, we desire the \textbf{unlinkability property}: given $pi_1, \dots, \pi_N$, the Verifiers should not be able to determine whether or not any two of these proofs came from the same Prover $P$.
+Note that this requires the Prover to re-randomize each presentation's proof; a static zero-knowledge proof of the same statement, while not revealing private credential information, will still look the same.
+It is possible that Verifier's can effectively de-anonymize a Prover by linking their anonymous activity across presentations and analyzing corresponding metadata, e.g. time of presentation.
