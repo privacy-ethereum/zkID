@@ -7,23 +7,34 @@ There are two (2) key ideas to highlight within our proposed architecture:
     \item \textbf{Committing to the credential disclosures with Hyrax commitments} \cite{cryptoeprint:2017/1132}, which allows us to re-use (or ``link'') witnesses across circuits ``for free''
 \end{itemize}
 
-For the first item, we note that pre-processing proofs for the \texttt{prepare} relation is possible because the relation is independent of the presentation, including the choice of disclosures or predicate proofs. Further optimizations can likely be made to only parse the discosures of certain attributes within the credential if it is known that the Wallet User will rarely or never present certain disclosures to external verifiers.
+For the first item, we note that pre-processing proofs for the \texttt{prepare} relation is possible because the relation is independent of the presentation, including the choice of disclosures or predicate proofs. 
+Further optimizations can likely be made to only parse the discosures of certain attributes within the credential if it is known that the Wallet User will rarely or never present certain disclosures to external verifiers.
 
-The second items differs from the linking circuits approach that Google uses \cite{cryptoeprint:2024/2010}. Note that Google verifiably computes a hiding and binding MAC of the shared witnesses as a public output of the circuit, which the verifier checks consistency of in plain. Although this is only a few linear relations, it requires the prover to also commit to their portion of the key to prevent forging. We instead simply manually separate out the disclosures $m_1, \dots, m_n$ into a designated column when committing to the witness, which is already needed to prove the circuit relation, and the verifier checks consistency of these commitments when verifying each circuit's proof.
+The second items differs from the linking circuits approach that Google uses \cite{cryptoeprint:2024/2010}. 
+Note that Google verifiably computes a hiding and binding MAC of the shared witnesses as a public output of the circuit, which the verifier checks consistency of in plain. 
+Although this is only a few linear relations, it requires the prover to also commit to their portion of the key to prevent forging. 
+We instead simply manually separate out the disclosures $m_1, \dots, m_n$ into a designated column when committing to the witness, which is already needed to prove the circuit relation. 
+Then, the verifier simply checks consistency of these commitments when verifying each circuit's proof.
+
+We note that by using Hyrax commitments, our PoC is not post-quantum secure. 
+In particular, post-quantum computers break the discrete-log assumption, which breaks the binding property of the polynomial commitment scheme.
+Thus, a malicious Prover could potentially make false proofs about their identity. 
+In future work, we hope to incorporate modified Ajtai lattice-based commitments to ensure post-quantum security \cite{cryptoeprint:2024/306}.
 
 Throughout the remainder of this section, we refer to the EUDI's Wallet User as the ``Prover'', the Relying Party as the ``Verifier'', and the EUDI Attestation Authority (EAA) as the ``Issuer''. Below, we briefly detail a high-level flow of the interaction between the Issuer, Prover, and Verifier.
 
-\subsection{High-Level Credential Issuance and Presentation Flow}\label{sec:high-level-flow}
+% MOVED BELOW TO THE PRELIMS SECTION
+% \subsection{High-Level Credential Issuance and Presentation Flow}\label{sec:high-level-flow}
 
-\begin{enumerate}
-\item The Prover receives a signed credential from an Issuer to be stored securely in their wallet, issued to the Wallet Secure Cryptographic Device (WSCD) public key.
-\item At presentation time, the Verifier sends over challenge $\texttt{nonce}_V$ for device-binding
-\item The Prover signs the challenge \texttt{nonce} with the public key $p_U$ controlled by their WSCD and specified in their credential
-\item The Prover computes two separate but linked zero-knowledge proofs $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ which together cover the following statements: SD-JWT parsing, verification of the SD-JWT Issuer signature, 
-proper disclosures and/or arbitrary predicates on the disclosures, and device-binding 
-(i.e.\ checks the \texttt{nonce} signature against their public key); then sends $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ to the Verifier.
-\item The Verifier verifies $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ independently, and also verify that they are linked; grants Prover access to some service based on their credential disclosures.
-\end{enumerate}
+% \begin{enumerate}
+% \item The Prover receives a signed credential from an Issuer to be stored securely in their wallet, issued to the Wallet Secure Cryptographic Device (WSCD) public key.
+% \item At presentation time, the Verifier sends over challenge $\texttt{nonce}_V$ for device-binding verification
+% \item The Prover signs the challenge \texttt{nonce} with the public key $p_U$ controlled by their WSCD and specified in their credential
+% \item The Prover computes two separate but linked zero-knowledge proofs $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ which together cover the following statements: SD-JWT parsing, verification of the SD-JWT Issuer signature, 
+% proper disclosures and/or arbitrary predicates on the disclosures, and device-binding 
+% (i.e.\ checks the \texttt{nonce} signature against their public key); then sends $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ to the Verifier.
+% \item The Verifier verifies $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ independently, and also verify that they are linked; grants Prover access to some service based on their credential disclosures.
+% \end{enumerate}
 
 \subsection{Underlying ZK Circuit}
 
@@ -136,16 +147,16 @@ The verifier will check that this equals the re-randomized commitment $com_i$ fr
 
 \subsection{Adding ZK to Spartan}
 
-Our construction uses Circom in the frontend to compile our computation into an R1CS instance, witness pair $(x=(\mathbb{F}, A, B, C, io, n, m), \vec{w})$, 
+Our construction uses Circom in the frontend to compile our computation into an R1CS (instance, witness) pair $(x=(\mathbb{F}, A, B, C, io, n, m), \vec{w})$, 
 which we then feed into the Spartan IOP coupled with Hyrax-style Pedersen polynomial commitments.
 
-Recall that our R1CS relation looks like the following:
+Recall that our R1CS constraint looks like the following:
 $$
 (A \cdot \vec{Z}) \circ (B \cdot \vec{Z}) - (C \cdot \vec{Z}) = 0
 $$
-where our square matrices $A, B, C$ have size $n$.
+where our square matrices $A, B, C$ have size $n$ and $\vec{Z} = (\vec{w}, 1, io)$.
 
-Recall that Spartan converts an R1CS relation into the following zero-check:
+Recall that Spartan converts an R1CS constraint into the following zero-check:
 $$
 \sum_{x \in \{0,1\}^{\log n}} \widetilde{eq}(x, \tau) 
 \bigg[\bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{A}(x,y) \widetilde{Z}(y)\bigg)
@@ -298,7 +309,7 @@ With the ZK modifications to Spartan, we can see the asymptotic costs remain the
 \begin{itemize}
     \item \textbf{Prover time}: additionally computes $O(\log n)$ constant-size commitments to the sumcheck transcript pads $r_i$, and $O(\log n)$ engages in new sumcheck relation IPA (or some other ZK dot product argument) for vector of length $O(\log n)$, which still gives $O(m)$ prover work.
     \item \textbf{Proof length}: sumcheck and openings are the same length but just padded, but added on $O(\log n)$ size $|\mathbb{G}|$ commitments, and a length $O(\log\log n)$ sumcheck relation IPA proof, which still gives a proof length of $O(\sqrt n)$ group or field elements.
-    \item \textbf{Verifier time}: no longer needs to do $O(\log n)$ (sumcheck), but still needs $O(m)$ (evaluating MLEs of $A,B,C$) + $O(\sqrt{n})$ (opening MLE of Z) + $O(\log n)$ for sumcheck relation IPA verification, which still gives $\Rightarrow O(m + \sqrt{n})$ runtime.
+    \item \textbf{Verifier time}: no longer needs to do $O(\log n)$ (sumcheck), but still needs $O(m)$ (evaluating MLEs of $A,B,C$) + $O(\sqrt{n})$ (opening MLE of Z) + $O(\log n)$ for sumcheck relation IPA verification, which still gives $O(m + \sqrt{n})$ runtime.
 \end{itemize}
 
 \subsection{Security analysis}
