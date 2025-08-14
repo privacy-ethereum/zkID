@@ -1,11 +1,11 @@
 [package]
 name = "ecdsa-spartan2"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 circom-scotia = "0.2.0"
-spartan2 = { version = "0.4.0", default-features = false }
+spartan2 = { path = "../forks/Spartan2", default-features = false }
 bellpepper = "0.4.0"
 bellpepper-core = "0.4.0"
 ff = { version = "0.13.0", features = ["derive"] }

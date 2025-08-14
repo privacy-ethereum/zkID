@@ -7,8 +7,7 @@
 use bellpepper_core::{ConstraintSystem, SynthesisError, num::AllocatedNum};
 use circom_scotia::{generate_witness_from_wasm, r1cs::CircomConfig, synthesize};
 use spartan2::{
-    R1CSSNARK,
-    bellpepper::{r1cs::SpartanShape, shape_cs::ShapeCS},
+    spartan::R1CSSNARK,
     provider::T256HyraxEngine,
     traits::{Engine, circuit::SpartanCircuit, snark::R1CSSNARKTrait},
 };
