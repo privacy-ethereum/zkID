@@ -38,6 +38,14 @@ pub trait R1CSSNARKTrait<E: Engine>:
     is_small: bool, // do witness elements fit in machine words?
   ) -> Result<Self, SpartanError>;
 
+  /// Produces a proof by checking only the sum check part of the SNARK for a given circuit.
+  fn prove_sum_check<C: SpartanCircuit<E>>(
+    pk: &Self::ProverKey,
+    circuit: C,
+    prep_snark: &mut Self::PrepSNARK,
+    is_small: bool,
+  ) -> Result<(Vec<E::Scalar>, Vec<E::Scalar>), SpartanError>;
+
   /// Verifies a SNARK for a relaxed R1CS and returns the public IO
   fn verify(&self, vk: &Self::VerifierKey) -> Result<Vec<E::Scalar>, SpartanError>;
 }

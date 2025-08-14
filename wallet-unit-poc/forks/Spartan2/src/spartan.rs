@@ -255,7 +255,7 @@ impl<E: Engine> R1CSSNARKTrait<E> for R1CSSNARK<E> {
        poly_C_comp: &E::Scalar,
        poly_D_comp: &E::Scalar|
        -> E::Scalar { *poly_A_comp * (*poly_B_comp * *poly_C_comp - *poly_D_comp) };
-    let (sc_proof_outer, r_x, claims_outer) = SumcheckProof::prove_cubic_with_additive_term(
+    let (sc_proof_outer, r_x, claims_outer) = SumcheckProof::<E>::prove_cubic_with_additive_term(
       &E::Scalar::ZERO, // claim is zero
       num_rounds_x,
       &mut poly_tau,
@@ -314,7 +314,7 @@ impl<E: Engine> R1CSSNARKTrait<E> for R1CSSNARK<E> {
     let comb_func = |poly_A_comp: &E::Scalar, poly_B_comp: &E::Scalar| -> E::Scalar {
       *poly_A_comp * *poly_B_comp
     };
-    let (sc_proof_inner, r_y, _claims_inner) = SumcheckProof::prove_quad(
+    let (sc_proof_inner, r_y, _claims_inner) = SumcheckProof::<E>::prove_quad(
       &claim_inner_joint,
       num_rounds_y,
       &mut MultilinearPolynomial::new(poly_ABC),
@@ -488,6 +488,155 @@ impl<E: Engine> R1CSSNARKTrait<E> for R1CSSNARK<E> {
 
     info!(elapsed_ms = %verify_t.elapsed().as_millis(), "r1cs_snark_verify");
     Ok(self.U.public_values.clone())
+  }
+
+  /// prove sum check
+  fn prove_sum_check<C: SpartanCircuit<E>>(
+    pk: &Self::ProverKey,
+    circuit: C,
+    prep_snark: &mut Self::PrepSNARK,
+    is_small: bool,
+  ) -> Result<(Vec<E::Scalar>, Vec<E::Scalar>), SpartanError> {
+    let mut transcript = E::TE::new(b"R1CSSNARK");
+    transcript.absorb(b"vk", &pk.vk_digest);
+
+    let public_values = circuit
+      .public_values()
+      .map_err(|e| SpartanError::SynthesisError {
+        reason: format!("Circuit does not provide public IO: {e}"),
+      })?;
+
+    // absorb the public values into the transcript
+    transcript.absorb(b"public_values", &public_values.as_slice());
+
+    let (U, W) = SatisfyingAssignment::r1cs_instance_and_witness(
+      &mut prep_snark.ps,
+      &pk.S,
+      &pk.ck,
+      &circuit,
+      is_small,
+      &mut transcript,
+    )?;
+
+    // compute the full satisfying assignment by concatenating W.W, 1, and U.X
+    let mut z = [
+      W.W.clone(),
+      vec![E::Scalar::ONE],
+      U.public_values.clone(),
+      U.challenges.clone(),
+    ]
+    .concat();
+
+    let num_vars = pk.S.num_shared + pk.S.num_precommitted + pk.S.num_rest;
+    let (num_rounds_x, num_rounds_y) = (
+      usize::try_from(pk.S.num_cons.ilog2()).unwrap(),
+      (usize::try_from(num_vars.ilog2()).unwrap() + 1),
+    );
+
+    // outer sum-check preparation
+    let tau = (0..num_rounds_x)
+      .map(|_i| transcript.squeeze(b"t"))
+      .collect::<Result<EqPolynomial<_>, SpartanError>>()?;
+
+    let (_poly_tau_span, poly_tau_t) = start_span!("prepare_poly_tau");
+    let mut poly_tau = MultilinearPolynomial::new(tau.evals());
+    info!(elapsed_ms = %poly_tau_t.elapsed().as_millis(), "prepare_poly_tau");
+
+    let (_mv_span, mv_t) = start_span!("matrix_vector_multiply");
+    let (Az, Bz, Cz) = pk.S.multiply_vec(&z)?;
+    info!(
+      elapsed_ms = %mv_t.elapsed().as_millis(),
+      constraints = %pk.S.num_cons,
+      vars = %num_vars,
+      "matrix_vector_multiply"
+    );
+
+    let (_mp_span, mp_t) = start_span!("prepare_multilinear_polys");
+    let (mut poly_Az, mut poly_Bz, mut poly_Cz) = (
+      MultilinearPolynomial::new(Az),
+      MultilinearPolynomial::new(Bz),
+      MultilinearPolynomial::new(Cz),
+    );
+    info!(elapsed_ms = %mp_t.elapsed().as_millis(), "prepare_multilinear_polys");
+
+    // outer sum-check
+    let (_sc_span, sc_t) = start_span!("outer_sumcheck");
+
+    let comb_func_outer =
+      |poly_A_comp: &E::Scalar,
+       poly_B_comp: &E::Scalar,
+       poly_C_comp: &E::Scalar,
+       poly_D_comp: &E::Scalar|
+       -> E::Scalar { *poly_A_comp * (*poly_B_comp * *poly_C_comp - *poly_D_comp) };
+    let (_sc_proof_outer, r_x, claims_outer) = SumcheckProof::<E>::prove_cubic_with_additive_term(
+      &E::Scalar::ZERO, // claim is zero
+      num_rounds_x,
+      &mut poly_tau,
+      &mut poly_Az,
+      &mut poly_Bz,
+      &mut poly_Cz,
+      comb_func_outer,
+      &mut transcript,
+    )?;
+
+    // claims from the end of sum-check
+    let (claim_Az, claim_Bz, claim_Cz): (E::Scalar, E::Scalar, E::Scalar) =
+      (claims_outer[1], claims_outer[2], claims_outer[3]);
+    transcript.absorb(b"claims_outer", &[claim_Az, claim_Bz, claim_Cz].as_slice());
+    info!(elapsed_ms = %sc_t.elapsed().as_millis(), "outer_sumcheck");
+
+    // inner sum-check preparation
+    let (_r_span, r_t) = start_span!("prepare_inner_claims");
+    let r = transcript.squeeze(b"r")?;
+    let claim_inner_joint = claim_Az + r * claim_Bz + r * r * claim_Cz;
+    info!(elapsed_ms = %r_t.elapsed().as_millis(), "prepare_inner_claims");
+
+    let (_eval_rx_span, eval_rx_t) = start_span!("compute_eval_rx");
+    let evals_rx = EqPolynomial::evals_from_points(&r_x.clone());
+    info!(elapsed_ms = %eval_rx_t.elapsed().as_millis(), "compute_eval_rx");
+
+    let (_sparse_span, sparse_t) = start_span!("compute_eval_table_sparse");
+    let (evals_A, evals_B, evals_C) = compute_eval_table_sparse(&pk.S, &evals_rx);
+    info!(elapsed_ms = %sparse_t.elapsed().as_millis(), "compute_eval_table_sparse");
+
+    let (_abc_span, abc_t) = start_span!("prepare_poly_ABC");
+    assert_eq!(evals_A.len(), evals_B.len());
+    assert_eq!(evals_A.len(), evals_C.len());
+    let poly_ABC = (0..evals_A.len())
+      .into_par_iter()
+      .map(|i| evals_A[i] + r * evals_B[i] + r * r * evals_C[i])
+      .collect::<Vec<E::Scalar>>();
+    info!(elapsed_ms = %abc_t.elapsed().as_millis(), "prepare_poly_ABC");
+
+    let (_z_span, z_t) = start_span!("prepare_poly_z");
+    let poly_z = {
+      z.resize(num_vars * 2, E::Scalar::ZERO);
+      z
+    };
+    info!(elapsed_ms = %z_t.elapsed().as_millis(), "prepare_poly_z");
+
+    // inner sum-check
+    let (_sc2_span, sc2_t) = start_span!("inner_sumcheck");
+
+    debug!("Proving inner sum-check with {} rounds", num_rounds_y);
+    debug!(
+      "Inner sum-check sizes - poly_ABC: {}, poly_z: {}",
+      poly_ABC.len(),
+      poly_z.len()
+    );
+    let comb_func = |poly_A_comp: &E::Scalar, poly_B_comp: &E::Scalar| -> E::Scalar {
+      *poly_A_comp * *poly_B_comp
+    };
+    let (_sc_proof_inner, _r_y, _claims_inner) = SumcheckProof::<E>::prove_quad(
+      &claim_inner_joint,
+      num_rounds_y,
+      &mut MultilinearPolynomial::new(poly_ABC),
+      &mut MultilinearPolynomial::new(poly_z),
+      comb_func,
+      &mut transcript,
+    )?;
+    info!(elapsed_ms = %sc2_t.elapsed().as_millis(), "inner_sumcheck");
+    Ok((r_x, claims_outer))
   }
 }
 
