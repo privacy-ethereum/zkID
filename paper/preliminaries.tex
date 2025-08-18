@@ -21,7 +21,8 @@ $\mathsf{Com}$ is perfectly hiding and binding under discrete\mbox{-}log hardnes
 We will need efficient \emph{openings} and \emph{equality proofs} for Pedersen commitments; we realize these via inner-product arguments (IPAs) in the Hyrax framework~\cite{SP:WTSTW18}.
 
 \paragraph{Hyrax commitments.}
-Hyrax commitments \cite{SP:WTSTW18} allow us to commit to a multilinear extension $\widetilde{P}$ of a function $P:\{0,1\}^n \rightarrow \mathbb{F}$. We can express $\widetilde{P}(x_1, \dots, x_n)$ as a vector-matrix-vector product $\vec{v_L} P \vec{v_R}$, where:
+Hyrax commitments \cite{SP:WTSTW18} allow us to commit to a multilinear extension $\widetilde{P}$ of a function $P:\{0,1\}^n \rightarrow \mathbb{F}$. 
+Notably, we can express $\widetilde{P}(x_1, \dots, x_n)$ as a vector-matrix-vector product $\vec{v_L} P \vec{v_R}$, where:
 \begin{itemize}
     \item $P$ is a square matrix of evaluations of $P$ on the $\{0,1\}^{n}$ hypercube, represented as $\langle \vec{p_i}\rangle_{i \in 2^{n/2}}$ where $\vec{p_i} \in \mathbb{F}^{2^{n/2}}$ are rows of $P$
     \item $\vec{v_L}(x_1, \dots, x_{n/2}) = \langle \widetilde{\chi}_{(b_1, \dots, b_{n/2})}(x_1, \dots, x_{n/2})\rangle _{(b_1, \dots, b_{n/2})\in \{0,1\}^{n/2}}$, and 
@@ -94,10 +95,10 @@ The following outlines the high-level protocol for a credential presentation.
 
 \begin{enumerate}
 \item The Prover receives a signed credential from an Issuer to be stored securely in their wallet, issued to the Wallet Secure Cryptographic Device (WSCD) public key.
-\item At presentation time, the Verifier sends over challenge $\texttt{nonce}_V$ for device-binding verification
-\item The Prover signs the challenge \texttt{nonce} with the public key $p_U$ controlled by their WSCD and specified in their credential
+\item At presentation time, the Verifier sends over challenge $\texttt{nonce}_V$ for device-binding verification.
+\item The Prover signs the challenge \texttt{nonce} with the public key $p_U$ controlled by their WSCD and specified in their credential.
 \item The Prover computes two separate but linked zero-knowledge proofs $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ which together cover the following statements: SD-JWT parsing, verification of the SD-JWT Issuer signature, 
-proper disclosures and/or arbitrary predicates on the disclosures, and device-binding 
+proper disclosures and/or arbitrary predicates on the disclosures, and device-binding. 
 (i.e.\ checks the \texttt{nonce} signature against their public key); then sends $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ to the Verifier.
 \item The Verifier verifies $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ independently, and also verify that they are linked; grants Prover access to some service based on their credential disclosures.
 \end{enumerate}
