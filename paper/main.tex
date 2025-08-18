@@ -20,6 +20,9 @@
 \usepackage{geometry}
 \usepackage{enumitem}
 \usepackage{hyperref}
+\usepackage{longtable}
+
+\setcounter{MaxMatrixCols}{30}
 
 
 %%% COMMANDS
@@ -119,8 +122,7 @@
 \input{preliminaries}
 \section{Our zkID}
 \label{sec:contribution}
-\textit{main deliveries: 1. describe zkID; 2. the detailed construction}
-
+% \textit{main deliveries: 1. describe zkID; 2. the detailed construction}
 \input{zkID_construction.tex}
 
 \section{Experiments}
@@ -140,10 +142,10 @@
 
 Notably, we also show the detailed comparison between our zkID and solutions from GG and Microsoft.
 
-
 \section{Application to EUDI}
 \label{sec:appeudi}
 
+\input{eudi_application}
 % \jbel{Links to read (we can basically copy paste a lot from these):
 % \begin{itemize}
 % \item EUDI ARF (full) \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/latest/}{here}
@@ -151,32 +153,33 @@ Notably, we also show the detailed comparison between our zkID and solutions fro
 % \item Google's IETF draft for libZK \href{https://www.ietf.org/id/draft-google-cfrg-libzk-00.html#name-sumcheck}{here}
 % \end{itemize}}
 
-Why should EUDI consider this report?
-\begin{itemize}
-    \item Does it compatible with current EUDI decision like data format and ecosystems?
-    \item Why governments or organizations should choose this scheme?
-    \item \textbf{Our pros and cons are already shown in other sections, so just mentioned them when we need them in this section}
-\end{itemize}
+% Why should EUDI consider this report?
+% \begin{itemize}
+%     \item Does it compatible with current EUDI decision like data format and ecosystems?
+%     \item Why governments or organizations should choose this scheme?
+%     \item \textbf{Our pros and cons are already shown in other sections, so just mentioned them when we need them in this section}
+% \end{itemize}
 
 \section{Security}
 \label{sec:security}
 
-Give a detailed answer and analysis for:
-\begin{itemize}
-    \item Is the scheme a dishonest majority setting or something else? What happens when the setting is broken?
-    \jbel{\begin{itemize}
-        \item ZK is addressing malicious verifier -- semihonest 
-        \item soundness -- address malicious prover
-        \item trust assumption - verifier is trusted/honest, issuer is trusted/honest
-        \item deniable presentation? -- ask YT
-    \end{itemize}}
+\input{security}
+% Give a detailed answer and analysis for:
+% \begin{itemize}
+%     \item Is the scheme a dishonest majority setting or something else? What happens when the setting is broken?
+%     \jbel{\begin{itemize}
+%         \item ZK is addressing malicious verifier -- semihonest 
+%         \item soundness -- address malicious prover
+%         \item trust assumption - verifier is trusted/honest, issuer is trusted/honest
+%         \item deniable presentation? -- ask YT
+%     \end{itemize}}
         
-    \item If the Issuer needs to update frequently, what if they are disconnected for a while? 
-    \item Place the scheme into a poor network connection, does it still work well and not be vulnerable?
-    \jbel{depends on solution to revocation flow, and also what applications of ID presentation look like (e.g. are the prover and verifier talking through internet channels?)}
-	\item If it fails during the process, what will happen?
-	\item If it is not quantum resistant, how do we upgrade it to quantum resistant? -- it is quantum resistant
-\end{itemize}
+%     \item If the Issuer needs to update frequently, what if they are disconnected for a while? 
+%     \item Place the scheme into a poor network connection, does it still work well and not be vulnerable?
+%     \jbel{depends on solution to revocation flow, and also what applications of ID presentation look like (e.g. are the prover and verifier talking through internet channels?)}
+% 	\item If it fails during the process, what will happen?
+% 	\item If it is not quantum resistant, how do we upgrade it to quantum resistant? -- it is quantum resistant
+% \end{itemize}
 
 
 \section{Conclusion}
@@ -194,5 +197,7 @@ Give a detailed answer and analysis for:
 
 This secion is devoted to a review of the EUDI ARF's Annex 2, which covers high-level requirements for the EUDI Wallet. 
 The full Annex can be found \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/1.4.0/annexes/annex-2/annex-2-high-level-requirements/#a231-topic-1-accessing-public-and-private-online-services-with-eudi-wallet}{here}.
+
+\input{annex}
 
 \end{document}
