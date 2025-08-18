@@ -1,4 +1,4 @@
-At a high-level, we propose a generic zkSNARK wrapper over a credential, which will either in SD-JWT format or the mDL data format specified in standard \href{https://mobiledl-e5018.web.app/ISO_18013-5_E_draft.pdf}{ISO/IEC 18013-5}). The backend proving system we use will be a combination of Spartan and Hyrax commitments, with modifications to be zero-knowledge. 
+At a high-level, we propose a generic zkSNARK wrapper over an EUDI digital credential, which will either be issued in SD-JWT format or the mDL data format specified in standard \href{https://mobiledl-e5018.web.app/ISO_18013-5_E_draft.pdf}{ISO/IEC 18013-5}). The backend proving system we use will be a combination of Spartan and Hyrax commitments, with modifications to be zero-knowledge. 
 
 There are two (2) key ideas to highlight within our proposed architecture:
 
@@ -109,7 +109,7 @@ We define circuit $C(x = (PK_I), w_i = S, w = (\{m_i\}_{i=1}^N))$ as follows:
 
 To produce zkSNARK proofs for this circuit $C_1$, the prover will proceed in two phases:
 \begin{enumerate}
-\item \texttt{prepareCommit}: Computes a Hyrax commitment $com_1 = com(m_1, \dots, m_N; r_1)$ to the witness column containing message hashes $\{m_i\}_{i \in [N]}$ using initial randomness $r_1$. 
+\item \texttt{prepareCommit}: Computes a Hyrax commitment $com_1 = com(m_1, \dots, m_N; r_1)$, which will include a witness column containing message hashes $\{m_i\}_{i \in [N]}$ using initial randomness $r_1$. 
 \item \texttt{prepareBatch}: 
     \begin{enumerate}
         \item Re-randomizes this initial commitment to get a batch of commitments $com_i = com(m_1, \dots, m_N; r_i) = com_1 \cdot g_{N+1}^{r_i-r_1}$ for all $i \in [m]$, 
