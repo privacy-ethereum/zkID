@@ -1,0 +1,60 @@
+% OUTLINE IN MAIN:
+
+% Give a detailed answer and analysis for:
+% \begin{itemize}
+%     \item Is the scheme a dishonest majority setting or something else? What happens when the setting is broken?
+%     \jbel{\begin{itemize}
+%         \item ZK is addressing malicious verifier -- semihonest 
+%         \item soundness -- address malicious prover
+%         \item trust assumption - verifier is trusted/honest, issuer is trusted/honest
+%         \item deniable presentation? -- ask YT
+%     \end{itemize}}
+        
+%     \item If the Issuer needs to update frequently, what if they are disconnected for a while? 
+%     \item Place the scheme into a poor network connection, does it still work well and not be vulnerable?
+%     \jbel{depends on solution to revocation flow, and also what applications of ID presentation look like (e.g. are the prover and verifier talking through internet channels?)}
+% 	\item If it fails during the process, what will happen?
+% 	\item If it is not quantum resistant, how do we upgrade it to quantum resistant? -- it is quantum resistant
+% \end{itemize}
+
+
+In our security model, we assume that the Prover is malicious, and that each Verifier is semi-honest, meaning that if the Prover presents a valid proof that they own a credential with some property, the Verifier will grant access to any services for which the property suffices.
+
+
+\paragraph{Verifier's side} For security on the Verifier's side, our soundness analysis considers the probability that a malicious Prover without real ownership of a valid credential can generate a false proof of ownership. 
+
+
+\paragraph{Prover's side} For security on the Prover's side, we guarantee that our proofs are zero-knowledge, so that a semi-honest and computationally-bounded Verifier cannot get any additional information about the Prover's credential beyond what is publically revealed in the proof.
+In particular, we do not consider the case where the Verifier is malicious during presentation, e.g. where a false Verifier pretends to be an authorized Verifier. The problem of Verifier identity lies outside the scope of this paper.
+
+
+Furthermore, we assume that Verifiers can collude with each other, i.e. that Verifiers $V_1, \dots, V_N$ that have received proofs $\{\pi_1\}, \dots, \{\pi_N\}$ from a given Prover $P$ can compute functions $f(\pi_1, \dots, \pi_N)$. 
+Therefore, we desire the \textbf{unlinkability property}: given $pi_1, \dots, \pi_N$, the Verifiers should not be able to determine whether or not any two of these proofs came from the same Prover $P$.
+Note that this requires the Prover to re-randomize each presentation's proof; a static zero-knowledge proof of the same statement, while not revealing private credential information, would still look the same across presentations.
+In that case, it may be possible for the Verifier to de-anonymize a Prover by linking their ``anonymous'' activity across presentations and analyzing metadata, e.g. time of presentation.
+Fortunately, our scheme is unlinkable due to the re-randomization of proofs between each presentation. By the zero-knowledge property for each presentation, we can simulate the distribution of proofs without knowledge of the witness. 
+To simulate an entire set of proofs received by distinct colluding Verifiers, we can independently simulate each proof.  
+
+
+Finally, as our scheme is currently presented in Section \ref{sec:contribution}, we assume that Verifiers will not collude with Issuers even though they can see the Issuer public key. 
+To bypass this assumption and prevent Issuer tracking in the case of malicious Verifiers that collude with Issuers, 
+we propose here the maintenance of a trusted Merkle tree on trusted Issuer public keys. 
+Then our Prover's circuit would prove knowledge of a valid Issuer signature from some key in the Merkle tree, and the public input/output would just be the Merkle root rather than any specific Issuer public key.
+
+\paragraph{Both Prover and Verifier security} When modelling the Issuer, we assume that the Issuer is trusted during issuance by both the Prover and Verifier, i.e. will not Issue false credentials or sell personal information that is necessarily to obtain about individuals to issue a credential.
+
+\subsection{Other considerations}
+
+Our scheme currently does not require any interaction from the Issuer for credential presentation beyond initial issuance.
+
+However, our scheme does require the use of internet access (without, there will be risks with authorizing someone before their credential can be checked against the current state).
+In the case (as presented) where Issuer public key is a public input/output, we assume there is an online registry of trusted Issuer keys that the Verifier can check the proof against.
+This requires live internet access in the same way that credit card transactions do, in order to check the most current registry of public keys. 
+Even in the case of a Merkle inclusion proof, where the Issuer key is also private, the Verifier would need to check that the public Merkle root matches the trusted root stored online. 
+It is possible to store encrypted transactions/credential presentations to be checked later once internet access is restored, in the same way as offline credit card transactions do. 
+However, there are necessary risks with this approach; it would be up to the specific vendor and/or service prover what levels of risk can be tolerated from delayed credential authentication.
+For example, some service provider (Verifier) may be fine only periodically downloading the current registry of trusted Issuer keys (and/or Merkle roots) and simply checking against their last downloaded version before granting access.
+
+
+Finally, as mentioned previously, our scheme is not quantum resistant due to the use of Hyrax commitments. 
+Again, we believe this is easily fixable with the introduction of modified Ajtai lattice-based commitments, which are post-quantum secure.
