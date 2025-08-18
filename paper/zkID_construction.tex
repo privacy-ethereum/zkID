@@ -157,12 +157,16 @@ $$
 where our square matrices $A, B, C$ have size $n$ and $\vec{Z} = (\vec{w}, 1, io)$.
 
 Recall that Spartan converts an R1CS constraint into the following zero-check:
-$$
-\sum_{x \in \{0,1\}^{\log n}} \widetilde{eq}(x, \tau) 
-\bigg[\bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{A}(x,y) \widetilde{Z}(y)\bigg)
-\bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{B}(x,y) \widetilde{Z}(y)\bigg)
-- \bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{C}(x,y) \widetilde{Z}(y)\bigg)\bigg] = 0
-$$
+\begin{multline*}
+\sum_{x \in \{0,1\}^{\log n}} \widetilde{eq}(x, \tau)\,
+\bigg[
+\bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{A}(x,y)\,\widetilde{Z}(y)\bigg)
+\bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{B}(x,y)\,\widetilde{Z}(y)\bigg) \\
+\qquad\qquad
+- \bigg(\sum_{y \in \{0,1\}^{\log n}} \widetilde{C}(x,y)\,\widetilde{Z}(y)\bigg)
+\bigg] \;=\; 0
+\end{multline*}
+
 for some random challenge $\tau \in \mathbb{F}$
 
 There are two components in Spartan that we need to modify to be ZK. 
@@ -203,33 +207,44 @@ Then, as long as the Fiat-shamir challenges is generated from the transcript inc
         = 
         \vec{0}
         \end{equation*}
-        where $\vec{S} = [s'_1[0], s'_1[1], \dots, s'_n[0], s'_n[1]]^T$ 
+        where
+        \[
+        \vec{S} = 
+        \bigl[\, s'_1[0], s'_1[1], \dots, s'_n[0], s'_n[1] \,\bigr]^{\mathsf T}, 
+        \]
         is the column vector of sumcheck transcripts such that $s'_i = s'_i(X) = s'_i[0]X + s'_i[1]$, and
-        where $\vec{R} = [r_1[0], r_1[1], \dots, r_n[0], r_n[1]]^T$ 
-        is the column vector of random pads, and
-        where matrices $A,B,C$ are given by
-        \begin{equation*}
-            A = 
-            \begin{bmatrix}
-                1 & 2 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & 0 \\
-                -r_1 & -1 & 1 & 2 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & 0 \\
-                0 & 0 & -r_2 & -1 & 1 & 2 & 0 & \cdots & 0 & 0 & 0 & 0 \\
-                \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots & \vdots & \vdots \\
-                0 & 0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & -r_{n-1} & -1 & 1 & 2 \\
-                0 & 0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & r_n & 1 \\
-            \end{bmatrix}
-        \end{equation*}
-        \begin{equation*}
-            B = 
-            \begin{bmatrix}
-                -1 & -2 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & 0 & -1 & 0 \\
-                r_1 & 1 & -1 & -2 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & 0 & 0 & 0 \\
-                0 & 0 & r_2 & 1 & -1 & -2 & 0 & \cdots & 0 & 0 & 0 & 0 & 0 & 0\\
-                \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots \\
-                0 & 0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & r_{n-1} & 1 & -1 & -2 & 0 & 0\\
-                0 & 0 & 0 & 0 & 0 & 0 & 0 & \cdots & 0 & 0 & 0 & -r_n & -1 & 0 & -1\\
-            \end{bmatrix}
-        \end{equation*}
+        \[
+        \vec{R} = 
+        \bigl[\, r_1[0], r_1[1], \dots, r_n[0], r_n[1] \,\bigr]^{\mathsf T},
+        \]
+        is the column vector of random pads, and where matrices $A,B,C$ are given by
+
+        \[
+        A = 
+        \left[
+        \begin{array}{*{12}{c}}
+            1      & 2      & 0      & 0      & 0      & 0      & 0      & \cdots & 0      & 0      & 0      & 0      \\
+            -r_1   & -1     & 1      & 2      & 0      & 0      & 0      & \cdots & 0      & 0      & 0      & 0      \\
+            0      & 0      & -r_2   & -1     & 1      & 2      & 0      & \cdots & 0      & 0      & 0      & 0      \\
+            \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots & \vdots & \vdots \\
+            0      & 0      & 0      & 0      & 0      & 0      & 0      & \cdots & -r_{n-1}& -1    & 1      & 2      \\
+            0      & 0      & 0      & 0      & 0      & 0      & 0      & \cdots & 0      & 0      & r_n    & 1      \\
+        \end{array}
+        \right]
+        \]
+        \[
+        B = 
+        \left[
+        \begin{array}{*{12}{c}}
+            -1     & -2     & 0      & 0      & 0      & 0      & 0      & \cdots & 0      & 0      & 0      & 0      \\
+            r_1    & 1      & -1     & -2     & 0      & 0      & 0      & \cdots & 0      & 0      & 0      & 0      \\
+            0      & 0      & r_2    & 1      & -1     & -2     & 0      & \cdots & 0      & 0      & 0      & 0      \\
+            \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots & \vdots & \vdots \\
+            0      & 0      & 0      & 0      & 0      & 0      & 0      & \cdots & r_{n-1}& 1      & -1     & -2     \\
+            0      & 0      & 0      & 0      & 0      & 0      & 0      & \cdots & 0      & 0      & -r_n   & -1     \\
+        \end{array}
+        \right]
+        \]
         \begin{equation*}
             C = 
             \begin{bmatrix}
