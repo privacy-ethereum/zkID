@@ -34,3 +34,38 @@ Sumcheck is a folklore protocol with information-theoretic security that does no
 
 Finally, our team is also actively working on zkSNARK standards, and we believe the long-term solution is not to avoid unstandardized cryptography, but to argue the need for such cryptography in these applications and push forward the corresponding standards. 
 
+% Our report is highly relevant to the EUDI's initiatives and demonstrates another viable solution to adding programmable zero-knowledge proofs around digital credential presentation. 
+
+% \paragraph{Issuance.} PID Providers or Attestation Providers would remain oblivious to the use of this scheme, and therefore no changes to the issuance process would be required (which would potentially be very expensive).
+% Our solution can handle any of the intended credential data standards (SD-JWT and mDL with standard \href{https://mobiledl-e5018.web.app/ISO_18013-5_E_draft.pdf}{ISO/IEC 18013-5}), 
+% as mentioned in \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/1.4.0/annexes/annex-2/annex-2-high-level-requirements/}{Annex 2} of the EUDI Architecture Reference Framework.
+% Furthermore, due to the generic nature of programmable zkSNARKs, it would be very easy to adapt to any changes in the Issuer's signature scheme in the future (e.g. switching to post-quantum signature schemes) will be easy to take into consideration;
+% we would simply modify our zkSNARK circuit to reflect the computation of a new signature verification, without having to come up with a new ad-hoc protocol for a specific signature scheme.  
+
+% \paragraph{Efficiency.} Governments should choose this scheme for its [potential] efficiency due to the nature of how we split up the proofs – by a fixed relation and by a live, presentation-specific relation.
+% [TODO: insert concrete benchmarks when we have them].
+% Our scheme is also highly modular; one can swap out Spartan for another zkSNARK system that uses polynomial commitment schemes in a modular form, and one can also swap out the polynomial commitment scheme. 
+% The benefit of choosing a modular approach is that it is relatively easy to update on future innovations for proof systems that make them more efficient.
+
+% \paragraph{Discussion.} While our scheme is not yet post-quantum secure, its modularity means that it will be relatively easy to swap in modified Ajtai lattice-based commitments as presented by Hwang, Seo, and Song \cite{cryptoeprint:2024/306}.
+% Some components of our scheme are not yet standardized. However, the other solutions under consideration from Google and Microsoft also use unstandardized cryptography, and arguably ``more unstandardized'' cryptography. 
+% In particular, we do not make any strong assumptions, such as the pairing-based assumptions that Microsoft makes.
+% Our zkSNARK uses a Spartan backend, which relies only on the sumcheck and Pedersen commitments.
+% Sumcheck is a folklore protocol with information-theoretic security that does not rely on cryptographic assumptions, and Pedersen commitments have been used since 1991 \cite{C:Pedersen91} and only rely on the discrete-log assumption, which standardized ECDSA signatures already rely on. 
+
+% Finally, our team is also actively working on zkSNARK standards, and we believe the long-term solution is not to avoid unstandardized cryptography, but to argue the need for such cryptography in these applications and push forward the corresponding standards. 
+
+Within the EUDI Architecture and Reference Framework~\cite{EU:EUDI23}, the practical question is how to introduce zero-knowledge capabilities without disrupting established roles, formats, and certification paths. This section states how the construction fits that setting and what trade-offs it entails.
+
+\paragraph{Issuance.}
+The construction is designed to wrap existing credential encodings rather than replace them. It accommodates SD-JWT and ISO/IEC 18013-5 mDL so that wallets and relying parties retain current disclosure grammars and parsing logic. Issuers (PID Providers and Attestation Providers) remain oblivious to the use of zero-knowledge proofs; no changes to issuance pipelines or device secure elements are required, and issuers keep exclusive control of their private keys. The proof layer is circuit-defined, which allows future issuer-side migrations (for example, a change of signature scheme) to be handled by updating the verification circuit rather than introducing format-specific protocols. The approach interoperates with current PKI based on ECDSA or RSA and does not prescribe a switch of algorithm or hardware.
+
+\paragraph{Efficiency.}
+Proving is split into two relations. A fixed relation captures issuer-signature verification, credential parsing, and commitment preparation; it runs infrequently and is amortized per credential. A live, presentation-specific relation captures the disclosures and predicates for a single session; it runs per presentation. This separation aims to keep holder and verifier costs within typical web and mobile budgets and to bound latency on the critical path. The proof system and commitment layer are modular, so improvements in either component can be adopted without redesigning the higher-level flow. In contrast to designs that keep issuer verification online, issuer-signature verification and parsing are moved to the offline step here to reduce presentation-time work at the verifier.
+
+\paragraph{Discussion.}
+The present instantiation follows the Spartan line and relies on sumcheck and Pedersen/Hyrax-style commitments rather than pairing-based assumptions; there is no universal trusted setup. The choice avoids pairing-friendly curves and the operational burden of a setup ceremony across many issuers and relying parties. The construction is not post-quantum secure in its current form, but the modular structure leaves a path to replacing the vector-commitment layer with lattice-based alternatives as they mature. Some components have not yet been standardized; this is a shared condition across competing approaches and is called out explicitly in our roadmap.
+
+\paragraph{Summary for EUDI.}
+The design aligns with Annex 2 format expectations, requires no changes to issuers, supports current PKI deployments, and separates fixed from presentation-specific work to keep online costs low. It avoids pairing-based assumptions and a universal setup and leaves a path to future cryptographic upgrades without disrupting wallet or issuer operations.
+
