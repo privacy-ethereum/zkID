@@ -21,28 +21,28 @@ $\mathsf{Com}$ is perfectly hiding and binding under discrete\mbox{-}log hardnes
 We will need efficient \emph{openings} and \emph{equality proofs} for Pedersen commitments; we realize these via inner-product arguments (IPAs) in the Hyrax framework~\cite{SP:WTSTW18}.
 
 \paragraph{Hyrax commitments.}
-Hyrax commitments \cite{SP:WTSTW18} allow us to commit to a multilinear extension $\widetilde{P}$ of a function $P:\{0,1\}^n \rightarrow \mathbb{F}$. 
-Notably, we can express $\widetilde{P}(x_1, \dots, x_n)$ as a vector-matrix-vector product $\vec{v_L} P \vec{v_R}$, where:
+Hyrax commitments \cite{SP:WTSTW18} allow us to commit to a multilinear extension $\widetilde{P}$ of a function $P:\{0,1\}^{\log n} \rightarrow \mathbb{F}$. 
+Notably, we can express $\widetilde{P}(x_1, \dots, x_{\log n})$ as a vector-matrix-vector product $\vec{v_L} P \vec{v_R}$, where:
 \begin{itemize}
-    \item $P$ is a square matrix of evaluations of $P$ on the $\{0,1\}^{n}$ hypercube, represented as $\langle \vec{p_i}\rangle_{i \in 2^{n/2}}$ where $\vec{p_i} \in \mathbb{F}^{2^{n/2}}$ are rows of $P$
-    \item $\vec{v_L}(x_1, \dots, x_{n/2}) = \langle \widetilde{\chi}_{(b_1, \dots, b_{n/2})}(x_1, \dots, x_{n/2})\rangle _{(b_1, \dots, b_{n/2})\in \{0,1\}^{n/2}}$, and 
-    \item $\vec{v_R}(x_{n/2+1}, \dots, x_{n}) = \langle \widetilde{\chi}_{(b_{n/2+1}, \dots, b_{n})}(x_{n/2}, \dots, x_{n})\rangle_{(b_{n/2}, \dots, b_{n}) \in \{0,1\}^{n/2}}$,
+    \item $P$ is a square matrix of evaluations of $P$ on the $\{0,1\}^{\log n}$ hypercube, represented as $\langle \vec{p_i}\rangle_{i \in \sqrt{n}}$ where $\vec{p_i} \in \mathbb{F}^{\sqrt{n}}$ are rows of $P$
+    \item $\vec{v_L}(x_1, \dots, x_{(\log n)/2}) = \langle \widetilde{\chi}_{(b_1, \dots, b_{(\log n)/2})}(x_1, \dots, x_{(\log n)/2})\rangle _{(b_1, \dots, b_{(\log n)/2})\in \{0,1\}^{(\log n)/2}}$, and 
+    \item $\vec{v_R}(x_{(\log n)/2+1}, \dots, x_{\log n}) = \langle \widetilde{\chi}_{(b_{(\log n)/2+1}, \dots, b_{\log n})}(x_{(\log n)/2}, \dots, x_{\log n})\rangle_{(b_{(\log n)/2}, \dots, b_{\log n}) \in \{0,1\}^{(\log n)/2}}$,
 \end{itemize}
 and $\widetilde{\chi}_{b_1, \dots, b_m} (x_1, \dots, x_m) = \prod_{i \in [m]} \widetilde{\chi}_{b_i}(x_i)$, where
-$\widetilde{\chi_{b_i}}(x_i)$ is the multilinear extension of the function $\chi_{b_i}(x_i): \{0,1\} \rightarrow \mathbb{F}$ given by $\chi_{b_i}(x_i) = x_ib_i + (1-x_i)(1-b_i)$ which equals $1$ if $x_i = b_i$ and $0$ otherwise.
+$\widetilde{\chi_{b_i}}(x_i)$ is the multilinear extension of the function $\chi_{b_i}(x_i): \{0,1\} \rightarrow \mathbb{F}$ given by $\chi_{b_i}(x_i) = x_ib_i + (1-x_i)(1-b_i)$, which equals $1$ if $x_i = b_i$ and $0$ otherwise.
 
 Then our Hyrax commitment scheme is given by:
 \begin{itemize}
-    \item $\textbf{Setup}(1^{\lambda}, n) = (g_i)_{i \in 2^{n/2}}$ where $g_i \in \mathbb{G}$ are elements of the elliptic curve group $\mathbb{G}$ over which we compute our Pedersen commitments.
+    \item $\textbf{Setup}(1^{\lambda}, n) = (g_i)_{i \in [\sqrt n]}$ where $g_i \in \mathbb{G}$ are elements of the elliptic curve group $\mathbb{G}$ over which we compute our Pedersen commitments.
     \item $\textbf{Commit}_h(pp, P) \rightarrow (C,S)$, where 
-    $C = \{C_i\}_{i \in 2^{n/2}}$ and $S = \{S_i\}_{i \in 2^{n/2}}$, and
+    $C = \{C_i\}_{i \in [\sqrt{n}]}$ and $S = \{S_i\}_{i \in [\sqrt{n}]}$, and
     $(C_i, S_i) \leftarrow Commit_p(pp, \langle \vec{p_i} \rangle)$
     where $Commit_p$ is the Pedersen vector commitment scheme.
     \item $\textbf{Eval}_h(pp, C, r, v, n; P, S)$, where $r$ is the opening point and $v$ is the claimed evaluation of $P(r)$, is given by:
     \begin{itemize}
-        \item Prover and Verifier compute $\vec{v_L} = \vec{v_L}(r_1, \dots, r_{n/2})$, $\vec{v_R} = \vec{v_R}(r_{n/2+1}, \dots, r_{n})$, 
-    and $c = \sum_{i \in {n/2}} \vec{v_L}_i C_i$ (where addition is over $\mathbb{G}$)
-        \item Prover and Verifir engage in an interactive IPA protocol to prove that $P(r)$ is a dot product of $v_R$ and $c$ 
+        \item Prover and Verifier compute $\vec{v_L} = \vec{v_L}(r_1, \dots, r_{(\log n)/2})$, $\vec{v_R} = \vec{v_R}(r_{(\log n)/2+1}, \dots, r_{\log n})$, 
+    and $c = \sum_{i \in [\sqrt{n}]} \vec{v_L}_i C_i$ (where addition is over $\mathbb{G}$)
+        \item Prover and Verifier engage in an interactive IPA protocol to prove that $P(r)$ is a dot product of $v_R$ and $c$ 
     \end{itemize} 
 \end{itemize} 
 
