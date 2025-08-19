@@ -38,7 +38,7 @@ Throughout the remainder of this section, we refer to the EUDI's Wallet User as 
 
 \subsection{Underlying ZK Circuit}
 
-In this section, we describe our high-level ZK circuit $C$ underlying the knowledge the prover actually needs to present to the verifier.
+In this section, we describe our high-level ZK circuit $C$ underlying the knowledge the prover needs to present to the verifier.
 Throughout, we refer to the Issuer with variable $I$, Prover with variable $P$, and Verifier with variable $V$ (e.g. in subscripts). 
 
 We will detail the ZK wrapper around the SD-JWT credential as an example, but the protocol is analogous for other credential formats. 
@@ -79,10 +79,10 @@ which ends up being just the raw messages $\{m_i\}_i$.
 The verifier can then check consistency of these witnesses across the circuits $C_i$ by comparing the Hyrax commitments they receive as part of the proof. 
 This approach gives us linking ``for free'', as the Prover alreadys needs to compute these Hyrax commitments as part of the proof.
 
-We also want to highlight that we are no longer splitting up circuits by their field operations 
-(e.g. SHA256 attestations over a binary extension field and an ECDSA verifications over a prime field), but rather we only split up our circuit by pre-processing and per-presentation relations. 
+We highlight that we are no longer splitting up circuits by their field operations 
+(e.g. SHA256 attestations over a binary extension field and an ECDSA verifications over a prime field), but rather by pre-processing and per-presentation relations. 
 In particular, the circuit for \texttt{prepare} will necessarily involve wrong-field arithmetic by including both the SHA256 hashes and the Issuer ECDSA signature verification. 
-However, because of our ability to pre-compute proofs of the \texttt{prepare} relation, the more important thing is to choose curves that allow for i) efficient show relations and ii) linking the prepare and show relation. 
+However, because of the ability to pre-compute proofs of the \texttt{prepare} relation, the more important thing becomes to choose curves that allow for i) efficient show relations and ii) linking the prepare and show relation. 
 Since the verifier can only check equality of Hyrax Pedersen commitments defined over the same curve, we must use the same curve for proving both the \texttt{prepare} and \texttt{show} relations.
 Thus we choose a curve with a scalar field equivalent to the base field of the nonce signature $\sigma_{\text{nonce}}$ for efficient signature verification. 
 Because most Hardware Security Modules (HSMs) sign over the P256 curve, we choose the Tom256 (T256) curve for our backend, which has scalar field equivalent to the base field of P256. 
@@ -107,19 +107,26 @@ We define circuit $C(x = (PK_I), w_i = S, w = (\{m_i\}_{i=1}^N))$ as follows:
 
 \end{mdframed}
 
+The backend proving system we will use for verifiably computing circuits is Spartan, coupled with a Hyrax-style Pedersen commitment scheme. 
+We can express the circuit computation as some R1CS relation 
+\[
+(A \cdot Z) \circ (B \cdot Z) = (C \cdot Z),
+\]
+where $\vec{Z} = (io, 1, \vec{w})$ and $io$ are the public input/outputs. Spartan proves knowledge of a vector $Z$ of length $n := |Z|$ that satisfies the R1CS instance. 
+
 To produce zkSNARK proofs for this circuit $C_1$, the prover will proceed in two phases:
 \begin{enumerate}
-\item \texttt{prepareCommit}: Computes a Hyrax commitment $com_1 = com(m_1, \dots, m_N; r_1)$, which will include a witness column containing message hashes $\{m_i\}_{i \in [N]}$ using initial randomness $r_1$. 
+\item \texttt{prepareCommit}: Separates out a column containing only message hashes $\{m_i\}_{i \in [N]}$ in $Z$ and computes an initial Hyrax commitment $c^{(1)} = \{c_i^{(1)}\}_{i \in [\sqrt{n}]}$, which includes a Pedersen commitment to the messages column $c_1^{(1)} = com(m_1, \dots, m_N; r_1^{(1)}) = g_1^{m_1} \dots g_N^{m_N} g_{N+1}^{r_1^{(1)}}$ with initial randomness $r_1^{(1)}$. 
 \item \texttt{prepareBatch}: 
     \begin{enumerate}
-        \item Re-randomizes this initial commitment to get a batch of commitments $com_i = com(m_1, \dots, m_N; r_i) = com_1 \cdot g_{N+1}^{r_i-r_1}$ for all $i \in [m]$, 
+        \item Re-randomizes this initial Hyrax commitment to get a batch of commitments $c^{(j)} = \{c_i^{(j)}\}_{i \in [\sqrt{n}]}$, each of which contains a Pedersen commitment to the messages $c_1^{(j)} = com_1^{(1)} \cdot g_{N+1}^{r_1^{(j)}-r_1^{(1)}}$ for all $j \in [m]$, 
         where our batch size $m$ depends on the frequency of proof generation and demand for the credential
-        \item Continues the Spartan sumcheck IOP on each $com_i$ to produce a batch of proofs $\{\pi_{\texttt{prepare}}^{(i)}\}$ for $i \in [m]$ of the \texttt{prepare} relation.
+        \item Continues the Spartan sumcheck IOP on each $c^{(j)}$ to produce a batch of proofs $\{\pi_{\texttt{prepare}}^{(j)}\}$ for $j \in [m]$ of the \texttt{prepare} relation.
     \end{enumerate}
 \end{enumerate}
     
-The prover will run \texttt{prepareBatch} periodically to both generate re-randomized commitments $com_i$ and store their randomness $r_i$ (for linking purposes), 
-as well as generate and store batches of issuer-signature proofs $\pi_{\texttt{prepare}}^{(i)}$ that can be used for each presentation.
+The prover will run \texttt{prepareBatch} periodically to both generate re-randomized commitments $c^{(j)}$ and store the randomness for the message column commitment $r_1^{(j)}$ for linking purposes, 
+as well as generate and store batches of issuer-signature proofs $\pi_{\texttt{prepare}}^{(j)}$ that can be used for each presentation.
 
 \subsubsection{The \texttt{show} relation:}
 
@@ -141,9 +148,11 @@ We define circuit $C_2(x = (\{f_i\}_{i=1}^K, \{p_i\}_{i=1}^K), w = \{m_i\}_{i=1}
 
 \end{mdframed}
 
-As part of computing proof $\pi_{\texttt{show}}^{(i)}$ for presentation $i \in [m]$, the prover computes the Hyrax commitment over the Tom256 curve $com(m_1, \dots, m_N; r_i)$, 
-notably with \textit{the same} randomness $r_i$ used during the \texttt{prepareBatch} process.
-The verifier will check that this equals the re-randomized commitment $com_i$ from proof $\pi_{\texttt{prepare}}^{(i)}$ for circuit $C_1$. 
+As part of computing proof $\pi_{\texttt{show}}^{(j)}$ for presentation $j \in [m]$, 
+the Prover will once again separate out the messages into a separate column to compute a Hyrax commitment over the Tom256 curve.
+In particular, the Prover uses \textit{the same} randomness $r_1^{(j)}$ used during the \texttt{prepareBatch} process
+to compute the Pedersen commitment to the messages column.
+The verifier will then check that the Pedersen commitment to the messages column for $\pi_{\texttt{show}}^{(j)}$ equals that of proof $\pi_{\texttt{prepare}}^{(j)}$ for circuit $C_1$. 
 
 \subsection{Adding ZK to Spartan}
 
@@ -175,22 +184,22 @@ The second is to ensure that the opening $\widetilde{Z}$ using the commitment to
 
 \subsubsection{Adding ZK to sumcheck}
 
-The Spartan protocol consists of several sumchecks in parallel. There are various existing techniques to make sumcheck ZK. 
-We employ one using similar methods as in Zhang et. al. \cite{cryptoeprint:2019/1482}, which adds random pads to the sumcheck transcript.
+The Spartan protocol consists of several sumchecks in parallel and operates over some field $\mathbb{F}$. There are various existing techniques to make sumcheck ZK. 
+We employ one using similar methods as in Zhang et. al. \cite{cryptoeprint:2019/1482}, which adds uniformly random pads to the sumcheck transcript.
 
 In particular, suppose at each round $i$ of the sumcheck protocol, the prover sends over $s_i(X) := \sum_{} F(r_1, \dots, r_{i-1}, X, x_{i+1}, \dots, x_m)$ 
 where $r_i$ is the Verifier challenge sent for round $i$. Then instead of having the verifier check the sumcheck, the prover will prove in ZK that the unpadded transcript satisfies the verifier's (linear) checks.
-To do this, the prover will need to commit to the random pads ahead of time. 
+To do this, the prover will need to commit to the uniformly random pads ahead of time. 
 Then, as long as the Fiat-shamir challenges is generated from the transcript including these random pad commitments, the prover cannot simply lie about the pads to satisfy the sumcheck relation.
 
 \begin{mdframed}[style=zkprotocolwithheader, frametitle=Adding ZK to sumcheck]
     \begin{enumerate}
-        \item Prover commits to pads $r_i(X)$ for all $i \in [\log n]$. These are linear polynomials, and can thus be represented by its $2$ coefficients $r_i[0]$ and $r_i[1]$.
+        \item Prover commits to pads $R_i(X) \rand \mathbb{F}_1[x]$ for all $i \in [\log n]$. These are linear polynomials, and can thus be represented by its two coefficients $R_i[0]$ and $R_i[1]$.
         \item Instead of sending partial sums 
         \begin{equation*}
         s_i(X) := \sum_{(x_{i+1}, \dots, x_n) \in \{0,1\}^{n-i}} F(r_1, \dots, r_{i-1}, X, x_{i+1}, \dots, x_n)
         \end{equation*}
-        for each round of sumcheck, the Prover sends polys $s'_i(X) = s_i(X) + r_i(X)$, essentially a one-time-padded transcript.
+        for each round of sumcheck, the Prover sends polys $s'_i(X) = s_i(X) + R_i(X)$, essentially a one-time-padded transcript.
         \item It suffices to show the following linear relation in zero-knowledge, 
         \begin{equation*}
         \left[\begin{array}{c|c|c}
@@ -215,7 +224,7 @@ Then, as long as the Fiat-shamir challenges is generated from the transcript inc
         is the column vector of sumcheck transcripts such that $s'_i = s'_i(X) = s'_i[0]X + s'_i[1]$, and
         \[
         \vec{R} = 
-        \bigl[\, r_1[0], r_1[1], \dots, r_n[0], r_n[1] \,\bigr]^{\mathsf T},
+        \bigl[\, R_1[0], R_1[1], \dots, R_n[0], R_n[1] \,\bigr]^{\mathsf T},
         \]
         is the column vector of random pads, and where matrices $A,B,C$ are given by
 
@@ -280,14 +289,15 @@ Then, as long as the Fiat-shamir challenges is generated from the transcript inc
 
 \subsubsection{Adding ZK to the opening of $\widetilde{Z}$}\label{subsubsec:zk-open-Z}
 
-In order to add ZK to the opening of, we simply append $Z$ with random pads, which is equivalent to assigning random evaluations on the remaining points in the hypercube $\{0,1\}^{\log n}$.
-so that $\widetilde{Z'}(x_1, \dots, x_{\log n}) = \widetilde{Z}(x_1, \dots, x_{\log n}) + \sum_{x \in P}eq(r, x)Z(x)$,
-where $P$ is the set of points in $\{0,1\}^{\log n}$ that used to be assigned $0$ by default, but were filled with random pads. Notice that if any of $Z(x)$ are random, then $\sum_{x \in P}eq(r, x)Z(x)$ is random.
+In order to add ZK to the opening of, we simply ``append'' $Z$ with uniformly random pads. 
+Specifically, we assign random evaluations $Z(x) \rand \mathbb{F}$ on any remaining point in the hypercube $x \in \{0,1\}^{\log n}$.
+Then, we see that $\widetilde{Z'}(x_1, \dots, x_{\log n}) = \widetilde{Z}(x_1, \dots, x_{\log n}) + eq(r, x)Z(x)$. 
+Note that now $\widetilde{Z'}(x_1, \dots, x_{\log n})$ is distributed uniformly at random.
 If $n=|Z|$ is not already a power of $2$, then we can simply fill at least one of the remaining evaluations on $\{0,1\}^{\log n}$ with a single random pad. 
 If $n=2^m$, we can add another dimension to the hypercube of evaluations of $Z$. 
 
     % 1. Prover commits to pads r_i(X) (just linear polys)
-    % 2. 
+    % 2. Prover sends over padded transcript
     % 3. Prover and verifier engage in mini SNARK to prove linear relations (using a ZK dot product)
     % 4. Prover has to show opening - using a zk dot product (e.g. IPA)
 
@@ -309,7 +319,7 @@ If $n=2^m$, we can add another dimension to the hypercube of evaluations of $Z$.
 \subsection{Cost analysis}
 
 The following section computes the Prover and Verifier costs of Spartan instantiated with Hyrax Pedersen commitments on R1CS instances $(x = \big(\mathbb{F}, A, B, C, io, n, m),\, \vec{w})$, 
-where $io$ denotes the vector of public inputs/outputs, $n = |\vec{w}|$ is the dimension of our matrices, 
+where $io$ denotes the vector of public inputs/outputs, $n = |\vec{w}| + io + 1$ is the dimension of our matrices, 
 and $m$ is the number of nonzero entries in our matrices $A,B,C$. We let $Z = (\vec{w}, io, 1)$. 
 It is often reasonable to assume that our R1CS matrices are sparse, i.e. $m = O(n)$. However, we present the costs below independent of this assumption.
 
@@ -341,12 +351,12 @@ We can show that this commitment is independent of the rest of the view of the V
     \item Sumcheck polynomials $\{s'_i(X)\}_{i \in [\log n]}$ for each of the sumchecks in Spartan
     \item $\{r_i\}$ Fiat-Shamir challenges during the sumcheck
     \item Transcript from the IPA on the sumcheck relation in ZK
-    \item $\{com(z_i)\}_{i in [\log n]}$ Hyrax commitment to $Z$, which involves a Pedersen commitment to each of the rows of a $\log n \times \log n$ matrix representation of $\vec{Z}$
-    \item Transcript from the IPA for opening $Z(r_1, \dots, r_n)$
-    \item The claimed value of $Z(r_1, \dots, r_n)$
+    \item $\{com(z_i)\}_{i in [\sqrt{n}]}$ Hyrax commitment to $Z$, which involves a Pedersen commitment to each of the columns of a $\sqrt{n} \times \sqrt{n}$ matrix representation of $\vec{Z}$
+    \item Transcript from the IPA for opening $Z(r_1, \dots, r_{\log n})$
+    \item The claimed value of $Z(r_1, \dots, r_{\log n})$
 \end{itemize}
 
-Since we appended random pads to $\vec{Z}$ in our ZK modifiction in Section \ref{subsubsec:zk-open-Z}, the distribution of $Z(r_1, \dots, r_n)$ is random and independent of $Z$, and therefore independent of $\{m_i\}_i$.
+Since we appended random pads to $\vec{Z}$ in our ZK modifiction in Section \ref{subsubsec:zk-open-Z}, the distribution of $Z(r_1, \dots, r_{\log n})$ is random and independent of $Z$, and therefore independent of $\{m_i\}_i$.
 Furthermore, $s'_i(X)$ have totally random pads on them and their distribution is independent of $Z$, and therefore independent of $\{m_i\}_i$.
 Assuming the hiding property of the Pedersen commitment schemes for messages sent during an IPA, we can also use the simulators for the IPAs without changing their joint distribution with the rest of the transcript.
 % i think this works: com (a, h(a)) ~ com (b, h(a)) ~ com (b, c) from hiding property that com(a) ~ com(b) for a =/= b.

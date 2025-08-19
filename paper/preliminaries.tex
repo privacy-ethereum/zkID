@@ -24,7 +24,7 @@ We will need efficient \emph{openings} and \emph{equality proofs} for Pedersen c
 Hyrax commitments \cite{SP:WTSTW18} allow us to commit to a multilinear extension $\widetilde{P}$ of a function $P:\{0,1\}^{\log n} \rightarrow \mathbb{F}$. 
 Notably, we can express $\widetilde{P}(x_1, \dots, x_{\log n})$ as a vector-matrix-vector product $\vec{v_L} P \vec{v_R}$, where:
 \begin{itemize}
-    \item $P$ is a square matrix of evaluations of $P$ on the $\{0,1\}^{\log n}$ hypercube, represented as $\langle \vec{p_i}\rangle_{i \in \sqrt{n}}$ where $\vec{p_i} \in \mathbb{F}^{\sqrt{n}}$ are rows of $P$
+    \item $P$ is a square matrix of evaluations of $P$ on the $\{0,1\}^{\log n}$ hypercube, represented as $\langle \vec{p_i}\rangle_{i \in \sqrt{n}}$ where $\vec{p_i} \in \mathbb{F}^{\sqrt{n}}$ are columns of $P$
     \item $\vec{v_L}(x_1, \dots, x_{(\log n)/2}) = \langle \widetilde{\chi}_{(b_1, \dots, b_{(\log n)/2})}(x_1, \dots, x_{(\log n)/2})\rangle _{(b_1, \dots, b_{(\log n)/2})\in \{0,1\}^{(\log n)/2}}$, and 
     \item $\vec{v_R}(x_{(\log n)/2+1}, \dots, x_{\log n}) = \langle \widetilde{\chi}_{(b_{(\log n)/2+1}, \dots, b_{\log n})}(x_{(\log n)/2}, \dots, x_{\log n})\rangle_{(b_{(\log n)/2}, \dots, b_{\log n}) \in \{0,1\}^{(\log n)/2}}$,
 \end{itemize}
@@ -34,15 +34,15 @@ $\widetilde{\chi_{b_i}}(x_i)$ is the multilinear extension of the function $\chi
 Then our Hyrax commitment scheme is given by:
 \begin{itemize}
     \item $\textbf{Setup}(1^{\lambda}, n) = (g_i)_{i \in [\sqrt n]}$ where $g_i \in \mathbb{G}$ are elements of the elliptic curve group $\mathbb{G}$ over which we compute our Pedersen commitments.
-    \item $\textbf{Commit}_h(pp, P) \rightarrow (C,S)$, where 
-    $C = \{C_i\}_{i \in [\sqrt{n}]}$ and $S = \{S_i\}_{i \in [\sqrt{n}]}$, and
-    $(C_i, S_i) \leftarrow Commit_p(pp, \langle \vec{p_i} \rangle)$
+    \item $\textbf{Commit}_h(pp, P) \rightarrow (c,S)$, where 
+    $c = \{c_i\}_{i \in [\sqrt{n}]}$ and $S = \{S_i\}_{i \in [\sqrt{n}]}$, and
+    $(c_i, S_i) \leftarrow Commit_p(pp, \langle \vec{p_i} \rangle)$
     where $Commit_p$ is the Pedersen vector commitment scheme.
-    \item $\textbf{Eval}_h(pp, C, r, v, n; P, S)$, where $r$ is the opening point and $v$ is the claimed evaluation of $P(r)$, is given by:
+    \item $\textbf{Eval}_h(pp, c, r, v, n; P, S)$, where $r$ is the opening point and $v$ is the claimed evaluation of $P(r)$, is given by:
     \begin{itemize}
         \item Prover and Verifier compute $\vec{v_L} = \vec{v_L}(r_1, \dots, r_{(\log n)/2})$, $\vec{v_R} = \vec{v_R}(r_{(\log n)/2+1}, \dots, r_{\log n})$, 
-    and $c = \sum_{i \in [\sqrt{n}]} \vec{v_L}_i C_i$ (where addition is over $\mathbb{G}$)
-        \item Prover and Verifier engage in an interactive IPA protocol to prove that $P(r)$ is a dot product of $v_R$ and $c$ 
+    and $C = \sum_{i \in [\sqrt{n}]} \vec{v_L}_i c_i$ (where addition is over $\mathbb{G}$)
+        \item Prover and Verifier engage in an interactive IPA protocol to prove that $P(r)$ is a dot product of $v_R$ and $C$ 
     \end{itemize} 
 \end{itemize} 
 
