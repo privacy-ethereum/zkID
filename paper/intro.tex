@@ -7,10 +7,12 @@ For device binding, some ecosystems tie a credential to a long-lived cryptograph
 For status, verifiers query whether a credential was suspended or revoked; a one-to-one status reference (for example, a unique status URL per credential) lets the status provider observe which verifier asked about which holder and when~\cite{w3c-vc-data-model-2}.
 These two mechanisms keep systems reliable and usable, but because they rely on fixed values, they also leave repeating patterns that make it possible to link separate credential uses.
 
-We preserve the operational stability that deployments need while preventing correlators at verification.
-Concretely, zkID adds a presentation-layer wrapper—a thin layer at the presentation step (in the W3C sense) that re-randomizes what the verifier observes. After a one-time *prepare* when the wallet stores a credential, each session produces a fresh, per-session randomized proof; the verifier, in addition to its normal signature and policy/status checks, performs one extra consistency check to confirm that the randomized proof matches the underlying credential.
-We analyze unlinkability under a practical model in which holders may be malicious and verifiers may collude by comparing what they observe across sessions; issuers do not collude with verifiers, and issuance flows and keys remain unchanged.
-Under this model, presentations remain verifiable for services while no reusable handle is exposed to link sessions—consistent with the W3C requirement~\cite{w3c-vc-data-model-2}.
+...
+% We preserve the operational stability that deployments need while preventing correlators at verification.
+% Concretely, zkID adds a presentation-layer wrapper—a thin layer at the presentation step that re-randomizes what the verifier observes.
+% After a one-time prepare when the wallet stores a credential, each session produces a fresh, per-session randomized proof; the verifier, in addition to its normal signature and policy/status checks, performs one extra consistency check to confirm that the randomized proof matches the underlying credential.
+% We analyze unlinkability under a practical model in which holders may be malicious and verifiers may collude by comparing what they observe across sessions; issuers do not collude with verifiers, and issuance flows and keys remain unchanged.
+% Under this model, presentations remain verifiable for services while no reusable handle is exposed to link sessions—consistent with the W3C requirement~\cite{w3c-vc-data-model-2}.
 
 Our design does not require changes to issuers. Modifications occur only at the two endpoints of presentation: (i) the wallet runs a one-time prepare when storing a credential and, at each use, generates a randomized proof so two verifiers do not observe the same handle; and (ii) the verifier adds one consistency check alongside its existing validation to confirm that the randomized proof aligns with the presented credential. We evaluate zkID under these deployment constraints.
 
