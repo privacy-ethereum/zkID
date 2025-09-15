@@ -21,6 +21,8 @@ use std::{marker::PhantomData, time::Instant};
 use tracing::{info, info_span};
 use tracing_subscriber::EnvFilter;
 
+const CHUNK_SIZE: usize = 1024;
+
 type E = T256HyraxEngine;
 
 #[derive(Clone, Debug)]
@@ -183,8 +185,14 @@ fn main() {
 
     // PROVE
     let t0 = Instant::now();
-    let proof =
-      R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, true).expect("prove failed");
+    let proof = R1CSSNARK::<E>::prove(
+      &pk,
+      circuit.clone(),
+      &mut prep_snark,
+      true,
+      CHUNK_SIZE,
+    )
+    .expect("prove failed");
     let prove_ms = t0.elapsed().as_millis();
     info!(elapsed_ms = prove_ms, "prove");
 

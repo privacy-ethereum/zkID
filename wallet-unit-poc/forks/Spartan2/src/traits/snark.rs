@@ -36,6 +36,7 @@ pub trait R1CSSNARKTrait<E: Engine>:
     circuit: C,
     prep_snark: &mut Self::PrepSNARK,
     is_small: bool, // do witness elements fit in machine words?
+    chunk_size: usize,
   ) -> Result<Self, SpartanError>;
 
   /// Produces a proof by checking only the sum check part of the SNARK for a given circuit.

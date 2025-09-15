@@ -29,6 +29,7 @@ use ff::Field;
 use once_cell::sync::OnceCell;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::time::Instant;
 use tracing::{debug, info, info_span};
 
@@ -121,6 +122,44 @@ fn compute_eval_table_sparse<E: Engine>(
   (A_evals, B_evals, C_evals)
 }
 
+fn prepare_poly_ABC<E: Engine>(
+  evals_A: &[E::Scalar],
+  evals_B: &[E::Scalar],
+  evals_C: &[E::Scalar],
+  r: E::Scalar,
+  chunk_size: usize,
+) -> Vec<E::Scalar> {
+  assert_eq!(evals_A.len(), evals_B.len());
+  assert_eq!(evals_A.len(), evals_C.len());
+  let r2 = r * r;
+  let mut out = Vec::with_capacity(evals_A.len());
+  for ((a_chunk, b_chunk), c_chunk) in evals_A
+    .chunks(chunk_size)
+    .zip(evals_B.chunks(chunk_size))
+    .zip(evals_C.chunks(chunk_size))
+  {
+    for i in 0..a_chunk.len() {
+      out.push(a_chunk[i] + r * b_chunk[i] + r2 * c_chunk[i]);
+    }
+  }
+  out
+}
+
+fn prepare_poly_z<E: Engine>(
+  z: Vec<E::Scalar>,
+  num_vars: usize,
+  chunk_size: usize,
+) -> Vec<E::Scalar> {
+  let mut deq: VecDeque<E::Scalar> = z.into();
+  deq.resize(num_vars * 2, E::Scalar::ZERO);
+  let mut out = Vec::with_capacity(deq.len());
+  while !deq.is_empty() {
+    let n = deq.len().min(chunk_size);
+    out.extend(deq.drain(..n));
+  }
+  out
+}
+
 /// A type that holds the pre-processed state for proving
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -183,6 +222,7 @@ impl<E: Engine> R1CSSNARKTrait<E> for R1CSSNARK<E> {
     circuit: C,
     prep_snark: &mut Self::PrepSNARK,
     is_small: bool,
+    chunk_size: usize,
   ) -> Result<Self, SpartanError> {
     let mut transcript = E::TE::new(b"R1CSSNARK");
     transcript.absorb(b"vk", &pk.vk_digest);
@@ -196,17 +236,18 @@ impl<E: Engine> R1CSSNARKTrait<E> for R1CSSNARK<E> {
     // absorb the public values into the transcript
     transcript.absorb(b"public_values", &public_values.as_slice());
 
-    let (U, W) = SatisfyingAssignment::r1cs_instance_and_witness(
+    let (U, W) = SatisfyingAssignment::r1cs_instance_and_witness_chunked(
       &mut prep_snark.ps,
       &pk.S,
       &pk.ck,
       &circuit,
       is_small,
       &mut transcript,
+      chunk_size,
     )?;
 
     // compute the full satisfying assignment by concatenating W.W, 1, and U.X
-    let mut z = [
+    let z = [
       W.W.clone(),
       vec![E::Scalar::ONE],
       U.public_values.clone(),
@@ -287,19 +328,11 @@ impl<E: Engine> R1CSSNARKTrait<E> for R1CSSNARK<E> {
     info!(elapsed_ms = %sparse_t.elapsed().as_millis(), "compute_eval_table_sparse");
 
     let (_abc_span, abc_t) = start_span!("prepare_poly_ABC");
-    assert_eq!(evals_A.len(), evals_B.len());
-    assert_eq!(evals_A.len(), evals_C.len());
-    let poly_ABC = (0..evals_A.len())
-      .into_par_iter()
-      .map(|i| evals_A[i] + r * evals_B[i] + r * r * evals_C[i])
-      .collect::<Vec<E::Scalar>>();
+    let poly_ABC = prepare_poly_ABC::<E>(&evals_A, &evals_B, &evals_C, r, chunk_size);
     info!(elapsed_ms = %abc_t.elapsed().as_millis(), "prepare_poly_ABC");
 
     let (_z_span, z_t) = start_span!("prepare_poly_z");
-    let poly_z = {
-      z.resize(num_vars * 2, E::Scalar::ZERO);
-      z
-    };
+    let poly_z = prepare_poly_z::<E>(z, num_vars, chunk_size);
     info!(elapsed_ms = %z_t.elapsed().as_millis(), "prepare_poly_z");
 
     // inner sum-check
@@ -739,7 +772,7 @@ mod tests {
     let mut prep_snark = S::prep_prove(&pk, circuit.clone(), false).unwrap();
 
     // generate a witness and proof
-    let res = S::prove(&pk, circuit.clone(), &mut prep_snark, false);
+    let res = S::prove(&pk, circuit.clone(), &mut prep_snark, false, 1024);
     assert!(res.is_ok());
     let snark = res.unwrap();
 

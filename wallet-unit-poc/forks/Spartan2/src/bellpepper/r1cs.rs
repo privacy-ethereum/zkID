@@ -371,3 +371,70 @@ impl<E: Engine> SpartanWitness<E> for SatisfyingAssignment<E> {
     Ok((U, W))
   }
 }
+
+impl<E: Engine> SatisfyingAssignment<E> {
+  /// Similar to [`SpartanWitness::r1cs_instance_and_witness`] but copies the
+  /// remaining witness entries in chunks of `chunk_size`.
+  pub fn r1cs_instance_and_witness_chunked<C: SpartanCircuit<E>>(
+    ps: &mut PrecommittedState<E>,
+    S: &SplitR1CSShape<E>,
+    ck: &CommitmentKey<E>,
+    circuit: &C,
+    is_small: bool,
+    transcript: &mut E::TE,
+    chunk_size: usize,
+  ) -> Result<(SplitR1CSInstance<E>, R1CSWitness<E>), SpartanError> {
+    let (_synth_span, synth_t) = start_span!("circuit_synthesize_rest");
+
+    if let Some(comm_W_shared) = &ps.comm_W_shared {
+      transcript.absorb(b"comm_W_shared", comm_W_shared);
+    }
+    if let Some(comm_W_precommitted) = &ps.comm_W_precommitted {
+      transcript.absorb(b"comm_W_precommitted", comm_W_precommitted);
+    }
+
+    let challenges = (0..S.num_challenges)
+      .map(|_| transcript.squeeze(b"challenge"))
+      .collect::<Result<Vec<E::Scalar>, SpartanError>>()?;
+
+    circuit
+      .synthesize(&mut ps.cs, &ps.shared, &ps.precommitted, Some(&challenges))
+      .map_err(|e| SpartanError::SynthesisError {
+        reason: format!("Unable to synthesize witness: {e}"),
+      })?;
+
+    let rest = &ps.cs.aux_assignment[S.num_shared_unpadded + S.num_precommitted_unpadded..];
+    let mut offset = 0;
+    for chunk in rest.chunks(chunk_size) {
+      let dst = &mut ps.W[S.num_shared + S.num_precommitted + offset..][..chunk.len()];
+      dst.copy_from_slice(chunk);
+      offset += chunk.len();
+    }
+
+    let (_commit_rest_span, commit_rest_t) = start_span!("commit_witness_rest");
+    let (comm_W_rest, _r_W_remaining) = PCS::<E>::commit_partial(
+      ck,
+      &ps.W[S.num_shared + S.num_precommitted..],
+      &ps.r_W_remaining,
+      is_small,
+    )?;
+    info!(elapsed_ms = %commit_rest_t.elapsed().as_millis(), "commit_witness_rest");
+    transcript.absorb(b"comm_W_rest", &comm_W_rest);
+
+    let public_values = ps.cs.input_assignment[1..].to_vec()[..S.num_public].to_vec();
+    let U = SplitR1CSInstance::<E>::new(
+      S,
+      ps.comm_W_shared.clone(),
+      ps.comm_W_precommitted.clone(),
+      comm_W_rest,
+      public_values,
+      challenges,
+    )?;
+
+    let W = R1CSWitness::<E>::new_unchecked(ps.W.clone(), ps.r_W.clone(), is_small)?;
+
+    info!(elapsed_ms = %synth_t.elapsed().as_millis(), "circuit_synthesize_rest");
+
+    Ok((U, W))
+  }
+}

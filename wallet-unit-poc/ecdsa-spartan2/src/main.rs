@@ -27,6 +27,8 @@ use tracing_subscriber::EnvFilter;
 pub type E = T256HyraxEngine;
 pub type Scalar = <E as Engine>::Scalar;
 
+const CHUNK_SIZE: usize = 10 * 1024;
+
 mod ecdsa_circuit;
 mod jwt_circuit;
 mod setup;
@@ -47,8 +49,8 @@ fn run_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(circuit: C) {
 
     // PROVE
     let t0 = Instant::now();
-    let proof =
-        R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
+    let proof = R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false, CHUNK_SIZE)
+        .expect("prove failed");
     let prove_ms = t0.elapsed().as_millis();
     info!(elapsed_ms = prove_ms, "prove");
 
@@ -119,7 +121,8 @@ fn prove_jwt() {
     info!("JWT prep_prove: {} ms", prep_ms);
 
     let t0 = Instant::now();
-    R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
+    R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false, CHUNK_SIZE)
+        .expect("prove failed");
     let sumcheck_ms = t0.elapsed().as_millis();
 
     info!("JWT prove: {} ms", sumcheck_ms);
@@ -151,7 +154,8 @@ fn prove_ecdsa() {
     info!("JWT prep_prove: {} ms", prep_ms);
 
     let t0 = Instant::now();
-    R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
+    R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false, CHUNK_SIZE)
+        .expect("prove failed");
     let sumcheck_ms = t0.elapsed().as_millis();
 
     info!("JWT prove: {} ms", sumcheck_ms);
@@ -248,7 +252,7 @@ mod test {
 
         // PROVE
         let t0 = Instant::now();
-        let proof = R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false)
+        let proof = R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false, CHUNK_SIZE)
             .expect("prove failed");
         let prove_ms = t0.elapsed().as_millis();
         info!(elapsed_ms = prove_ms, "ECDSA prove");
