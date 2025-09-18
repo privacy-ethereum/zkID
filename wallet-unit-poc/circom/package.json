@@ -8,7 +8,7 @@
     "url": "https://github.com/privacy-scaling-explorations/zkID"
   },
   "scripts": {
-    "test": "NODE_OPTIONS=--max-old-space-size=8192 npx mocha --timeout 900000",
+    "test": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha --timeout 900000",
     "save_input_file": "npx ts-node src/save_inputs.ts",
     "compile:jwt": "bash scripts/compile.sh jwt",
     "compile:ecdsa": "bash scripts/compile.sh ecdsa",
