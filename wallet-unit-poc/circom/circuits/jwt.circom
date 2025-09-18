@@ -70,11 +70,11 @@ template JWT(
     signal xValueStart <== matchIndex[0] + matchLength[0];
     signal yValueStart <== matchIndex[1] + matchLength[1];
 
-    // 32-byte coordinate -> ceil(32 * 4 / 3) = 43 base64url chars
+    // 32-byte coordinate -> 44 base64 characters (padding optional -> 43 or 44)
     signal xValueEnd <== xValueStart + 43;
     signal yValueEnd <== yValueStart + 43; 
 
-    component ecExtractor = ECPublicKeyExtractor(maxPayloadLength, maxClaimsLength, 43, 32);
+    component ecExtractor = ECPublicKeyExtractor(maxPayloadLength, maxClaimsLength, 44, 32);
     ecExtractor.payload <== extractor.payload;
     ecExtractor.xStartIndex <== xValueStart;
     ecExtractor.yStartIndex <== yValueStart;

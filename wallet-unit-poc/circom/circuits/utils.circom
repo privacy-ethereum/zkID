@@ -105,10 +105,19 @@ template AssertBase64UrlChar() {
     signal isDigit <== isDigitGt.out * isDigitLt.out;
 
     component isDash = IsZero();
-    isDash.in <== char - 45;
+    isDash.in <== char - 45;   // '-'
 
     component isUnder = IsZero();
-    isUnder.in <== char - 95;
+    isUnder.in <== char - 95;  // '_'
+
+    component isPlus = IsZero();
+    isPlus.in <== char - 43;   // '+'
+
+    component isSlash = IsZero();
+    isSlash.in <== char - 47;  // '/'
+
+    component isPad = IsZero();
+    isPad.in <== char - 61;    // '='
 
     component upperOrLower = OR();
     upperOrLower.a <== isUpper;
@@ -122,9 +131,21 @@ template AssertBase64UrlChar() {
     dashOrAlphaNum.a <== alphaOrDigit.out;
     dashOrAlphaNum.b <== isDash.out;
 
+    component plusOrSlash = OR();
+    plusOrSlash.a <== isPlus.out;
+    plusOrSlash.b <== isSlash.out;
+
+    component dashPlusSlash = OR();
+    dashPlusSlash.a <== dashOrAlphaNum.out;
+    dashPlusSlash.b <== plusOrSlash.out;
+
+    component underOrPad = OR();
+    underOrPad.a <== isUnder.out;
+    underOrPad.b <== isPad.out;
+
     component allowed = OR();
-    allowed.a <== dashOrAlphaNum.out;
-    allowed.b <== isUnder.out;
+    allowed.a <== dashPlusSlash.out;
+    allowed.b <== underOrPad.out;
 
     (1 - allowed.out) * enabled === 0;
 }
@@ -239,10 +260,18 @@ template ExtractBase64UrlValue(maxPayloadLength, maxValueChars, expectedLength) 
     found[maxValueChars] === 1;
     valueLength <== lengthAcc[maxValueChars];
 
-    component lengthCheck = IsEqual();
-    lengthCheck.in[0] <== valueLength;
-    lengthCheck.in[1] <== expectedLength;
-    lengthCheck.out === 1;
+    component lengthCheckExact = IsEqual();
+    lengthCheckExact.in[0] <== valueLength;
+    lengthCheckExact.in[1] <== expectedLength;
+
+    component lengthCheckOneLess = IsEqual();
+    lengthCheckOneLess.in[0] <== valueLength;
+    lengthCheckOneLess.in[1] <== expectedLength - 1;
+
+    component lengthOk = OR();
+    lengthOk.a <== lengthCheckExact.out;
+    lengthOk.b <== lengthCheckOneLess.out;
+    lengthOk.out === 1;
 
     signal closingIndex <== startIndex + valueLength;
     signal closingChar <== SelectArrayValue(maxPayloadLength)(payload, closingIndex, 1);
