@@ -52,13 +52,6 @@ template ClaimComparator(maxMatches , maxSubstringLength){
     signal input matchSubstring[maxMatches][maxSubstringLength]; // hashed claims in base64url encoded
     signal input matchLength[maxMatches];
 
-    component sdDecoders[maxMatches];
-    for (var i = 0; i < maxMatches; i++) {
-        sdDecoders[i] = DecodeSD(maxSubstringLength, 32);
-        sdDecoders[i].sdBytes <== matchSubstring[i];
-        sdDecoders[i].sdLen   <== matchLength[i];
-    }
-
     component isZero[maxMatches];
     signal useClaim[maxMatches];
     for (var i = 0; i < maxMatches; i++) {
@@ -66,6 +59,25 @@ template ClaimComparator(maxMatches , maxSubstringLength){
         isZero[i].in[0] <== claimLengths[i];
         isZero[i].in[1] <== 0;
         useClaim[i] <== 1 - isZero[i].out;
+        useClaim[i] * (1 - useClaim[i]) === 0;
+    }
+
+    // Only decode match entries that correspond to real claims; 
+    // otherwise feed padded 'A's so DecodeSD never parses the helper patterns like "x":" or "y":".
+
+    signal sanitizedSubstring[maxMatches][maxSubstringLength];
+    signal effectiveLen[maxMatches];
+    component sdDecoders[maxMatches];
+    for (var i = 0; i < maxMatches; i++) {
+        for (var j = 0; j < maxSubstringLength; j++) {
+            sanitizedSubstring[i][j] <== matchSubstring[i][j] * useClaim[i] + 65 * (1 - useClaim[i]);
+        }
+
+        effectiveLen[i] <== matchLength[i] * useClaim[i];
+
+        sdDecoders[i] = DecodeSD(maxSubstringLength, 32);
+        sdDecoders[i].sdBytes <== sanitizedSubstring[i];
+        sdDecoders[i].sdLen   <== effectiveLen[i];
     }
 
     component eq[maxMatches][32];
