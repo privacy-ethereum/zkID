@@ -30,7 +30,7 @@ describe("JWT Verifier", () => {
       circuit = await circomkit.WitnessTester(`JWT`, {
         file: "jwt",
         template: "JWT",
-        params: [2048, 256, 2000, 3, 50, 128],
+        params: [2048, 256, 2000, 4, 50, 128],
         recompile: RECOMPILE,
       });
       console.log("#constraints:", await circuit.getConstraintCount());
@@ -57,9 +57,9 @@ describe("JWT Verifier", () => {
         y: "mm3p9quG010NysYgK-CAQz2E-wTVSNeIHl_HvWaaM6I",
       };
 
-      const params = generateJwtCircuitParams([2048, 256, 2000, 3, 50, 128]);
+      const params = generateJwtCircuitParams([2048, 256, 2000, 4, 50, 128]);
 
-      const decodeFlags = [0, 1, 0];
+      const decodeFlags = [0, 0, 1, 0];
       const inputs = generateJwtInputs(params, token, jwk, hashedClaims, claims, decodeFlags);
 
       const witness = await circuit.calculateWitness(inputs);

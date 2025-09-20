@@ -1,5 +1,6 @@
 pragma circom 2.1.6;
 include "jwt_tx_builder/array.circom";
+include "keyless_zk_proofs/arrays.circom";
 include "@zk-email/circuits/lib/base64.circom";
 include "circomlib/circuits/comparators.circom";
 include "circomlib/circuits/bitify.circom";
@@ -69,6 +70,100 @@ template DecodeSD(maxSdLen, byteLength) {
     base64Out <== base64.out;
 }
 
+template AssertBase64UrlChar() {
+    signal input char;
+    signal input enabled;
+
+    component isUpperGt = GreaterThan(9);
+    isUpperGt.in[0] <== char;
+    isUpperGt.in[1] <== 64;
+
+    component isUpperLt = LessThan(9);
+    isUpperLt.in[0] <== char;
+    isUpperLt.in[1] <== 91;
+
+    signal isUpper <== isUpperGt.out * isUpperLt.out;
+
+    component isLowerGt = GreaterThan(9);
+    isLowerGt.in[0] <== char;
+    isLowerGt.in[1] <== 96;
+
+    component isLowerLt = LessThan(9);
+    isLowerLt.in[0] <== char;
+    isLowerLt.in[1] <== 123;
+
+    signal isLower <== isLowerGt.out * isLowerLt.out;
+
+    component isDigitGt = GreaterThan(9);
+    isDigitGt.in[0] <== char;
+    isDigitGt.in[1] <== 47;
+
+    component isDigitLt = LessThan(9);
+    isDigitLt.in[0] <== char;
+    isDigitLt.in[1] <== 58;
+
+    signal isDigit <== isDigitGt.out * isDigitLt.out;
+
+    component isDash = IsZero();
+    isDash.in <== char - 45;   // '-'
+
+    component isUnder = IsZero();
+    isUnder.in <== char - 95;  // '_'
+
+    component isPlus = IsZero();
+    isPlus.in <== char - 43;   // '+'
+
+    component isSlash = IsZero();
+    isSlash.in <== char - 47;  // '/'
+
+    component isPad = IsZero();
+    isPad.in <== char - 61;    // '='
+
+    component upperOrLower = OR();
+    upperOrLower.a <== isUpper;
+    upperOrLower.b <== isLower;
+
+    component alphaOrDigit = OR();
+    alphaOrDigit.a <== upperOrLower.out;
+    alphaOrDigit.b <== isDigit;
+
+    component dashOrAlphaNum = OR();
+    dashOrAlphaNum.a <== alphaOrDigit.out;
+    dashOrAlphaNum.b <== isDash.out;
+
+    component plusOrSlash = OR();
+    plusOrSlash.a <== isPlus.out;
+    plusOrSlash.b <== isSlash.out;
+
+    component dashPlusSlash = OR();
+    dashPlusSlash.a <== dashOrAlphaNum.out;
+    dashPlusSlash.b <== plusOrSlash.out;
+
+    component underOrPad = OR();
+    underOrPad.a <== isUnder.out;
+    underOrPad.b <== isPad.out;
+
+    component allowed = OR();
+    allowed.a <== dashPlusSlash.out;
+    allowed.b <== underOrPad.out;
+
+    (1 - allowed.out) * enabled === 0;
+}
+
+template BytesToNumberBE(numBytes) {
+    signal input in[numBytes];
+    signal output out;
+
+    signal acc[numBytes + 1];
+    acc[0] <== 0;
+
+    for (var i = 0; i < numBytes; i++) {
+        acc[i + 1] <== acc[i] * 256 + in[i];
+    }
+
+    out <== acc[numBytes];
+}
+
 // reduce a 256-bit hash modulo the secp256r1 scalar field order
 template HashModScalarField() {
     signal input hash[256];  
@@ -119,4 +214,66 @@ template HashModScalarField() {
     signal resultHi <== hashHi - isHashGteQ.out * qhi;
     
     out <== resultLo + resultHi * (2 ** 128);
+}
+
+template ExtractBase64UrlValue(maxPayloadLength, maxValueChars, expectedLength) {
+    signal input payload[maxPayloadLength];
+    signal input startIndex;
+    signal output value[maxValueChars];
+    signal output valueLength;
+
+    signal found[maxValueChars + 1];
+    found[0] <== 0;
+
+    signal lengthAcc[maxValueChars + 1];
+    lengthAcc[0] <== 0;
+
+    signal currentIndex[maxValueChars];
+    signal currentChar[maxValueChars];
+    signal notFound[maxValueChars];
+    signal includeChar[maxValueChars];
+
+    component isQuote[maxValueChars];
+    component base64Check[maxValueChars];
+
+    for (var i = 0; i < maxValueChars; i++) {
+        currentIndex[i] <== startIndex + i;
+        currentChar[i] <== SelectArrayValue(maxPayloadLength)(payload, currentIndex[i], 1);
+
+        isQuote[i] = IsEqual();
+        isQuote[i].in[0] <== currentChar[i];
+        isQuote[i].in[1] <== 34;
+
+        notFound[i] <== 1 - found[i];
+        includeChar[i] <== notFound[i] - notFound[i] * isQuote[i].out;
+
+        base64Check[i] = AssertBase64UrlChar();
+        base64Check[i].char <== currentChar[i];
+        base64Check[i].enabled <== includeChar[i];
+
+        value[i] <== includeChar[i] * currentChar[i];
+
+        lengthAcc[i + 1] <== lengthAcc[i] + includeChar[i];
+        found[i + 1] <== found[i] + isQuote[i].out - found[i] * isQuote[i].out;
+    }
+
+    found[maxValueChars] === 1;
+    valueLength <== lengthAcc[maxValueChars];
+
+    component lengthCheckExact = IsEqual();
+    lengthCheckExact.in[0] <== valueLength;
+    lengthCheckExact.in[1] <== expectedLength;
+
+    component lengthCheckOneLess = IsEqual();
+    lengthCheckOneLess.in[0] <== valueLength;
+    lengthCheckOneLess.in[1] <== expectedLength - 1;
+
+    component lengthOk = OR();
+    lengthOk.a <== lengthCheckExact.out;
+    lengthOk.b <== lengthCheckOneLess.out;
+    lengthOk.out === 1;
+
+    signal closingIndex <== startIndex + valueLength;
+    signal closingChar <== SelectArrayValue(maxPayloadLength)(payload, closingIndex, 1);
+    closingChar === 34;
 }
