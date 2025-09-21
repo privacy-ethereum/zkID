@@ -30,7 +30,7 @@ describe("Selective Disclosure", () => {
       circuit = await circomkit.WitnessTester(`JWT`, {
         file: "jwt",
         template: "JWT",
-        params: [1024 * 3, 256, 2200, 6, 50, 128],
+        params: [1024 * 3, 256, 2200, 8, 50, 128],
         recompile: RECOMPILE,
       });
       console.log("#constraints:", await circuit.getConstraintCount());
@@ -57,8 +57,8 @@ describe("Selective Disclosure", () => {
         y: "0WhT_VgvnhNNj9aabTn4E4enR-iqbCrQtY9UWqD4XJY",
       };
 
-      const params = generateJwtCircuitParams([1024 * 3, 256, 2200, 6, 50, 128]);
-      let decodeFlags = [0, 0, 1, 0, 0, 0];
+      const params = generateJwtCircuitParams([1024 * 3, 256, 2200, 8, 50, 128]);
+      let decodeFlags = [0, 0, 1, 0, 0, 0, 0, 0];
       let inputs = generateJwtInputs(params, token, jwk, hashedClaims, claims, decodeFlags);
 
       const witness = await circuit.calculateWitness(inputs);
@@ -72,7 +72,7 @@ describe("Selective Disclosure", () => {
       circuit = await circomkit.WitnessTester(`JWT`, {
         file: "jwt",
         template: "JWT",
-        params: [1024 * 3, 256, 2200, 6, 50, 128],
+        params: [1024 * 3, 256, 2200, 8, 50, 128],
         recompile: RECOMPILE,
       });
       console.log("#constraints:", await circuit.getConstraintCount());
@@ -99,8 +99,8 @@ describe("Selective Disclosure", () => {
         y: "0WhT_VgvnhNNj9aabTn4E4enR-iqbCrQtY9UWqD4XJY",
       };
 
-      const params = generateJwtCircuitParams([1024 * 3, 256, 2200, 6, 50, 128]);
-      let decodeFlags = [0, 0, 1, 0, 0, 0];
+      const params = generateJwtCircuitParams([1024 * 3, 256, 2200, 8, 50, 128]);
+      let decodeFlags = [0, 0, 1, 0, 0, 0, 0, 0];
       let inputs = generateJwtInputs(params, token, jwk, hashedClaims, claims, decodeFlags);
 
       const witness = await circuit.calculateWitness(inputs);
