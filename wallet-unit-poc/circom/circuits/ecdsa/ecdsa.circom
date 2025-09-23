@@ -61,4 +61,7 @@ template ECDSA() {
 
     // In ECDSA we have that the R's x coordinate should be the r from the signature's verification result
     r === R.outX;
+
+    signal output publicKey_x <== pubKeyX;
+    signal output publicKey_y <== pubKeyY;
 }

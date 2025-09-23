@@ -279,7 +279,8 @@ impl<E: Engine> SimpleDigestible for SplitR1CSShape<E> {}
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct SplitR1CSInstance<E: Engine> {
-  pub(crate) comm_W_shared: Option<PartialCommitment<E>>,
+  ///
+  pub comm_W_shared: Option<PartialCommitment<E>>,
   pub(crate) comm_W_precommitted: Option<PartialCommitment<E>>,
   pub(crate) comm_W_rest: PartialCommitment<E>,
 

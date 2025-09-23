@@ -134,7 +134,8 @@ pub struct PrepSNARK<E: Engine> {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(bound = "")]
 pub struct R1CSSNARK<E: Engine> {
-  U: SplitR1CSInstance<E>,
+  ///
+  pub U: SplitR1CSInstance<E>,
   sc_proof_outer: SumcheckProof<E>,
   claims_outer: (E::Scalar, E::Scalar, E::Scalar),
   sc_proof_inner: SumcheckProof<E>,

@@ -49,9 +49,37 @@ impl SpartanCircuit<E> for ECDSACircuit {
     }
     fn shared<CS: ConstraintSystem<Scalar>>(
         &self,
-        _cs: &mut CS,
+        mut cs: &mut CS,
     ) -> Result<Vec<AllocatedNum<Scalar>>, SynthesisError> {
-        Ok(vec![])
+        let root = current_dir().unwrap().join("../circom");
+        let witness_dir = root.join("build/ecdsa/ecdsa_js");
+
+        let witness_input_json: String = {
+            let path = current_dir()
+                .unwrap()
+                .join("../circom/inputs/ecdsa/default.json");
+            let mut file = File::open(path).unwrap();
+            let mut witness_input = String::new();
+            file.read_to_string(&mut witness_input).unwrap();
+            witness_input
+        };
+
+        let witness: Vec<Scalar> = generate_witness_from_wasm(
+            witness_dir,
+            witness_input_json,
+            PathBuf::from("output.wtns"),
+        );
+
+        let mut shared = Vec::new();
+        for i in 1..3 {
+            println!("i: {}", i);
+            let v = AllocatedNum::alloc(&mut cs, || Ok(witness[i]))?;
+
+            shared.push(v);
+        }
+        println!("shared: {:?}", shared);
+
+        Ok(shared)
     }
     fn precommitted<CS: ConstraintSystem<Scalar>>(
         &self,

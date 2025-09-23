@@ -151,14 +151,25 @@ fn prove_ecdsa() {
     info!("JWT prep_prove: {} ms", prep_ms);
 
     let t0 = Instant::now();
-    R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
+    let proof =
+        R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
     let sumcheck_ms = t0.elapsed().as_millis();
 
-    info!("JWT prove: {} ms", sumcheck_ms);
+    let mut prep_snark =
+        R1CSSNARK::<E>::prep_prove(&pk, circuit.clone(), false).expect("prep_prove failed");
+    let proof2 =
+        R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
+
+    println!("proof.U.comm_W_shared: {:?}", proof.U.comm_W_shared);
+    println!("proof2.U.comm_W_shared: {:?}", proof2.U.comm_W_shared);
+
+    // assert_eq!(proof.U.comm_W_shared, proof2.U.comm_W_shared);
+
+    info!("ECDSA prove: {} ms", sumcheck_ms);
 
     let total_ms = prep_ms + sumcheck_ms;
     info!(
-        "JWT prove sumcheck + Hyrax TOTAL: {} ms (~{:.1}s)",
+        "ecdsa prove sumcheck + Hyrax TOTAL: {} ms (~{:.1}s)",
         total_ms,
         total_ms as f64 / 1000.0
     );
