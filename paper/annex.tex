@@ -1,3 +1,13 @@
+%% NOTES ON WHAT ABOUT EUDI TO INCLUDE HERE:
+
+% - Throughout this discussion, we continue to refer to EUDI's Wallet User as the ``Prover'', the Relying Party as the ``Verifier'', and the EUDI Attestation Authority (EAA) that acts as a PID/Attestation Prover as the ``Issuer''.
+% - It accommodates SD-JWT and ISO/IEC 18013-5 mDL so that wallets and relying parties retain current disclosure grammars and parsing logic. 
+% - The design aligns with Annex 2 format expectations (see Section \ref{sec:annex}), requires no changes to Issuers, supports current PKI deployments, and separates fixed from presentation-specific work to keep live presentation costs low. 
+% - It avoids pairing-based assumptions and a universal setup, and leaves a path to future cryptographic upgrades without disrupting wallet or Issuer operations.
+
+% For full details, check the eudi_application.tex file
+
+
 In this Appendix, we address all of the Topics presented in Annex 2 of the EUDI Architecture Reference Framework. 
 The first part of this section is addressed to a general audience; it translates the vocabulary used in the EUDI ARF to cryptographic terms that those reading this paper might be familiar with.
 
@@ -7,16 +17,20 @@ Finally, we lay out an exhaustive table addressing each of the Topics of the ARF
 (ii) any potential privacy concerns that may arise from satisfying the specification of the Topic
 (iii) a brief high-level proposals for any privacy concerns that do arise.
 
+The following table Topics that we directly tackle in our paper. 
+
+
 \footnotesize
 \begin{longtable}{|c|p{0.2\textwidth}|p{0.15\textwidth}|p{0.07\textwidth}|p{0.2\textwidth}|p{0.07\textwidth}|p{0.2\textwidth}|}
+% \hline
+% \textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Within Scope} & \textbf{Paper Notes} & \textbf{Privacy Issues} & \textbf{Privacy Notes} \\
+% \hline
+% \endfirsthead
 \hline
-\textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Within Scope} & \textbf{Paper Notes} & \textbf{Privacy Issues} & \textbf{Privacy Notes} \\
-\hline
-\endfirsthead
-\hline
-\textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Paper Scope?} & \textbf{Paper Notes} & \textbf{Privacy Concerns?} & \textbf{Privacy Notes} \\
+\textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Within Scope} & \textbf{Paper Notes} & \textbf{Privacy Concerns?} & \textbf{Privacy Notes} \\
 \hline
 \endhead
+
 
 1 & Device binding and remote flows, according to [OpenID4VP] standard & Some of the points (e.g. verifying relying party identity, UX flows for which credential to present) are not strictly covered within our flow & Yes & Device binding: we propose that WSCA signature of nonce should be checked against pk of credential PRIVATELY in-circuit (otherwise reveals pk → linkability). Relying party verifying PID/QEAA signatures from trust list: can check issuer pk from list while hiding issuer signature check PRIVATELY in-circuit & Yes & We would propose merkle inclusion proof to hide the specific issuer pk (in case that issuer has only issued a few credentials), but would rely on external trusted maintenance/agreement of the merkle tree. This may not strictly align with "validate signature using trust list". \\
 \hline
@@ -24,32 +38,7 @@ Finally, we lay out an exhaustive table addressing each of the Topics of the ARF
 2 & Wallet must support mDLs & & Yes & Must support mDLs (specified in [ISO/IEC 18013-5]). \href{https://github.com/microsoft/crescent-credentials}{Crescent} already supports mDLs CBOR parsing & Maybe & \\
 \hline
 
-3 & \href{https://eu-
-digital-identity-
-wallet.github.io/eudi-
-doc-architecture-
-and-reference-
-framework/1.4.0/annexes/annex-
-3/annex-3.01-pid-
-rulebook/}{PID rulebook} & Issuer responsibility & No & & No & \\
-\hline
-
-4 & \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/latest/annexes/annex-3/annex-3.02-mDL-rulebook/}{mDL rulebook} & Issuer responsibility & No & & No & \\
-\hline
-
-5 & EUDI wallet design & No HLRs & N/A & & N/A & \\
-\hline
-
-6 & Relying party authentication & User checks relying party ID and certificates, e.g. signature checks & No & & & \\
-\hline
-
-7 & Only issuers can revoke, using an "attestation status/revocation list mechanism", that relying parties also use & Either short term credentials, have an attestation status (e.g. suspension) list mechanism, or attestation revocation list mechanism & Maybe & Prover needs to provide some kind of proof of non-revocation. We propose providing merkle inclusion proof of a public online list & Yes & Without attestation lists being public, would either i) need to phone home to issuer to see the status of credential/obtain a proof → issuer surveillance, or ii) provide an ID the relying party can check against a public list → linkability \\
-\hline
-
-8 & N/A & No HLRs & N/A & & N/A & \\
-\hline
-
-9 & Wallet provider provides WTE certificate to wallet instances (testifying security of WSCA/D), wallet gives new PK and proof-of-association with WTE key to issuers to receive credentials to & Wallet provider responsibility, WTE is never shown to relying parties (see Topic 18 for proof-of-association sent to relying parties) & No & & Yes & Potential issuer collusion allows for reconstruction of a superset of IDs if WTE is provided in plain. Proof-of-association with keys should also be private/in-circuit if possible \\
+7 & Only issuers can revoke, using an "attestation status/revocation list mechanism", that relying parties also use & Either short term credentials, have an attestation status (e.g. suspension) list mechanism, or attestation revocation list mechanism & Ongoing work & Prover needs to provide some kind of proof of non-revocation. We propose providing merkle inclusion proof of a public online list & Yes & Without attestation lists being public, would either i) need to phone home to issuer to see the status of credential/obtain a proof → issuer surveillance, or ii) provide an ID the relying party can check against a public list → linkability \\
 \hline
 
 10 & Wallets must support proximity and remote [OpenID4VP] flows. Wallets must support mDLs and SD-JWTs. UX flow around user accepting newly issued PID/attestation & & Yes & Again must support mDLs (specified in [ISO/IEC 18013-5]). \href{https://github.com/microsoft/crescent-credentials}{Crescent} already supports mDLs CBOR parsing & & \\
@@ -58,121 +47,177 @@ rulebook/}{PID rulebook} & Issuer responsibility & No & & No & \\
 11 & Pseudonyms issued by a pseudonym provider. Allows relying party to recognize users across presentations & & Yes & To eliminate need for an external pseudonym provider + allow for multiple pseudonyms controlled by the user: we propose computing/outputting a deterministic nullifier hash H(public\_key, random\_salt) (where the wallet stores the random\_salt) in-circuit, to use as the pseudonym & Yes & If pseudonym provider is issuer, this is really bad (can track full identity whenever issuer-assigned pseudonym used). If pseudonym provider is an external party, perhaps need some kind of id disclosure to get a pseudonym → similar to issuer tracking \\
 \hline
 
-12 & Should standardize attribute identifiers/syntaxes across namespaces and attestation types for max interoperability & Issuer responsibility / for verifier request convenience. But also somewhat for user legibility/transparency & No & & No & \\
-\hline
-
-13 & & No HLRs & N/A & & N/A & \\
-\hline
-
-14 & & No HLRs & N/A & & N/A & \\
-\hline
-
-15 & & No HLRs & N/A & & N/A & \\
-\hline
-
-16 & Wallet should allow user to create (qualified electronic) signatures over documents & & No & & No & \\
-\hline
-
 17 & Ensuring users with multiple accounts/credential signins are actually the same person — requesting linking IDs & & Yes & Credentials should be re-randomized always & Yes & "Request the identified EUDI Wallet User to identify with another eID means which is accepted by the Relying Party so to link the data received from the EUDI Wallet with the account to which the User proved to have access to" → further supports need for efficient re-randomization \\
 \hline
 
 18 & User presenting info/proofs across multiple credentials. Shall request proof-of-association of PKs each credential is issued to from the WCSA/WCSD & Here is a potential \href{https://eprint.iacr.org/2024/1444.pdf}{Schnorr-style ZKP for association between PKs}. Main idea: proof of knowledge of dlog relationship btw the two & Yes & Proof-of-association should not have PKs in plaintext to the verifier (otherwise provides linkability). Need wallet user to do process proof received directly from WSCA. We propose an in-circuit verification of the ZKP received from WSCA (as a recursive proof) + matching of PKs to the ones in the credential & Yes & <<<< \\
 \hline
 
-19 & Must have overview of all transactions executed through the Wallet Instance that cannot be deleted... & & No & & Yes & Need to ensure this is hidden behind some kind of biometric authentication within the wallet, so that cannot be accessed if stolen. Access to this data allows linkage everywhere. Definitely should not be external \\
-\hline
-
-20 & ID verification should be strict to prevent fraud & No HLRs & N/A & & N/A & \\
-\hline
-
-21 & & No HLRs & N/A & & N/A & \\
-\hline
-
-22 & & No HLRs & N/A & & N/A & \\
-\hline
-
-23 & & No new HLRs & N/A & & N/A & \\
-\hline
-
-24 & UX flows for proximity (e.g. mDL) - including user approval for disclosure & Just UX stuff & No & & No & \\
-\hline
-
-25 & Similar to topic 12, standardizing vocab for attestation attributes & Issuer responsibility & No & & No & \\
-\hline
-
-26 & For these standards, anyone can contribute, just be reasonable & Issuer/standards responsibility & No & & No & \\
-\hline
-
-27 & Relying party should get certificates to be verified by the wallet user before disclosure & Relying party + trusted anchor responsibility & No & & No & \\
-\hline
-
-28 & Wallet for legal person (e.g. corps, governments, and NGOs) should be diff from natural person (human) & Issuer responsibility & No & & No & \\
-\hline
-
-29 & Should allow for issuance of eIDs that let someone represent someone else. Not speced out yet, ad-hoc & Unclear & Maybe & We propose including both entities' PKs in the credential where transaction log would show up in represented person's asw. Maybe phone home to person being represented is OK? & Maybe & <<<< \\
-\hline
-
-30 & Wallet user can also be verifier & Nothing new & No & & No & \\
-\hline
-
-31 & Public, no-auth trusted list of certificate issuers (for issuers, wallet providers, and relying parties) & Nothing concerning! Public list is good & No & & No & \\
-\hline
-
-32 & PID interop & No HLRs & N/A & & N/A & \\
-\hline
-
-33 & Backup devices (e.g. HSM backups) & & No & & Yes & How do HSM backups work? How to ensure they are secure so that credentials aren't stolen \\
-\hline
-
-34 & Transfer to diff wallet & No HLRs & N/A & & N/A & \\
+29 & Should allow for issuance of eIDs that let someone represent someone else. Not speced out yet, ad-hoc & Unclear & Maybe & We propose including both entities' PKs in the credential where transaction log would show up in represented person's as well. Maybe phone home to person being represented is OK? & Maybe & <<<< \\
 \hline
 
 35 & Protocol for PID issuance & Yes & Yes & See privacy concerns around wallet user providing WTE for PID/attestation issuer to verify before credential issuance & Yes & In the cases that the issuer is just another verifier or EUDI wallet instance (user) — want WTE verification to be private (especially for credential issuances that don't require sensitive info/verification) for unlinkability \\
 \hline
 
-36 & Risk analysis & No HLRs & N/A & & N/A & \\
+38 & Need to ensure use of Wallet Instance Attestations (WIA) to relying parties does not allow tracking. Wallets must revoke/suspend when PID issuer asks & & Yes & & Yes & If WIAs are a separate list and just a static watermark, then can do merkle inclusion proof for unlinkability. We recommend against publishing list of public keys as a WIA mechanism — since this causes device-binding to function as doxxing (can check signatures against each of the potential public keys) \\
 \hline
 
-37 & Remote signing & No HLRs & N/A & & N/A & \\
+
 \hline
 
-38 & Need to ensure use of wallet instance attestations (WIA) to relying parties -/→ tracking. Wallets must revoke/suspend when PID issuer asks & & Yes & & Yes & If WIAs are a separate list and just a static watermark, then can do merkle inclusion proof for unlinkability. We recommend against publishing list of public keys as a WIA mechanism — since this causes device-binding to function as doxxing (can check signatures against each of the potential public keys) \\
+
+\end{longtable}
+
+For the following Topics in the EUDI ARF, we assume the underlying architecture that the Topic addresses already satisfies the requirements, so that one can add our zkID solution as the credential presentation flow layer on top. We still provide comments, including notes about potential privacy concerns we have about the specification.  
+
+\footnotesize
+\begin{longtable}{|c|p{0.25\textwidth}|p{0.25\textwidth}|p{0.07\textwidth}|p{0.33\textwidth}|}
+\hline
+\textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Privacy Issues} & \textbf{Privacy Notes} \\
+\hline
+\endhead
+
+3 & \href{https://eu-
+digital-identity-
+wallet.github.io/eudi-
+doc-architecture-
+and-reference-
+framework/1.4.0/annexes/annex-
+3/annex-3.01-pid-
+rulebook/}{PID rulebook} & Issuer responsibility & No & \\
 \hline
 
-39 & Wallet to wallet technical topic & No HLRs & N/A & & N/A & \\
+4 & \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/latest/annexes/annex-3/annex-3.02-mDL-rulebook/}{mDL rulebook} & Issuer responsibility & No & \\
 \hline
 
-40 & Reserved & No HLRs & N/A & & N/A & \\
+6 & Relying party authentication & User checks relying party ID and certificates, e.g. signature checks & & \\
 \hline
 
-41 & Min reqs on PuB-EAAs rulebooks & No HLRs & N/A & & N/A & \\
+9 & Wallet provider provides WTE certificate to wallet instances (testifying security of WSCA/D), wallet gives new PK and proof-of-association with WTE key to issuers to receive credentials to & Wallet provider responsibility, WTE is never shown to relying parties (see Topic 18 for proof-of-association sent to relying parties) & Yes & Potential issuer collusion allows for reconstruction of a superset of IDs if WTE is provided in plain. Proof-of-association with keys should also be private/in-circuit if possible \\
 \hline
 
-42 & Qualified trust service providers (qtsps)(issuers of QEAA attestation types) need access to authentic sources (e.g. databases of legal citizens) & & No & & No & \\
+12 & Should standardize attribute identifiers/syntaxes across namespaces and attestation types for max interoperability & Issuer responsibility / for verifier request convenience. But also somewhat for user legibility/transparency & No & \\
 \hline
 
-43 & Policy for which items to be disclosed in certain presentation situations & & No & Needs to be built into the frontend logic before circuit proofs on the user side. & Maybe & Only if some metadata about Wallet (that would provide linkability) can be tracked when requesting info from relying party... \\
+16 & Wallet should allow user to create (qualified electronic) signatures over documents & & No & \\
 \hline
 
-44 & QEAA eval reqs & Deleted & N/A & & N/A & \\
+%%%%% PRIVACY CONCERNS!!!! %%%%%
+19 & Must have overview of all transactions executed through the Wallet Instance that cannot be deleted... & & Yes & Need to ensure this is hidden behind some kind of biometric authentication within the wallet, so that cannot be accessed if stolen. Access to this data allows linkage everywhere. Definitely should not be external \\
 \hline
 
-45 & QEAA rulebook & No new HLRs & N/A & & N/A & \\
+23 & & No new HLRs & N/A & \\
 \hline
 
-46 & Protocol of cred presentation w verifiers & No HLRs & N/A & & N/A & \\
+24 & UX flows for proximity (e.g. mDL) - including user approval for disclosure & Just UX layer & No & \\
 \hline
 
-47 & Including non-QEAAs & No HLRs & N/A & & N/A & \\
+25 & Similar to topic 12, standardizing vocab for attestation attributes & Issuer responsibility & No & \\
 \hline
 
-48 & Users being able to delete presented data to verifiers & & No & & Yes & Good! \\
+26 & For these standards, anyone can contribute, just be reasonable & Issuer/standards responsibility & No & \\
 \hline
 
-49 & Protocols for 48 & Deleted & N/A & & N/A & \\
+27 & Relying party should get certificates to be verified by the wallet user before disclosure & Relying party + trusted anchor responsibility & No & \\
 \hline
 
-50 & Protocols for reporting relying party abuse & [?] Isn't relying party certificate + checking against trusted anchor list enough? & No & & No & \\
+28 & Wallet for legal person (e.g. corps, governments, and NGOs) should be diff from natural person (human) & Issuer responsibility & No & \\
+\hline
+
+30 & Wallet user can also be verifier & Introduces no new requirements for presentation flow & No & \\
+\hline
+
+31 & Public, no-auth trusted list of certificate issuers (for issuers, wallet providers, and relying parties) & Nothing concerning! Public list is good & No & \\
+\hline
+
+33 & Backup devices (e.g. HSM backups) & & Yes & How do HSM backups work? How to ensure they are secure so that credentials aren't stolen \\
+\hline
+
+42 & Qualified trust service providers (qtsps)(issuers of QEAA attestation types) need access to authentic sources (e.g. databases of legal citizens) & & No & \\
+\hline
+
+43 & Policy for which items to be disclosed in certain presentation situations & Needs to be built into the frontend logic before circuit proofs on the user side. & Maybe & Only if some metadata about Wallet (that would provide linkability) can be tracked when requesting info from relying party... \\
+\hline
+
+48 & Users being able to delete presented data to verifiers & & Yes & Good! \\
+\hline
+
+50 & Protocols for reporting relying party abuse & [?] Isn't relying party certificate + checking against trusted anchor list enough? & No & \\
 \hline
 
 \end{longtable}
+
+
+
+Finally, the following topics had no high-level requirements (as of July 2025), or their high-level requirements are already contained in other Topics:
+
+\footnotesize
+\begin{longtable}{|c|p{0.8\textwidth}|}
+\hline
+\textbf{Topic} & \textbf{Topic name} \\
+\hline
+\endhead
+
+5 & EUDI Wallet Design Guide \\
+\hline
+
+8 & Design Solutions on Data Sharing scenarios \\
+\hline
+
+13 & Developing an EUDI Wallet Architecture Based on Secure Element \\
+\hline
+
+14 & Developing an EUDI Wallet Architecture Based on External Token \\
+\hline
+
+15 & Developing an EUDI Wallet Architecture Based on Remote HSM \\
+\hline
+
+20 & Strong User (Customer) Authentication in the context of electronic payments \\
+\hline
+
+21 & Diplomas with EUDI Wallet \\
+\hline
+
+22 & Digital Travel Credentials with EUDI Wallet \\
+\hline
+
+32 & PID interoperability \\
+\hline
+
+34 & Migrate to a different wallet solution \\
+\hline
+
+36 & Risk Analysis of the EUDI Wallet Usage \\
+\hline
+
+37 & QES — Remote Signing — Technical Requirements \\
+\hline
+
+39 & Wallet to wallet technical Topic \\
+\hline
+
+40 & Reserved \\
+\hline
+
+41 & Minimum requirements on PuB-EAAs rulebooks \\
+\hline
+
+44 & QEAA evaluation requirements \\
+\hline
+
+45 & QEAA Rulebook \\
+\hline
+
+46 & Protocols and interfaces for Presentation of PID and (Q)EAA with relying parties \\
+\hline
+
+47 & Protocols and interfaces for PID and (Q)EAA issuance, and (non-)qualified certificates issuance \\
+\hline
+
+49 & Protocol and interfaces for requesting data deletion to relying parties \\
+\hline
+
+\end{longtable}
+
+
