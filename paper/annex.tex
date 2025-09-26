@@ -1,11 +1,11 @@
-%% NOTES ON WHAT ABOUT EUDI TO INCLUDE HERE:
+%% NOTES ON WHAT ABOUT EUDI TO INCLUDE HERE FROM THE MAIN PAPER:
 
 % - Throughout this discussion, we continue to refer to EUDI's Wallet User as the ``Prover'', the Relying Party as the ``Verifier'', and the EUDI Attestation Authority (EAA) that acts as a PID/Attestation Prover as the ``Issuer''.
 % - It accommodates SD-JWT and ISO/IEC 18013-5 mDL so that wallets and relying parties retain current disclosure grammars and parsing logic. 
 % - The design aligns with Annex 2 format expectations (see Section \ref{sec:annex}), requires no changes to Issuers, supports current PKI deployments, and separates fixed from presentation-specific work to keep live presentation costs low. 
 % - It avoids pairing-based assumptions and a universal setup, and leaves a path to future cryptographic upgrades without disrupting wallet or Issuer operations.
 
-% For full details, check the eudi_application.tex file
+% For full details, check the eudi_application.tex file. I personally think you can kindof just copy-paste the whole thing into here, above the tables.
 
 
 In this Appendix, we address all of the Topics presented in Annex 2 of the EUDI Architecture Reference Framework. 
@@ -17,20 +17,16 @@ Finally, we lay out an exhaustive table addressing each of the Topics of the ARF
 (ii) any potential privacy concerns that may arise from satisfying the specification of the Topic
 (iii) a brief high-level proposals for any privacy concerns that do arise.
 
-The following table Topics that we directly tackle in our paper. 
-
+The following table conists of Topics that we either directly tackle in our proof-of-concept, or are actively working on. 
 
 \footnotesize
 \begin{longtable}{|c|p{0.2\textwidth}|p{0.15\textwidth}|p{0.07\textwidth}|p{0.2\textwidth}|p{0.07\textwidth}|p{0.2\textwidth}|}
-% \hline
-% \textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Within Scope} & \textbf{Paper Notes} & \textbf{Privacy Issues} & \textbf{Privacy Notes} \\
-% \hline
-% \endfirsthead
 \hline
 \textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Within Scope} & \textbf{Paper Notes} & \textbf{Privacy Concerns?} & \textbf{Privacy Notes} \\
 \hline
 \endhead
 
+% WTE = wallet trust evidence -- certificate for the wallet itself (e.g. Google Wallet) to show that it is trusted. this is extra metadata that could potentially lead to linkability  
 
 1 & Device binding and remote flows, according to [OpenID4VP] standard & Some of the points (e.g. verifying relying party identity, UX flows for which credential to present) are not strictly covered within our flow & Yes & Device binding: we propose that WSCA signature of nonce should be checked against pk of credential PRIVATELY in-circuit (otherwise reveals pk → linkability). Relying party verifying PID/QEAA signatures from trust list: can check issuer pk from list while hiding issuer signature check PRIVATELY in-circuit & Yes & We would propose merkle inclusion proof to hide the specific issuer pk (in case that issuer has only issued a few credentials), but would rely on external trusted maintenance/agreement of the merkle tree. This may not strictly align with "validate signature using trust list". \\
 \hline
@@ -53,7 +49,7 @@ The following table Topics that we directly tackle in our paper.
 18 & User presenting info/proofs across multiple credentials. Shall request proof-of-association of PKs each credential is issued to from the WCSA/WCSD & Here is a potential \href{https://eprint.iacr.org/2024/1444.pdf}{Schnorr-style ZKP for association between PKs}. Main idea: proof of knowledge of dlog relationship btw the two & Yes & Proof-of-association should not have PKs in plaintext to the verifier (otherwise provides linkability). Need wallet user to do process proof received directly from WSCA. We propose an in-circuit verification of the ZKP received from WSCA (as a recursive proof) + matching of PKs to the ones in the credential & Yes & <<<< \\
 \hline
 
-29 & Should allow for issuance of eIDs that let someone represent someone else. Not speced out yet, ad-hoc & Unclear & Maybe & We propose including both entities' PKs in the credential where transaction log would show up in represented person's as well. Maybe phone home to person being represented is OK? & Maybe & <<<< \\
+29 & Should allow for issuance of eIDs that let someone represent someone else. Not speced out yet, ad-hoc & Unclear & Potential future work & We propose including both entities' PKs in the credential where transaction log would show up in represented person's as well. Maybe phone home to person being represented is OK? & Maybe & <<<< \\
 \hline
 
 35 & Protocol for PID issuance & Yes & Yes & See privacy concerns around wallet user providing WTE for PID/attestation issuer to verify before credential issuance & Yes & In the cases that the issuer is just another verifier or EUDI wallet instance (user) — want WTE verification to be private (especially for credential issuances that don't require sensitive info/verification) for unlinkability \\
