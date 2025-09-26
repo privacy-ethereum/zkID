@@ -70,6 +70,27 @@ The following table Topics that we directly tackle in our paper.
 
 For the following Topics in the EUDI ARF, we assume the underlying architecture that the Topic addresses already satisfies the requirements, so that one can add our zkID solution as the credential presentation flow layer on top. We still provide comments, including notes about potential privacy concerns we have about the specification.  
 
+This firsts table presents the Topics that we believe present the most major privacy concerns, and we provide comments on what the threats are.
+
+\footnotesize
+\begin{longtable}{|c|p{0.25\textwidth}|p{0.25\textwidth}|p{0.07\textwidth}|p{0.33\textwidth}|}
+\hline
+\textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Privacy Issues} & \textbf{Privacy Notes} \\
+\hline
+\endhead
+9 & Wallet provider provides WTE certificate to wallet instances (testifying security of WSCA/D), wallet gives new PK and proof-of-association with WTE key to issuers to receive credentials to & Wallet provider responsibility, WTE is never shown to relying parties (see Topic 18 for proof-of-association sent to relying parties) & Yes & Potential issuer collusion allows for reconstruction of a superset of IDs if WTE is provided in plain. Proof-of-association with keys should also be private/in-circuit if possible \\
+\hline
+
+19 & Must have overview of all transactions executed through the Wallet Instance that cannot be deleted... & & Yes & Need to ensure this is hidden behind some kind of biometric authentication within the wallet, so that cannot be accessed if stolen. Access to this data allows linkage everywhere. Definitely should not be external \\
+\hline
+
+33 & Backup devices (e.g. HSM backups) & & Yes & How do HSM backups work? How to ensure they are secure so that credentials aren't stolen. In the process of backing up, must transfer some sensitive information (e.g. entire credential) \\
+\hline
+
+\end{longtable}
+
+This second table presents the remaining Topics, with comments on why the topic lies within a separate layer from our zkID presentation flow.
+
 \footnotesize
 \begin{longtable}{|c|p{0.25\textwidth}|p{0.25\textwidth}|p{0.07\textwidth}|p{0.33\textwidth}|}
 \hline
@@ -93,20 +114,10 @@ rulebook/}{PID rulebook} & Issuer responsibility & No & \\
 6 & Relying party authentication & User checks relying party ID and certificates, e.g. signature checks & & \\
 \hline
 
-9 & Wallet provider provides WTE certificate to wallet instances (testifying security of WSCA/D), wallet gives new PK and proof-of-association with WTE key to issuers to receive credentials to & Wallet provider responsibility, WTE is never shown to relying parties (see Topic 18 for proof-of-association sent to relying parties) & Yes & Potential issuer collusion allows for reconstruction of a superset of IDs if WTE is provided in plain. Proof-of-association with keys should also be private/in-circuit if possible \\
-\hline
-
 12 & Should standardize attribute identifiers/syntaxes across namespaces and attestation types for max interoperability & Issuer responsibility / for verifier request convenience. But also somewhat for user legibility/transparency & No & \\
 \hline
 
 16 & Wallet should allow user to create (qualified electronic) signatures over documents & & No & \\
-\hline
-
-%%%%% PRIVACY CONCERNS!!!! %%%%%
-19 & Must have overview of all transactions executed through the Wallet Instance that cannot be deleted... & & Yes & Need to ensure this is hidden behind some kind of biometric authentication within the wallet, so that cannot be accessed if stolen. Access to this data allows linkage everywhere. Definitely should not be external \\
-\hline
-
-23 & & No new HLRs & N/A & \\
 \hline
 
 24 & UX flows for proximity (e.g. mDL) - including user approval for disclosure & Just UX layer & No & \\
@@ -130,23 +141,19 @@ rulebook/}{PID rulebook} & Issuer responsibility & No & \\
 31 & Public, no-auth trusted list of certificate issuers (for issuers, wallet providers, and relying parties) & Nothing concerning! Public list is good & No & \\
 \hline
 
-33 & Backup devices (e.g. HSM backups) & & Yes & How do HSM backups work? How to ensure they are secure so that credentials aren't stolen \\
-\hline
-
 42 & Qualified trust service providers (qtsps)(issuers of QEAA attestation types) need access to authentic sources (e.g. databases of legal citizens) & & No & \\
 \hline
 
 43 & Policy for which items to be disclosed in certain presentation situations & Needs to be built into the frontend logic before circuit proofs on the user side. & Maybe & Only if some metadata about Wallet (that would provide linkability) can be tracked when requesting info from relying party... \\
 \hline
 
-48 & Users being able to delete presented data to verifiers & & Yes & Good! \\
+48 & Users being able to delete presented data to verifiers & & No & Good for privacy! \\
 \hline
 
 50 & Protocols for reporting relying party abuse & [?] Isn't relying party certificate + checking against trusted anchor list enough? & No & \\
 \hline
 
 \end{longtable}
-
 
 
 Finally, the following topics had no high-level requirements (as of July 2025), or their high-level requirements are already contained in other Topics:
@@ -180,6 +187,9 @@ Finally, the following topics had no high-level requirements (as of July 2025), 
 \hline
 
 22 & Digital Travel Credentials with EUDI Wallet \\
+\hline
+
+23 & PID issuance and (Q)EAA issuance \\
 \hline
 
 32 & PID interoperability \\
