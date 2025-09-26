@@ -17,6 +17,16 @@ Finally, we lay out an exhaustive table addressing each of the Topics of the ARF
 (ii) any potential privacy concerns that may arise from satisfying the specification of the Topic
 (iii) a brief high-level proposals for any privacy concerns that do arise.
 
+\subsection{EUDI ARF Terminology Translation}
+
+% include some stuff here:
+% - wallet user = prover, relying party = verifier, EUDI Attestation Authority (EAA) = issuer
+% - WTE = wallet trust evidence, i.e. some proof that the wallet actually belongs to the user (e.g. proof of association of public keys). allows for issuance of credentials to the wallet, knowing it's going to the user.
+% - WIA = wallet instance attestation, i.e. some certificate that the wallet works correctly (e.g. Google wallet is trusted compared to jbel's random open-source wallet app)
+% anything else that comes up!
+
+[see comments in tex file]
+
 The following table conists of Topics that we either directly tackle in our proof-of-concept, or are actively working on. 
 
 \footnotesize
@@ -25,8 +35,6 @@ The following table conists of Topics that we either directly tackle in our proo
 \textbf{Topic} & \textbf{Summary} & \textbf{Comments} & \textbf{Within Scope} & \textbf{Paper Notes} & \textbf{Privacy Concerns?} & \textbf{Privacy Notes} \\
 \hline
 \endhead
-
-% WTE = wallet trust evidence -- certificate for the wallet itself (e.g. Google Wallet) to show that it is trusted. this is extra metadata that could potentially lead to linkability  
 
 1 & Device binding and remote flows, according to [OpenID4VP] standard & Some of the points (e.g. verifying relying party identity, UX flows for which credential to present) are not strictly covered within our flow & Yes & Device binding: we propose that WSCA signature of nonce should be checked against pk of credential PRIVATELY in-circuit (otherwise reveals pk → linkability). Relying party verifying PID/QEAA signatures from trust list: can check issuer pk from list while hiding issuer signature check PRIVATELY in-circuit & Yes & We would propose merkle inclusion proof to hide the specific issuer pk (in case that issuer has only issued a few credentials), but would rely on external trusted maintenance/agreement of the merkle tree. This may not strictly align with "validate signature using trust list". \\
 \hline
@@ -52,7 +60,7 @@ The following table conists of Topics that we either directly tackle in our proo
 29 & Should allow for issuance of eIDs that let someone represent someone else. Not speced out yet, ad-hoc & Unclear & Potential future work & We propose including both entities' PKs in the credential where transaction log would show up in represented person's as well. Maybe phone home to person being represented is OK? & Maybe & <<<< \\
 \hline
 
-35 & Protocol for PID issuance & Yes & Yes & See privacy concerns around wallet user providing WTE for PID/attestation issuer to verify before credential issuance & Yes & In the cases that the issuer is just another verifier or EUDI wallet instance (user) — want WTE verification to be private (especially for credential issuances that don't require sensitive info/verification) for unlinkability \\
+35 & Protocol for PID issuance & Yes & Yes & See privacy concerns around wallet user providing WTE for PID/attestation issuer to verify before credential issuance & Yes & In the cases that the issuer is just another verifier or EUDI wallet instance (user), who is not creating a credential with any new sensitive/private information — want WTE verification to be private for unlinkability \\
 \hline
 
 38 & Need to ensure use of Wallet Instance Attestations (WIA) to relying parties does not allow tracking. Wallets must revoke/suspend when PID issuer asks & & Yes & & Yes & If WIAs are a separate list and just a static watermark, then can do merkle inclusion proof for unlinkability. We recommend against publishing list of public keys as a WIA mechanism — since this causes device-binding to function as doxxing (can check signatures against each of the potential public keys) \\
