@@ -1,0 +1,193 @@
+% \ndhy{This section is a work in progress. It will be completed in the next few days.}
+% \paragraph{Notation.}
+% For $n\in\mathbb{N}$, let $[n]=\{1,\dots,n\}$.
+% Vectors are in bold, e.g., $\mathbf{a}=(a_1,\ldots,a_\ell)$.
+% Concatenation is $\|$.
+% For a (possibly randomized) algorithm $\mathsf{Alg}$, we write $y \leftarrow \mathsf{Alg}(x)$ for its output.
+% The security parameter is $\lambda$, and $\mathrm{negl}(\lambda)$ denotes a negligible function.
+% \subsection{Algebraic setting and basic primitives}
+% \label{subsec:algebra}
+% Let $\mathbb{F}$ be a prime field of order $q$ and $\mathbb{G}$ a cyclic group of order $q$ with generator $g$, where discrete logarithms are hard.
+% We use SHA\mbox{-}256 as $\mathsf{H}:\{0,1\}^\ast\!\rightarrow\!\{0,1\}^{256}$.
+% The issuer uses a digital signature scheme $\mathsf{Sig}_I=(\mathsf{KeyGen}_I,\mathsf{Sign}_I,\mathsf{Verify}_I)$ (e.g., ECDSA/RSA), and the device uses $\mathsf{Sig}_D$ for nonce-bound session signatures; both are assumed EUF\mbox{-}CMA.
+
+% \paragraph{Pedersen vector commitments.}
+% Fix generators $\mathbf{g}=(g_1,\ldots,g_\ell)$ and $h$ in $\mathbb{G}$.
+% For $\mathbf{a}\in\mathbb{F}^\ell$ and $r\in\mathbb{F}$ define
+% \[
+% \mathsf{Com}(\mathbf{a};r)=\prod_{i=1}^{\ell} g_i^{a_i}\cdot h^{r}\in\mathbb{G}.
+% \]
+% $\mathsf{Com}$ is perfectly hiding and binding under discrete\mbox{-}log hardness.
+% We will need efficient \emph{openings} and \emph{equality proofs} for Pedersen commitments; we realize these via inner-product arguments (IPAs) in the Hyrax framework~\cite{SP:WTSTW18}.
+
+% \paragraph{Hyrax commitments.}
+% Hyrax commitments \cite{SP:WTSTW18} allow us to commit to a multilinear extension $\widetilde{P}$ of a function $P:\{0,1\}^{\log n} \rightarrow \mathbb{F}$. 
+% Notably, we can express $\widetilde{P}(x_1, \dots, x_{\log n})$ as a vector-matrix-vector product $\vec{v_L} P \vec{v_R}$, where:
+% \begin{itemize}
+%     \item $P$ is a square matrix of evaluations of $P$ on the $\{0,1\}^{\log n}$ hypercube, represented as $\langle \vec{p_i}\rangle_{i \in \sqrt{n}}$ where $\vec{p_i} \in \mathbb{F}^{\sqrt{n}}$ are columns of $P$
+%     \item $\vec{v_L}(x_1, \dots, x_{(\log n)/2}) = \langle \widetilde{\chi}_{(b_1, \dots, b_{(\log n)/2})}(x_1, \dots, x_{(\log n)/2})\rangle _{(b_1, \dots, b_{(\log n)/2})\in \{0,1\}^{(\log n)/2}}$, and 
+%     \item $\vec{v_R}(x_{(\log n)/2+1}, \dots, x_{\log n}) = \langle \widetilde{\chi}_{(b_{(\log n)/2+1}, \dots, b_{\log n})}(x_{(\log n)/2}, \dots, x_{\log n})\rangle_{(b_{(\log n)/2}, \dots, b_{\log n}) \in \{0,1\}^{(\log n)/2}}$,
+% \end{itemize}
+% and $\widetilde{\chi}_{b_1, \dots, b_m} (x_1, \dots, x_m) = \prod_{i \in [m]} \widetilde{\chi}_{b_i}(x_i)$, where
+% $\widetilde{\chi_{b_i}}(x_i)$ is the multilinear extension of the function $\chi_{b_i}(x_i): \{0,1\} \rightarrow \mathbb{F}$ given by $\chi_{b_i}(x_i) = x_ib_i + (1-x_i)(1-b_i)$, which equals $1$ if $x_i = b_i$ and $0$ otherwise.
+
+% Then our Hyrax commitment scheme is given by:
+% \begin{itemize}
+%     \item $\textbf{Setup}(1^{\lambda}, n) = (g_i)_{i \in [\sqrt n]}$ where $g_i \in \mathbb{G}$ are elements of the elliptic curve group $\mathbb{G}$ over which we compute our Pedersen commitments.
+%     \item $\textbf{Commit}_h(pp, P) \rightarrow (c,S)$, where 
+%     $c = \{c_i\}_{i \in [\sqrt{n}]}$ and $S = \{S_i\}_{i \in [\sqrt{n}]}$, and
+%     $(c_i, S_i) \leftarrow Commit_p(pp, \langle \vec{p_i} \rangle)$
+%     where $Commit_p$ is the Pedersen vector commitment scheme.
+%     \item $\textbf{Eval}_h(pp, c, r, v, n; P, S)$, where $r$ is the opening point and $v$ is the claimed evaluation of $P(r)$, is given by:
+%     \begin{itemize}
+%         \item Prover and Verifier compute $\vec{v_L} = \vec{v_L}(r_1, \dots, r_{(\log n)/2})$, $\vec{v_R} = \vec{v_R}(r_{(\log n)/2+1}, \dots, r_{\log n})$, 
+%     and $C = \sum_{i \in [\sqrt{n}]} \vec{v_L}_i c_i$ (where addition is over $\mathbb{G}$)
+%         \item Prover and Verifier engage in an interactive IPA protocol to prove that $P(r)$ is a dot product of $v_R$ and $C$ 
+%     \end{itemize} 
+% \end{itemize} 
+
+% \subsection{Zero-knowledge proving interface}
+% \label{subsec:zk-interface}
+% We use a \emph{transparent} general-purpose SNARK in the Spartan family~\cite{C:Setty20}, instantiated over $\mathbb{F}$ for R1CS instances.
+% Algorithms are
+% \[
+% \mathsf{pp} \leftarrow \mathsf{Setup}(1^\lambda),\quad
+% \pi \leftarrow \mathsf{Prove}(\mathsf{pp},x,w),\quad
+% b \leftarrow \mathsf{Verify}(\mathsf{pp},x,\pi)\in\{0,1\},
+% \]
+% where $x$ is public input and $w$ the witness.
+% (We reference succinct CRS-based systems such as Groth16~\cite{groth2016size} later only for performance comparisons.)
+
+% \paragraph{R1CS instance.}
+% An \textit{R1CS instance} is a tuple $(\mathbb{F}, A, B, C, io, n, m)$, 
+% where $io$ denotes the public input and output of the instance, 
+% $A, B, C \in \mathbb{F}^{n \times n}$, where $m \geq |io| + 1$
+% and there are at most $m$ non-zero entries in each matrix. An instance is said to be \textit{satisfiable}
+% if there exists a witness $\vec{w} \in F^{n - |io| - 1}$ such that
+% $(A \cdot Z) \circ (B \cdot Z) = (C \cdot Z),$
+% where $\vec{Z} = (io, 1, \vec{w})$, and $\circ$ is the Hadamard (entry-wise) product.
+
+% \paragraph{} Throughout the paper, assume that we are dealing with sparse R1CS instances, where $m = O(n)$.
+
+% \paragraph{R1CS as a language} We let the language 
+% \[
+% R_{\text{R1CS}} = \{ \langle x = (\mathbb{F}, A, B, C, io, n, m): \text{$x$ is satisfiable }\rangle \}.
+% \]
+% The language $R_{\text{R1CS}}$ is NP-complete.
+
+% \paragraph{} A Spartan zero-knowledge proof is an argument of knowledge for the R1CS language.
+% The Prover can prove not only that a given instance $x \in R_{\text{R1CS}}$, but knowledge of the corresponding witness $\vec{w}$.   
+% At a high level, this application considers R1CS instances that represent the computational structure of ownership of a valid credential, along with any other desired properties about the credential. 
+% Thus a valid argument of knowledge implies knowledge of the underlying credential that has the claimed properties, which is necessary for real-world authentication.
+
+% % \subsection{Relations used by \textsf{zkID}}
+% % \label{subsec:relations}
+% % Let $\mathsf{Parse}$ be a deterministic parser that extracts $(\mathbf{a},\mathbf{s},\mathbf{h},\sigma_I,\mathsf{meta})$ from a token $\tau$ (attributes, salts, digests, issuer signature, metadata), consistent with the chosen format (SD\mbox{-}JWT/mDL).
+
+% % \paragraph{Prepare relation $\mathcal{R}_{\mathrm{prep}}$.}
+% % \dots
+% % \paragraph{Show relation $\mathcal{R}_{\mathrm{show}}$.}
+% % \dots
+
+% \subsection{High-Level Credential Presentation Flow}\label{sec:high-level-flow}
+
+% The following outlines the high-level protocol for a credential presentation.
+
+% \begin{enumerate}
+% \item The Prover receives a signed credential from an Issuer to be stored securely in their wallet, issued to the Wallet Secure Cryptographic Device (WSCD) public key.
+% \item At presentation time, the Verifier sends over challenge $\texttt{nonce}_V$ for device-binding verification.
+% \item The Prover signs the challenge \texttt{nonce} with the public key $p_U$ controlled by their WSCD and specified in their credential.
+% \item The Prover computes two separate but linked zero-knowledge proofs $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ which together cover the following statements: SD-JWT parsing, verification of the SD-JWT Issuer signature, 
+% proper disclosures and/or arbitrary predicates on the disclosures, and device-binding. 
+% (i.e.\ checks the \texttt{nonce} signature against their public key); then sends $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ to the Verifier.
+% \item The Verifier verifies $\pi_{\text{\texttt{prepare}}}, \pi_{\text{\texttt{show}}}$ independently, and also verify that they are linked; grants Prover access to some service based on their credential disclosures.
+% \end{enumerate}
+
+% \subsection{Security model}
+% \label{subsec:security-model}
+
+% In our security model, we assume that the Prover is malicious, and that each Verifier is semi-honest, meaning that if the Prover presents a valid proof that they own a credential with some property, the Verifier will grant access to any services for which the property suffices.
+
+
+% For security on the Verifier's side, our soundness analysis considers the probability that a Prover without real ownership of a valid credential can generate a false proof of ownership. 
+
+
+% For security on the Prover's side, we guarantee that our proofs are zero-knowledge, so that a semi-honest computationally bounded Verifier cannot get any additional private information about the Prover's credential given the proof, beyond what is publically revealed in the proof.
+% In particular, we do not consider the case where the Verifier is malicious, where e.g. a false Verifier pretends to be an authorized Verifier. The problem of Verifier identity lies outside the scope of this paper.
+
+
+% Futhermore, we assume that Verifiers can collude, i.e. that Verifiers $V_1, \dots, V_N$ that have receieved proofs $\{\pi_1\}, \dots, \{\pi_N\}$ from a given Prover $P$ can compute functions $f(\pi_1, \dots, \pi_N)$. 
+% Therefore, we desire the \textbf{unlinkability property}: given $pi_1, \dots, \pi_N$, the Verifiers should not be able to determine whether or not any two of these proofs came from the same Prover $P$.
+% Note that this requires the Prover to re-randomize each presentation's proof; a static zero-knowledge proof of the same statement, while not revealing private credential information, will still look the same.
+% It is possible that Verifier's can effectively de-anonymize a Prover by linking their anonymous activity across presentations and analyzing corresponding metadata, e.g. time of presentation.
+
+\paragraph{Notation}
+For $n \in \mathbb{N}$ we write $[n]=\{1,\ldots,n\}$. Bold letters denote vectors, e.g., $\mathbf{m}=(m_1,\ldots,m_n)$. Concatenation is written $\|$. The security parameter is $\lambda$; $\mathsf{negl}(\lambda)$ denotes a negligible function. For a (possibly randomized) algorithm $\mathsf{Alg}$, we write $y \leftarrow \mathsf{Alg}(x)$ for its output on input $x$.
+
+There are three roles:
+\begin{itemize}
+  \item The \emph{issuer} $I$ signs credentials with a long-term key pair $(SK_I,PK_I)$ (e.g., ECDSA P--256 or RSA).
+  \item The \emph{prover} $P$ is the holder’s wallet, which stores credentials and generates proofs. 
+  \item The \emph{verifier} $V$ is the relying party that checks proofs against a policy.
+\end{itemize}
+For device binding, the prover’s secure element holds an additional signing key pair $(SK_D,PK_D)$ used only to sign fresh per-session challenges.
+
+\paragraph{Credentials}
+A credential is a standardized signed object $S$ (e.g., SD--JWT~\cite{IETF:FetYasCam25} or mDL~\cite{ISO:18013-5}). 
+Parsing maps $S$ into an ordered vector of attributes
+\[
+  \mathbf{m}=(m_1,\ldots,m_n).
+\]
+Non-numeric fields (strings, dates) are encoded injectively into integers. 
+The resulting integers are interpreted in a prime field $\mathbb{F}=\mathbb{F}_q$ chosen for the proof backend. 
+For each attribute $m_i$ we sample a salt $s_i \leftarrow \mathbb{F}$ and compute
+\[
+  h_i = \mathsf{H}(m_i \,\|\, s_i),
+\]
+where $\mathsf{H}$ is instantiated as SHA--256. 
+The issuer’s signature is
+\[
+  \sigma_I = \mathsf{Sign}_{SK_I}(h_1,\ldots,h_n),
+\]
+verified under $PK_I$.
+
+\paragraph{Commitments and Proof Interface}
+To support selective disclosure without revealing raw attributes, the wallet commits to $\mathbf{m}$ using Pedersen vector commitments. 
+Let $\mathbb{G}$ be a cyclic group of prime order $q$ with public generators $(g_1,\ldots,g_n,h)$ derived from a domain-separated seed. 
+For randomness $r \leftarrow \mathbb{F}$, the commitment is
+\[
+  C = \prod_{i=1}^n g_i^{\,m_i}\cdot h^{\,r}\;\in\;\mathbb{G}.
+\]
+Under discrete-logarithm hardness in $\mathbb{G}$, these commitments are computationally binding; they are also perfectly hiding. 
+To avoid linkability, the wallet re-randomizes $r$ across sessions. 
+If it precomputes several reusable commitments, we index them $(C^{(j)},r^{(j)})$; both offline and online proofs in a session reference the same $C^{(j)}$, allowing the verifier to link the phases without learning $\mathbf{m}$.
+
+Credential use is captured by two relations:
+\begin{itemize}
+  \item \emph{Prepare (offline).} Once per credential, the wallet verifies $\sigma_I$ under $PK_I$, parses $S$ into $\mathbf{m}$, computes digests $\{h_i\}$, derives a commitment $C^{(j)}$, and produces a reusable proof
+  \[
+    \pi_{\mathrm{prep}}^{(j)} : \;\; \text{``$S$ parses to $\mathbf{m}$, $\sigma_I$ verifies, and $C^{(j)}$ commits to $\mathbf{m}$''.}
+  \]
+  \item \emph{Show (online).} For each presentation, the verifier sends a challenge $\mathit{ch}$. The device signs it as $\sigma_{\mathit{ch}}=\mathsf{Sign}_{SK_D}(\mathit{ch})$. The wallet proves that all predicates in the verifier’s policy hold with respect to $C^{(j)}$ and incorporates $\sigma_{\mathit{ch}}$:
+  \[
+    \pi_{\mathrm{show}}^{(j)} : \;\; \text{``policy holds for $C^{(j)}$, and the session is bound via $\sigma_{\mathit{ch}}$''.}
+  \]
+  The verifier checks $\pi_{\mathrm{prep}}^{(j)}$, $\pi_{\mathrm{show}}^{(j)}$, their consistency on $C^{(j)}$, and verifies $\sigma_{\mathit{ch}}$ under $PK_D$.
+\end{itemize}
+
+This split amortizes heavy work (signature verification, parsing, commitment) offline, leaving online interaction to short proofs plus one device signature.
+
+\paragraph{Predicates and Policies}
+A \emph{predicate} is a Boolean function $f(\mathbf{m}[S]) \in \{0,1\}$ over a subvector indexed by $S \subseteq [n]$. 
+Typical predicates include range checks ($m_i \ge 18$), equality or membership tests (e.g., $m_i$ equals a country code), and cross-credential comparisons. 
+A \emph{policy} is a finite set of predicates chosen by the verifier. 
+In each session, the wallet proves in zero knowledge that all predicates in the policy hold with respect to $C^{(j)}$, revealing only what the policy requires. 
+Because predicates are modular, the proving backend can be swapped (e.g., from a SNARK to a post-quantum argument system) without changes to issuer infrastructure.
+
+% \paragraph{Cryptographic Backend and Assumptions}
+% Proofs are instantiated with Spartan~\cite{C:Setty20}, a transparent argument system based on sum-check protocols with zero-knowledge modifications~\cite{ZXZS19}. 
+% We combine this with Hyrax-style inner-product arguments (IPAs)~\cite{SP:WTSTW18} for openings and equality checks on Pedersen commitments. 
+% This avoids a trusted setup and supports reusable offline computation while keeping the interface modular: the backend can be swapped as post-quantum candidates mature.
+
+We assume the issuer is honest and operates standard PKI. Verifiers are semi-honest: they check proofs correctly but may collude to compare transcripts. 
+Unlinkability relies on re-randomization of commitments, so the only stable value within a session is $C^{(j)}$, intentionally shared between \emph{Prepare} and \emph{Show}.
