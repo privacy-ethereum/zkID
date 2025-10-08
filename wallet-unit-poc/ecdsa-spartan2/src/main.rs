@@ -4,9 +4,6 @@
 //!   RUST_LOG=info cargo run --release -- ecdsa
 //!   RUST_LOG=info cargo run --release -- jwt
 //!
-//! To benchmark only the JWT circuit sum-check:
-//!   RUST_LOG=info cargo run --release -- jwt_sum_check
-//!
 //! To benchmark only Spartan sum-check + Hyrax for ECDSA/JWT:
 //!   RUST_LOG=info cargo run --release -- prove_jwt
 //!   RUST_LOG=info cargo run --release -- prove_ecdsa
@@ -20,7 +17,7 @@
 //! To setup the chunked JWT circuit:
 //!   RUST_LOG=info cargo run --release -- setup_chunked_jwt
 
-use crate::config_generator::{prove_ecdsa, prove_jwt, prove_sum_check_jwt};
+use crate::config_generator::{prove_ecdsa, prove_jwt};
 use crate::ecdsa_circuit::ECDSACircuit;
 use crate::jwt_circuit::JWTCircuit;
 use crate::setup::{run_circuit, setup_ecdsa_keys, setup_jwt_chunked_keys, setup_jwt_keys};
@@ -59,16 +56,16 @@ fn main() {
             setup_jwt_chunked_keys();
         }
         "ecdsa" => {
-            info!("Running ECDSA circuit");
+            info!("Running ECDSA circuit with ZK-Spartan");
             run_circuit(ECDSACircuit);
         }
         "jwt" => {
-            info!("Running JWT circuit");
+            info!("Running JWT circuit with ZK-Spartan");
             run_circuit(JWTCircuit);
         }
-        "jwt_sum_check" => {
-            info!("Running JWT sum check circuit");
-            prove_sum_check_jwt();
+        "zk_sumcheck_jwt" => {
+            info!("Running JWT ZK-Sumcheck benchmark");
+            // TODO: add zk_sumcheck benchmarks here
         }
         "prove_jwt" => {
             info!("Spartan sumcheck + Hyrax PCS JWT");

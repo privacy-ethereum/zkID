@@ -6,8 +6,8 @@ use std::{
 };
 
 use spartan2::{
-    spartan::R1CSSNARK,
     traits::{circuit::SpartanCircuit, snark::R1CSSNARKTrait},
+    zk_spartan::R1CSSNARK,
 };
 use tracing::info;
 
@@ -15,35 +15,35 @@ use crate::{ecdsa_circuit::ECDSACircuit, jwt_circuit::JWTCircuit, E};
 use memmap2::MmapOptions;
 
 pub fn run_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(circuit: C) {
-    // SETUP
+    // SETUP using ZK-Spartan
     let t0 = Instant::now();
     let (pk, vk) = R1CSSNARK::<E>::setup(circuit.clone()).expect("setup failed");
     let setup_ms = t0.elapsed().as_millis();
-    info!(elapsed_ms = setup_ms, "setup");
+    info!(elapsed_ms = setup_ms, "ZK-Spartan setup");
 
     // PREPARE
     let t0 = Instant::now();
     let mut prep_snark =
         R1CSSNARK::<E>::prep_prove(&pk, circuit.clone(), false).expect("prep_prove failed");
     let prep_ms = t0.elapsed().as_millis();
-    info!(elapsed_ms = prep_ms, "prep_prove");
+    info!(elapsed_ms = prep_ms, "ZK-Spartan prep_prove");
 
     // PROVE
     let t0 = Instant::now();
     let proof =
         R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
     let prove_ms = t0.elapsed().as_millis();
-    info!(elapsed_ms = prove_ms, "prove");
+    info!(elapsed_ms = prove_ms, "ZK-Spartan prove");
 
     // VERIFY
     let t0 = Instant::now();
     proof.verify(&vk).expect("verify errored");
     let verify_ms = t0.elapsed().as_millis();
-    info!(elapsed_ms = verify_ms, "verify");
+    info!(elapsed_ms = verify_ms, "ZK-Spartan verify");
 
     // Summary
     info!(
-        "SUMMARY , setup={} ms, prep_prove={} ms, prove={} ms, verify={} ms",
+        "ZK-Spartan SUMMARY , setup={} ms, prep_prove={} ms, prove={} ms, verify={} ms",
         setup_ms, prep_ms, prove_ms, verify_ms
     );
 }
@@ -65,12 +65,12 @@ pub fn save_keys(
     let mut pk_file = File::create(pk_path)?;
     pk_file.write_all(&pk_bytes)?;
 
-    info!("Saved proving key to: {}", pk_path);
+    info!("Saved ZK-Spartan proving key to: {}", pk_path);
 
     let vk_bytes = bincode::serialize(vk)?;
     let mut vk_file = File::create(vk_path)?;
     vk_file.write_all(&vk_bytes)?;
-    info!("Saved verifying key to: {}", vk_path);
+    info!("Saved ZK-Spartan verifying key to: {}", vk_path);
 
     Ok(())
 }
@@ -126,40 +126,11 @@ pub fn load_keys(
     let pk_file = File::open(pk_path)?;
     let pk = bincode::deserialize_from(&mut BufReader::new(pk_file))?;
 
-    info!("Loaded proving key from: {}", pk_path);
+    info!("Loaded ZK-Spartan proving key from: {}", pk_path);
 
     let vk_file = File::open(vk_path)?;
     let vk = bincode::deserialize_from(&mut BufReader::new(vk_file))?;
-    info!("Loaded verifying key from: {}", vk_path);
-
-    Ok((pk, vk))
-}
-
-// same as load_keys but using mmap for potentially large keys
-// we can test this in the mobile
-fn load_keys_mmap(
-    pk_path: &str,
-    vk_path: &str,
-) -> Result<
-    (
-        <R1CSSNARK<E> as R1CSSNARKTrait<E>>::ProverKey,
-        <R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey,
-    ),
-    Box<dyn std::error::Error>,
-> {
-    // mmap proving key
-    let pk_file = File::open(pk_path)?;
-    let pk_mmap = unsafe { MmapOptions::new().map(&pk_file)? };
-    let pk: <R1CSSNARK<E> as R1CSSNARKTrait<E>>::ProverKey =
-        bincode::deserialize_from(Cursor::new(&pk_mmap[..]))?;
-    tracing::info!("Loaded proving key via mmap: {}", pk_path);
-
-    // mmap verifying key
-    let vk_file = File::open(vk_path)?;
-    let vk_mmap = unsafe { MmapOptions::new().map(&vk_file)? };
-    let vk: <R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey =
-        bincode::deserialize_from(Cursor::new(&vk_mmap[..]))?;
-    tracing::info!("Loaded verifying key via mmap: {}", vk_path);
+    info!("Loaded ZK-Spartan verifying key from: {}", vk_path);
 
     Ok((pk, vk))
 }
@@ -214,7 +185,7 @@ pub fn load_proving_chunked_key(
 }
 
 pub fn setup_ecdsa_keys() {
-    info!("=== ECDSA Setup: Generating and saving keys ===");
+    info!("=== ECDSA Setup (ZK-Spartan): Generating and saving keys ===");
     let circuit = ECDSACircuit;
 
     let t0 = Instant::now();
@@ -236,7 +207,7 @@ pub fn setup_ecdsa_keys() {
 }
 
 pub fn setup_jwt_keys() {
-    info!("=== JWT Setup: Generating and saving keys ===");
+    info!("=== JWT Setup (ZK-Spartan): Generating and saving keys ===");
     let circuit = JWTCircuit;
 
     let t0 = Instant::now();
@@ -262,7 +233,7 @@ pub fn setup_jwt_keys() {
 }
 
 pub fn setup_jwt_chunked_keys() {
-    info!("=== Chunked JWT Setup: Generating and saving keys ===");
+    info!("=== Chunked JWT Setup (ZK-Spartan): Generating and saving keys ===");
     let circuit = JWTCircuit;
 
     let t0 = Instant::now();
@@ -291,7 +262,7 @@ mod test {
     use crate::*;
     use std::time::Instant;
 
-    use spartan2::{spartan::R1CSSNARK, traits::snark::R1CSSNARKTrait};
+    use spartan2::traits::snark::R1CSSNARKTrait;
     use tracing::info;
 
     use crate::setup::load_keys;
@@ -300,7 +271,7 @@ mod test {
     fn test_proving_ecdsa_from_keys() {
         setup_ecdsa_keys();
 
-        info!("=== ECDSA Proving: Using saved keys ===");
+        info!("=== ECDSA Proving (ZK-Spartan): Using saved keys ===");
         let circuit = ECDSACircuit;
 
         // Load keys
@@ -318,14 +289,14 @@ mod test {
 
         // PREPARE
         let t0 = Instant::now();
-        let mut prep_snark =
-            R1CSSNARK::<E>::prep_prove(&pk, circuit.clone(), false).expect("prep_prove failed");
+        let mut prep_snark = super::R1CSSNARK::<E>::prep_prove(&pk, circuit.clone(), false)
+            .expect("prep_prove failed");
         let prep_ms = t0.elapsed().as_millis();
         info!(elapsed_ms = prep_ms, "ECDSA prep_prove");
 
         // PROVE
         let t0 = Instant::now();
-        let proof = R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false)
+        let proof = super::R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false)
             .expect("prove failed");
         let prove_ms = t0.elapsed().as_millis();
         info!(elapsed_ms = prove_ms, "ECDSA prove");
