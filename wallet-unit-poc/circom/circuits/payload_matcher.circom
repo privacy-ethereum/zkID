@@ -1,3 +1,5 @@
+pragma circom 2.2.2;
+
 include "jwt_tx_builder/header-payload-extractor.circom";
 include "jwt_tx_builder/array.circom";
 
