@@ -45,7 +45,7 @@ pub fn prove_ecdsa() {
 
 pub fn prove_jwt() {
     let circuit = JWTCircuit;
-    let pk_path = "keys/chunked_jwt_keys/proving_key";
+    let pk_path = "keys/jwt_proving.key";
 
     // load_proving_chunked_key also can be used here
     let pk = load_proving_key(pk_path).expect("load proving key failed");
