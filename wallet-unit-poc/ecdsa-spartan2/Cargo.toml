@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 circom-scotia = "0.2.0"
-spartan2 = { path = "../forks/Spartan2", default-features = false }
+spartan2 = { git = "https://github.com/therealyingtong/Spartan2.git", branch = "zk", default-features = false }
 bellpepper = "0.4.0"
 bellpepper-core = "0.4.0"
 ff = { version = "0.13.0", features = ["derive"] }
