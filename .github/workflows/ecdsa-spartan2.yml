@@ -38,10 +38,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Circom Dependencies
+      - name: Install Circom and Wasmer Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libgmp-dev libsodium-dev nasm nlohmann-json3-dev
+          sudo apt-get install -y \
+            build-essential \
+            libgmp-dev \
+            libsodium-dev \
+            nasm \
+            nlohmann-json3-dev \
+            pkg-config \
+            libssl-dev \
+            libclang-dev \
+            clang
 
       - name: Cache Circom
         id: cache-circom
