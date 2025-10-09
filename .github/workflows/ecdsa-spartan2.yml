@@ -48,14 +48,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/circom
-          key: ${{ runner.os }}-circom-2.2.0
+          key: ${{ runner.os }}-circom-2.2.2
 
       - name: Install Circom
         if: steps.cache-circom.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/iden3/circom.git /tmp/circom
           cd /tmp/circom
-          git checkout v2.2.0
+          git checkout v2.2.2
           cargo build --release
           cargo install --path circom
           circom --version
