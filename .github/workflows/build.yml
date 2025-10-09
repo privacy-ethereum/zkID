@@ -1,0 +1,110 @@
+name: zk Spartan2 JWT and ECDSA Circuits
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Cache Rust Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            wallet-unit-poc/ecdsa-spartan2/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Circom Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libgmp-dev libsodium-dev nasm nlohmann-json3-dev
+
+      - name: Cache Circom
+        id: cache-circom
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/circom
+          key: ${{ runner.os }}-circom-2.2.0
+
+      - name: Install Circom
+        if: steps.cache-circom.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/iden3/circom.git /tmp/circom
+          cd /tmp/circom
+          git checkout v2.2.0
+          cargo build --release
+          cargo install --path circom
+          circom --version
+
+      - name: Verify Circom Installation
+        run: circom --version
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Cache Yarn Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            wallet-unit-poc/circom/node_modules
+            ~/.yarn/berry/cache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('wallet-unit-poc/circom/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install Yarn Dependencies
+        working-directory: wallet-unit-poc/circom
+        run: yarn install --immutable
+
+      - name: Compile JWT Circuit
+        working-directory: wallet-unit-poc/circom
+        run: yarn compile:jwt
+
+      - name: Compile ECDSA Circuit
+        working-directory: wallet-unit-poc/circom
+        run: yarn compile:ecdsa
+
+      - name: Build Rust Project
+        working-directory: wallet-unit-poc/ecdsa-spartan2
+        run: cargo build --release
+
+      - name: Run ECDSA Circuit Test
+        working-directory: wallet-unit-poc/ecdsa-spartan2
+        env:
+          RUST_LOG: info
+        run: cargo run --release -- ecdsa
+
+      - name: Run JWT Circuit Test
+        working-directory: wallet-unit-poc/ecdsa-spartan2
+        env:
+          RUST_LOG: info
+        run: cargo run --release -- jwt
