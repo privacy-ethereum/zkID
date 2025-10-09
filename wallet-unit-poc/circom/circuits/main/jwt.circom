@@ -3,4 +3,4 @@ pragma circom 2.2.2;
 
 include "../jwt.circom";
 
-component main = JWT(2048, 256, 2000, 3, 50, 128);
+component main = JWT(2048, 2000, 4, 50, 128);
