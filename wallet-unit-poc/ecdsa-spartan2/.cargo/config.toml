@@ -1,0 +1,8 @@
+[target.x86_64-unknown-linux-gnu]
+# Workaround for __rust_probestack linking issue with wasmer on Linux
+# Use gcc as linker with the BFD linker instead of LLD
+linker = "gcc"
+rustflags = [
+    "-C", "link-arg=-fuse-ld=bfd",
+]
+
