@@ -1,8 +1,8 @@
 ## Setup
 
-1. Firstly, we need compile the circom circuits with secq256r1 as native field
+### Step 1: Compile Circom Circuits
 
-To compile the jwt and ecdsa circuits
+Compile the circom circuits with secq256r1 as native field:
 
 ```sh
 yarn
@@ -10,21 +10,55 @@ yarn compile:jwt
 yarn compile:ecdsa
 ```
 
-this will create a build folder which contains r1cs and wasm files for circuits
-note> JWT R1cs is almost 900mb. we need find a way to load this inside mobile.
+This creates a build folder containing R1CS and WASM files for circuits.
 
-2. Porting this circom R1CS inside spartan2
+> **Note:** JWT R1CS is almost 900MB. We need to find a way to load this inside mobile.
+
+### Step 2: Setup Keys for Circuits
+
+Setup keys for ECDSA circuit:
 
 ```sh
-   RUST_LOG=info cargo run --release -- ecdsa
-   RUST_LOG=info cargo run --release -- jwt
+RUST_LOG=info cargo run --release -- setup_ecdsa
 ```
 
-we need to bench:
+Setup keys for JWT circuit:
 
-- [Background process] Spartan sumcheck for jwt.circom
-  - ~14s (Macbook Pro, 24GB RAM, 14 core GPU, M4)
-- [Live proving] Spartan sumcheck + Hyrax for ECDSA
-  - 181ms (Macbook Pro, 24GB RAM, 14 core GPU, M4)
-- [One-time setup] Spartan sumcheck + Hyrax PCS for jwt.circom
-  - ~14 + 2.2 = 16.2s (Macbook Pro, 24GB RAM, 14 core GPU, M4)
+```sh
+RUST_LOG=info cargo run --release -- setup_jwt
+```
+
+### Step 3: Run Circuits
+
+Run ECDSA circuit:
+
+```sh
+RUST_LOG=info cargo run --release -- prove_ecdsa
+```
+
+Run JWT circuit:
+
+```sh
+RUST_LOG=info cargo run --release -- prove_jwt
+```
+
+## Benchmarks
+
+### Mobile Benchmarks
+
+(with precomputed witness generation)
+
+| Device                     | Proving Time |
+| -------------------------- | ------------ |
+| iPhone 17 simulator        | ~2.2s        |
+| iPhone 16 (old device)     | ~2.14s       |
+| Memory peak (JWT circuits) | 1.97 GiB     |
+
+### PC Benchmarks
+
+(MacBook Pro, 24 GB RAM, 14-core GPU, M4)
+
+| Operation                                         | Time        |
+| ------------------------------------------------- | ----------- |
+| Complete jwt_prove (include witness generation)   | 2.7 seconds |
+| Complete ecdsa_prove (include witness generation) | 69ms        |
