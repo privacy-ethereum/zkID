@@ -34,6 +34,7 @@ mod config_generator;
 mod ecdsa_circuit;
 mod jwt_circuit;
 mod setup;
+mod utils;
 
 fn main() {
     tracing_subscriber::fmt()

@@ -1,29 +1,13 @@
-use std::{collections::HashMap, env::current_dir, fs::File, str::FromStr};
+use std::{collections::HashMap, env::current_dir, fs::File};
 
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use circom_scotia::{reader::load_r1cs, synthesize};
-use rust_witness::BigInt;
 use serde_json::Value;
 use spartan2::traits::circuit::SpartanCircuit;
 
-use crate::{Scalar, E};
+use crate::{utils::*, Scalar, E};
 
 rust_witness::witness!(ecdsa);
-
-/// Helper function to convert BigInt witness to Scalar witness
-fn convert_bigint_to_scalar(bigint_witness: Vec<BigInt>) -> Vec<Scalar> {
-    bigint_witness
-        .iter()
-        .map(|bigint_val| {
-            let bytes = bigint_val.to_bytes_le().1;
-            let mut padded = bytes.clone();
-            // Pad to 32 bytes for Scalar
-            padded.resize(32, 0);
-            let array: [u8; 32] = padded.try_into().unwrap();
-            Scalar::from_bytes(&array).unwrap()
-        })
-        .collect()
-}
 
 // ecdsa/ecdsa.circom
 #[derive(Debug, Clone)]
@@ -49,34 +33,39 @@ impl SpartanCircuit<E> for ECDSACircuit {
 
         let json_value: Value =
             serde_json::from_reader(json_file).expect("Failed to parse ecdsa_input.json");
-        let mut inputs = HashMap::new();
 
-        // Parse ECDSA-specific inputs
+        // Parse inputs
+        let mut inputs = HashMap::new();
         inputs.insert(
             "s_inverse".to_string(),
-            vec![BigInt::from_str(json_value["s_inverse"].as_str().unwrap()).unwrap()],
+            vec![parse_bigint_scalar(&json_value, "s_inverse")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
         );
         inputs.insert(
             "r".to_string(),
-            vec![BigInt::from_str(json_value["r"].as_str().unwrap()).unwrap()],
+            vec![parse_bigint_scalar(&json_value, "r")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
         );
         inputs.insert(
             "m".to_string(),
-            vec![BigInt::from_str(json_value["m"].as_str().unwrap()).unwrap()],
+            vec![parse_bigint_scalar(&json_value, "m")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
         );
         inputs.insert(
             "pubKeyX".to_string(),
-            vec![BigInt::from_str(json_value["pubKeyX"].as_str().unwrap()).unwrap()],
+            vec![parse_bigint_scalar(&json_value, "pubKeyX")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
         );
         inputs.insert(
             "pubKeyY".to_string(),
-            vec![BigInt::from_str(json_value["pubKeyY"].as_str().unwrap()).unwrap()],
+            vec![parse_bigint_scalar(&json_value, "pubKeyY")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
         );
 
         // Generate witness using native Rust (rust-witness)
         let witness_bigint = ecdsa_witness(inputs);
 
-        let witness: Vec<Scalar> = convert_bigint_to_scalar(witness_bigint);
+        let witness: Vec<Scalar> = convert_bigint_to_scalar(witness_bigint)?;
         let r1cs = load_r1cs(r1cs);
         synthesize(cs, r1cs, Some(witness))?;
         Ok(())
