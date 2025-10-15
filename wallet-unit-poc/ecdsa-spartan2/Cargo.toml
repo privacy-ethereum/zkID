@@ -16,6 +16,10 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter", "time"] }
 sha2 = "0.10.7"
 bincode = "1.3.3"
 memmap2 = "0.9.8"
+rust-witness = "0.1.6"
+
+[build-dependencies]
+rust-witness = "0.1.6"
 
 [profile.release]
 debug = true

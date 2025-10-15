@@ -1,10 +1,13 @@
-use std::{env::current_dir, fs::File, io::Read, path::PathBuf};
+use std::{collections::HashMap, env::current_dir, fs::File};
 
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
-use circom_scotia::{generate_witness_from_wasm, r1cs::CircomConfig, synthesize};
+use circom_scotia::{reader::load_r1cs, synthesize};
+use serde_json::Value;
 use spartan2::traits::circuit::SpartanCircuit;
 
-use crate::{Scalar, E};
+use crate::{utils::*, Scalar, E};
+
+rust_witness::witness!(ecdsa);
 
 // ecdsa/ecdsa.circom
 #[derive(Debug, Clone)]
@@ -20,27 +23,51 @@ impl SpartanCircuit<E> for ECDSACircuit {
     ) -> Result<(), SynthesisError> {
         let root = current_dir().unwrap().join("../circom");
         let witness_dir = root.join("build/ecdsa/ecdsa_js");
-        let wtns = witness_dir.join("main.wasm");
         let r1cs = witness_dir.join("ecdsa.r1cs");
-
-        let witness_input_json: String = {
+        let json_file = {
             let path = current_dir()
                 .unwrap()
                 .join("../circom/inputs/ecdsa/default.json");
-            let mut file = File::open(path).unwrap();
-            let mut witness_input = String::new();
-            file.read_to_string(&mut witness_input).unwrap();
-            witness_input
+            File::open(path).expect("Failed to open ecdsa_input.json")
         };
 
-        let witness: Vec<_> = generate_witness_from_wasm(
-            witness_dir,
-            witness_input_json,
-            PathBuf::from("output.wtns"),
+        let json_value: Value =
+            serde_json::from_reader(json_file).expect("Failed to parse ecdsa_input.json");
+
+        // Parse inputs
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "s_inverse".to_string(),
+            vec![parse_bigint_scalar(&json_value, "s_inverse")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
+        );
+        inputs.insert(
+            "r".to_string(),
+            vec![parse_bigint_scalar(&json_value, "r")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
+        );
+        inputs.insert(
+            "m".to_string(),
+            vec![parse_bigint_scalar(&json_value, "m")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
+        );
+        inputs.insert(
+            "pubKeyX".to_string(),
+            vec![parse_bigint_scalar(&json_value, "pubKeyX")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
+        );
+        inputs.insert(
+            "pubKeyY".to_string(),
+            vec![parse_bigint_scalar(&json_value, "pubKeyY")
+                .map_err(|_| SynthesisError::AssignmentMissing)?],
         );
 
-        let cfg = CircomConfig::new(wtns, r1cs).unwrap();
-        synthesize(cs, cfg.r1cs.clone(), Some(witness))?;
+        // Generate witness using native Rust (rust-witness)
+        let witness_bigint = ecdsa_witness(inputs);
+
+        let witness: Vec<Scalar> = convert_bigint_to_scalar(witness_bigint)?;
+        let r1cs = load_r1cs(r1cs);
+        synthesize(cs, r1cs, Some(witness))?;
         Ok(())
     }
 
