@@ -45,7 +45,7 @@
 
 
 %%%% 4. TITLE %%%%
-\title{zkID technical report}
+\title{Technical Overview: zkID for the EUDI Wallet}
 %%%% NOTES:
 % - If the title is too long, or includes special macro, please
 %   provide a "running title" as optional argument: \title[Short]{Long}
@@ -117,32 +117,6 @@
 \label{sec:introduction}
 \input{intro}
 
-\section{Preliminaries - WIP}
-\label{sec:preliminaries}
-% \ndhy{This section is a work in progress. It will be completed in the next few days.}
-\input{preliminaries}
-\section{Our zkID}
-\label{sec:contribution}
-% \textit{main deliveries: 1. describe zkID; 2. the detailed construction}
-\input{zkID_construction.tex}
-
-\section{Experiments}
-\label{sec:experiments}
-% \begin{enumerate}
-%     \item What are the exact communication, computation, and storage costs of \begin{itemize}
-%         \item The PID Provider \& Verifier.
-%         \item User who uses a mobile (iOS, Android) or browser?
-%         \item The detailed cost of setup, proving, and verifying steps.
-%     \end{itemize}
-%     \item What is the minimum hardware configuration? 
-% \end{enumerate}
-
-% \textbf{We can extract the benchmark results from \href{https://hackmd.io/@clientsideproving/zkIDBenchmarks}{this doc} (it's \href{https://github.com/privacy-scaling-explorations/zkid-benchmarks}{git repo}) }
-
-% \jbel{Still waiting 1-2 weeks for benchmarks on the POC}
-
-% Notably, we also show the detailed comparison between our zkID and solutions from GG and Microsoft.
-
 \section{Application to EUDI}
 \label{sec:appeudi}
 
@@ -165,6 +139,12 @@
 \label{sec:security}
 
 \input{security}
+
+\section{Preliminaries - WIP}
+\label{sec:preliminaries}
+% \ndhy{This section is a work in progress. It will be completed in the next few days.}
+\input{preliminaries}
+
 % Give a detailed answer and analysis for:
 % \begin{itemize}
 %     \item Is the scheme a dishonest majority setting or something else? What happens when the setting is broken?
@@ -182,6 +162,27 @@
 % 	\item If it is not quantum resistant, how do we upgrade it to quantum resistant? -- it is quantum resistant
 % \end{itemize}
 
+\section{Our zkID}
+\label{sec:contribution}
+% \textit{main deliveries: 1. describe zkID; 2. the detailed construction}
+\input{zkID_construction.tex}
+
+\section{Experiments}
+\label{sec:experiments}
+% \begin{enumerate}
+%     \item What are the exact communication, computation, and storage costs of \begin{itemize}
+%         \item The PID Provider \& Verifier.
+%         \item User who uses a mobile (iOS, Android) or browser?
+%         \item The detailed cost of setup, proving, and verifying steps.
+%     \end{itemize}
+%     \item What is the minimum hardware configuration? 
+% \end{enumerate}
+
+% \textbf{We can extract the benchmark results from \href{https://hackmd.io/@clientsideproving/zkIDBenchmarks}{this doc} (it's \href{https://github.com/privacy-scaling-explorations/zkid-benchmarks}{git repo}) }
+
+% \jbel{Still waiting 1-2 weeks for benchmarks on the POC}
+
+% Notably, we also show the detailed comparison between our zkID and solutions from GG and Microsoft.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -197,7 +198,7 @@
 \section{Appendix: EUDI Annex 2 Requirements}
 \label{sec:annex}
 
-This secion is devoted to a review of the EUDI ARF's Annex 2, which covers high-level requirements for the EUDI Wallet. 
+This section is devoted to a review of the EUDI ARF's Annex 2, which covers high-level requirements for the EUDI Wallet. 
 The full Annex can be found \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/1.4.0/annexes/annex-2/annex-2-high-level-requirements/#a231-topic-1-accessing-public-and-private-online-services-with-eudi-wallet}{here}.
 
 \input{annex}
