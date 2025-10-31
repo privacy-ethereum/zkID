@@ -4,7 +4,6 @@ include "es256.circom";
 include "keyless_zk_proofs/hashtofield.circom";
 include "@zk-email/circuits/lib/sha.circom";
 include "claim-decoder.circom";
-include "age-verifier.circom";
 include "utils.circom";
 include "payload_matcher.circom";
 include "ec-extractor.circom";
@@ -12,7 +11,6 @@ include "ec-extractor.circom";
 // Prepare Circuit
 template JWT(
     maxMessageLength,
-    maxB64HeaderLength,
     maxB64PayloadLength,
 
     maxMatches,
@@ -45,40 +43,29 @@ template JWT(
     signal claimHashes[maxMatches][32] <== ClaimHasher(maxMatches, maxClaimsLength)(claims);
     ClaimComparator(maxMatches, maxSubstringLength)(claimHashes ,claimLengths, matchSubstring, matchLength);
 
-    component es256 = ES256(maxMessageLength);
-    es256.message <== message;
-    es256.messageLength <== messageLength;
-    es256.sig_r <== sig_r;
-    es256.sig_s_inverse <== sig_s_inverse;
-    es256.pubKeyX <== pubKeyX;
-    es256.pubKeyY <== pubKeyY;
+    // Verify the signature
+    ES256(maxMessageLength)(message, messageLength, sig_r, sig_s_inverse, pubKeyX, pubKeyY);
 
-    component extractor = HeaderPayloadExtractor(maxMessageLength,maxB64HeaderLength, maxB64PayloadLength);
-    extractor.message <== message;
-    extractor.messageLength <== messageLength;
-    extractor.periodIndex <== periodIndex;    
-
+    signal payload[maxPayloadLength] <== PayloadExtractor(maxMessageLength, maxB64PayloadLength)(message, messageLength, periodIndex);
 
     signal payloadHash <== PayloadSubstringMatcher(maxPayloadLength, maxMatches, maxSubstringLength)(
-        extractor.payload,
+        payload,
         matchesCount,
         matchSubstring,
         matchLength,
         matchIndex
     );
 
-    signal xValueStart <== matchIndex[0] + matchLength[0];
-    signal yValueStart <== matchIndex[1] + matchLength[1];
+  
+    component ecExtractor = ECPublicKeyExtractor_Optimized(maxPayloadLength, 32);
+    ecExtractor.payload <== payload;
+    ecExtractor.xStartIndex <==  matchIndex[0] + matchLength[0];
+    ecExtractor.yStartIndex <==  matchIndex[1] + matchLength[1];
 
-    // 32-byte coordinate -> 44 base64 characters (padding optional -> 43 or 44)
-    signal xValueEnd <== xValueStart + 43;
-    signal yValueEnd <== yValueStart + 43; 
-
-    component ecExtractor = ECPublicKeyExtractor(maxPayloadLength, maxClaimsLength, 44, 32);
-    ecExtractor.payload <== extractor.payload;
-    ecExtractor.xStartIndex <== xValueStart;
-    ecExtractor.yStartIndex <== yValueStart;
 
     signal output KeyBindingX <== ecExtractor.pubKeyX;
     signal output KeyBindingY <== ecExtractor.pubKeyY;
+
+    signal output messages[maxMatches][decodedLen];
+    messages <== decodedClaims; 
 }

@@ -2,5 +2,5 @@
   "version": "2.2.2",
   "protocol": "groth16",
   "prime": "secq256r1",
-  "optimization": 0
+  "optimization": 2
 }

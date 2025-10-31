@@ -1,4 +1,4 @@
-pragma circom 2.1.6;
+pragma circom 2.2.2;
 
 include "circomlib/circuits/poseidon.circom";
 include "circomlib/circuits/bitify.circom";
@@ -20,7 +20,7 @@ template ES256(
     signal input pubKeyX;
     signal input pubKeyY;
 
-    signal output sha[256];
+    signal sha[256];
 
     // Assert message length fits in ceil(log2(maxMessageLength))
     component n2bMessageLength = Num2Bits(log2Ceil(maxMessageLength));

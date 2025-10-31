@@ -1,6 +1,5 @@
 {
     "rust-analyzer.linkedProjects": [
         "./wallet-unit-poc/ecdsa-spartan2/Cargo.toml",
-        "./wallet-unit-poc/forks/Spartan2/Cargo.toml"
     ]
 }

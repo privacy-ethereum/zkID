@@ -2,7 +2,7 @@
   "jwt": {
     "file": "jwt",
     "template": "JWT",
-    "params": [2048, 256, 2000, 3, 50, 128]
+    "params": [2048, 2000, 4, 50, 128]
   },
   "ecdsa": {
     "file": "ecdsa/ecdsa",
