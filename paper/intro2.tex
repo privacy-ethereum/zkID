@@ -1,26 +1,39 @@
 According to the Cryptographers' Feedback on the EU Digital Identity’s ARF\footnote{\url{https://github.com/user-attachments/files/15904122/cryptographers-feedback.pdf}}, an Anonymous Credential AC scheme, is a suitable cryptographic primitive to instantiate the new EU Digital Identity Wallet (EUDIW) which is an important step towards developing interoperable digital identities in Europe for the public and private sectors.
 
-Informally speaking, an Anonymous Credential AC scheme allows:
-\begin{itemize}
-	\item An Identity Provider IP to (possibly blindly\footnote{i.e. the IP does not know the content that it signs, only its provenance is satisfied.}) sign a set of (eligible) attributes for a User U;
-	\item The User U can show, only if they hold the signed attributes (a.k.a Unforgebality), usually through a Presentation, to a Relying Party RP such that:
+\begin{framed}\footnotesize
+	Informally speaking, an \emph{Anonymous Credential} AC scheme allows:
 	\begin{itemize}
-		\item The RP can verify that the set of attributes (signed by IP) that the User U holds satisfy some condition of their interest (a.k.a Correctness);
-		\item The RP cannot learn any \emph{additional}\footnote{We stress that the RP may have obtained some privacy sensitive information prior to this presentation.} information beyond the fact that the condition is satisfied or information that can be inferred from the satisfaction of the condition (a.k.a Zero-Knowledge or Anonymity);
-		\item The immediate previous requirement also implies that the RP cannot link the various presentations by the same User U (a.k.a. Unlinkability);
+		\item An I\emph{dentity Provider} or \emph{Issuer} IP to (possibly blindly\footnote{i.e. the IP does not know the content that it signs, only its provenance is satisfied.}) sign a set of (eligible) attributes for a \emph{User} U;
+		\item The \emph{User} U can show, only if they hold the signed attributes (a.k.a \emph{Unforgebality}), usually through a \emph{Presentation}, to a \emph{Relying Party} RP such that:
+		\begin{itemize}
+			\item The RP can verify that the set of attributes (signed by IP) that the User U holds satisfy some condition of their interest (a.k.a Correctness);
+			\item The RP cannot learn any \emph{additional}\footnote{We stress that the RP may have obtained some privacy sensitive information prior to this presentation.} information beyond the fact that the condition is satisfied or information that can be inferred from the satisfaction of the condition (a.k.a Zero-Knowledge or Anonymity);
+			\item The immediate previous requirement also implies that the RP cannot link the various presentations by the same User U (a.k.a. Unlinkability);
+		\end{itemize}
+		\item The IP can revoke all or a part of the signed attributes that it has issued to the User U, from upon which, the eligible attributes of the User U are updated, and subsequent presentations have to be based on the new and updated attributes (a.k.a \emph{Revocation});
+		\item The User U cannot transfer its set of signed attributes to to another User U' (a.k.a \emph{Non-transferability}).
 	\end{itemize}
-	\item The IP can revoke all or a part of the signed attributes that it has issued to the User U, from upon which, the eligible attributes of the User U are updated, and subsequent presentations have to be based on the new and updated attributes (a.k.a Revocation);
-	\item The User U cannot transfer its set of signed attributes to to another User U' (a.k.a Non-transferability).
-\end{itemize}
+\end{framed}
 
-In the aforementioned feedback document, BBS and BBS+\footnote{For BBS, thanks to prior work by the W3C, the Decentralized Identity Foundation, IETF/IRTF, ISO, and other standardization bodies, as well as the availability of open-source software libraries, the EC can develop a standard and reference implementation with only a modest effort. The feedback additionally recommend that the EUDI be designed following the principle of crypto-agility, meaning that its underlying technologies can be upgraded quickly in the future if the need arises.} were promoted as the main candidate, besides that, there have been two independent work from Google and Microsoft that attempted to offer candidate solutions. In this document, we attempt to offer a new candidate, called \textbf{zkID}.
 
-In comparison, these approaches show the current trade-off: systems either reuse existing issuer infrastructure but pay high per-presentation costs, or they achieve fast online proofs at the price of large setups and pairing-based assumptions. Our construction, zkID, aims to combine issuer compatibility with reusable offline work, while remaining transparent and modular.
+In the aforementioned feedback document, BBS and BBS+
+%\footnote{For BBS, thanks to prior work by the W3C, the Decentralized Identity Foundation, IETF/IRTF, ISO, and other standardization bodies, as well as the availability of open-source software libraries, the EC can develop a standard and reference implementation with only a modest effort. The feedback additionally recommend that the EUDI be designed following the principle of crypto-agility, meaning that its underlying technologies can be upgraded quickly in the future if the need arises.} 
+were promoted as the main candidate, besides that, there have been two independent work from Google and Microsoft that attempted to offer candidate solutions. In this document, we attempt to offer a new candidate, called \textbf{zkID}.
+
+In comparison, these approaches show the current trade-off: systems either reuse existing issuer infrastructure but pay high per-presentation costs, or they achieve fast online proofs at the price of large setups and pairing-based assumptions. 
+\begin{quote}
+	\emph{Our construction, zkID, aims to combine issuer compatibility with reusable offline work, while remaining transparent and modular.}
+\end{quote}
+
 
 \subsection{Related Work}
-Let us first outline a reference architecture that represents what an anonymous-credential system would ideally look like if it is to integrate smoothly with current infrastructures. In this model, the issuer is treated as fixed components that continue to use their existing public-key algorithms (such as RSA or ECDSA) and standard credential formats (e.g., JWT or mDL), since it's typically difficult to change once deployed. All additional logic is placed in the user’s wallet and the verifier.
-The wallet is expected to operate in two stages: an offline Prepare step, which verifies the issuer’s signature once using standard libraries, parses and normalizes credential attributes (for example, turning a date of birth into an integer age), and commits to those attributes using a binding and hiding commitment scheme (a cryptographic way to lock values so they can later be revealed or proven in restricted form); and an online Show step, which runs per presentation, where the wallet selects only the attributes or predicates required by a relying party’s policy, proves them in zero knowledge against the stored commitments, and includes a fresh device signature over the session challenge to ensure the proof is tied to the holder’s device.
-A further requirement is modularity: each major function---issuer signature verification, attribute commitment, predicate proofs, and device binding---should be defined as a separate module with a clear interface. This separation makes it possible to swap the underlying proof engine (for example, using a SNARK today or a post-quantum proof system in the future) without requiring changes to parts of the system that are costly or impractical to modify. The purpose of this modular view is to act as a comparison framework: it outlines how a deployment-friendly anonymous-credential stack could be structured, making it easier to compare proposals by the modules they cover, the constraints they address, and the trade-offs they make.
+\paragraph{Setting the AC Framework.}
+Let us first outline a reference architecture that represents what an anonymous-credential system would ideally look like if it is to integrate smoothly with current infrastructures. 
+In this model, the \emph{Issuer} is treated as fixed components that continue to use their existing public-key algorithms (such as RSA or ECDSA) and standard credential formats (e.g., JWT or mDL), since it's typically difficult to change once deployed. All additional logic is placed in the user’s wallet and the verifier.
+
+The wallet is expected to operate in two stages: an offline \emph{Prepare} step, which verifies the Issuer’s signature once using standard libraries, parses and normalizes credential attributes (for example, turning a date of birth into an integer age), and commits to those attributes using a binding and hiding commitment scheme (a cryptographic way to lock values so they can later be revealed or proven in restricted form); and an online \emph{Show} step, which runs per presentation, where the wallet selects only the attributes or predicates required by a \emph{Relying Party}’s policy, proves them in zero knowledge against the stored commitments, and includes a fresh device signature over the session challenge to ensure the proof is tied to the holder’s device.
+
+A further requirement is \emph{modularity}: each major function---issuer signature verification, attribute commitment, predicate proofs, and device binding---should be defined as a separate module with a clear interface. This separation makes it possible to swap the underlying proof engine (for example, using a SNARK today or a post-quantum proof system in the future) without requiring changes to parts of the system that are costly or impractical to modify. The purpose of this modular view is to act as a comparison framework: it outlines how a deployment-friendly anonymous-credential stack could be structured, making it easier to compare proposals by the modules they cover, the constraints they address, and the trade-offs they make.
 
 \paragraph{BBS-based anonymous credentials.~\cite{baum2024cryptographers}}
 BBS-based anonymous credentials are recommended in public feedback for the EUDI wallet as a way to meet the program’s requirement that presentations must not be tracked, linked, or correlated~\cite{baum2024cryptographers}.
