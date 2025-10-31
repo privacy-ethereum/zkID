@@ -2,19 +2,19 @@
 
 \noindent The EUDI Annex~2 covers over fifty topics spanning cryptographic guarantees, privacy, trust infrastructure, wallet lifecycle management, and product-level usability. We cluster the requirements into four classes depending on their relationship to the zkID protocol itself:
 
-\begin{enumerate}[label=\textbf{Group \Alph*:}]
-  \item \textbf{Directly satisfied by zkID.} \\
+\begin{description}
+  \item[Group A] \textbf{Directly satisfied by zkID.} \\
   Requirements that are already implemented by the zkID protocol as described in Sections~\S5--\S5.3, without additional assumptions or infrastructure. These are shown in Table~A.
 
-  \item \textbf{Satisfied with minor extensions.} \\
+  \item[Group B] \textbf{Satisfied with minor extensions.} \\
   Requirements that can be met by trivial modifications or configuration changes to zkID’s proving circuits, predicates, or interface (for instance, adding a new predicate or exposing one more public input). No new trust anchor or cryptographic primitive is required. These appear in Table~B.
 
-  \item \textbf{Depend on external systems or operational flows.} \\
+  \item[Group C] \textbf{Depend on external systems or operational flows.} \\
   Requirements that require the presence of registries, PKI governance, revocation lists, wallet attestation management, or other policy frameworks external to the proving layer. zkID integrates with these systems but does not replace them. These are summarized in Table~C.
 
-  \item \textbf{Product / UX / policy-facing requirements.} \\
+  \item[Group D] \textbf{Product / UX / policy-facing requirements.} \\
   Requirements that concern wallet behaviour, user experience, accessibility, or legal presentation. These fall outside the scope of cryptographic protocol design but are compatible with zkID’s guarantees. These are listed in Table~D.
-\end{enumerate}
+\end{description}
 
 \medskip
 \noindent
