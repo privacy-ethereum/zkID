@@ -178,143 +178,40 @@ Recall that Spartan converts an R1CS constraint into the following zero-check:
 
 for some random challenge $\tau \in \mathbb{F}$
 
-There are two components in Spartan that we need to modify to be ZK. 
-The first is making the sumchecks ZK. 
-The second is to ensure that the opening $\widetilde{Z}$ using the commitment to $\vec{Z}$ does not leak information about our witness $\vec{w}$.
+We will blind the evaluations of $z, a, b, c$ using random elements at the constraint system level. We insert into $z$ at the end of $r$ four random values to construct $z'$
+$$z' = s \| p \| r \| (s_0, s_1, s_2, s_3) \| 1 \| x.$$
 
-\subsubsection{Adding ZK to sumcheck}
+Then we insert three constraints into $A, B, C$ to construct modified matrices $A', B', C'.$ These constraints are
+\begin{align}
+    s_0 \times 0 &= 0 \\
+    0 \times s_1 &= 0 \\
+    s_2 \times 1 &= s_2
+\end{align}
 
-The Spartan protocol consists of several sumchecks in parallel and operates over some field $\mathbb{F}$. There are various existing techniques to make sumcheck ZK. 
-We employ one using similar methods as in Zhang et. al. \cite{cryptoeprint:2019/1482}, which adds uniformly random pads to the sumcheck transcript.
+These force one random value into each of the MLEs for $a' = A' z'$ etc. In this way, the evaluations of $a'(\rho), b'(\rho), c'(\rho), z'(\rho)$ are independent of the witness $w$.
 
-In particular, suppose at each round $i$ of the sumcheck protocol, the prover sends over $s_i(X) := \sum_{} F(r_1, \dots, r_{i-1}, X, x_{i+1}, \dots, x_m)$ 
-where $r_i$ is the Verifier challenge sent for round $i$. Then instead of having the verifier check the sumcheck, the prover will prove in ZK that the unpadded transcript satisfies the verifier's (linear) checks.
-To do this, the prover will need to commit to the uniformly random pads ahead of time. 
-Then, as long as the Fiat-shamir challenges is generated from the transcript including these random pad commitments, the prover cannot simply lie about the pads to satisfy the sumcheck relation.
+\subsubsection{Blinding Sumchecks}
+To blind a sumcheck, we use the technique of Virgo. That is, for an $n$ round, degree $d$ sumcheck, we commit $n$ random univariate masking polynomials of degree $d,$ one for each round of the sumcheck. Then, given the evaluations we verify that the result of the sumcheck equals minus the evaluation is equal to an approriate linear combination of the masking polynomial evaluations. 
 
-\begin{mdframed}[style=zkprotocolwithheader, frametitle=Adding ZK to sumcheck]
-    \begin{enumerate}
-        \item Prover commits to pads $R_i(X) \rand \mathbb{F}_1[x]$ for all $i \in [\log n]$. These are linear polynomials, and can thus be represented by its two coefficients $R_i[0]$ and $R_i[1]$.
-        \item Instead of sending partial sums 
-        \begin{equation*}
-        s_i(X) := \sum_{(x_{i+1}, \dots, x_n) \in \{0,1\}^{n-i}} F(r_1, \dots, r_{i-1}, X, x_{i+1}, \dots, x_n)
-        \end{equation*}
-        for each round of sumcheck, the Prover sends polys $s'_i(X) = s_i(X) + R_i(X)$, essentially a one-time-padded transcript.
-        \item It suffices to show the following linear relation in zero-knowledge, 
-        \begin{equation*}
-        \left[\begin{array}{c|c|c}
-        A & B & C
-        \end{array}\right]
-        \left[\begin{array}{c}
-            \vec{S} \\
-            \hline
-            \vec{R} \\
-            \hline
-            C \\
-            F(r) \\
-        \end{array}\right]
-        = 
-        \vec{0}
-        \end{equation*}
-        where
-        \[
-        \vec{S} = 
-        \bigl[\, s'_1[0], s'_1[1], \dots, s'_n[0], s'_n[1] \,\bigr]^{\mathsf T}, 
-        \]
-        is the column vector of sumcheck transcripts such that $s'_i = s'_i(X) = s'_i[0]X + s'_i[1]$, and
-        \[
-        \vec{R} = 
-        \bigl[\, R_1[0], R_1[1], \dots, R_n[0], R_n[1] \,\bigr]^{\mathsf T},
-        \]
-        is the column vector of random pads, and where matrices $A,B,C$ are given by
+The prover first commits to a sequence of $d$ values $\big( m_{i,x} \big)_{i \in [n], x \in \{ 0, 2..d\}}.$ Then in each round of the sumcheck, the prover will instead send
+$$ \mathcal{P} \rightarrow \mathcal{V} : \big( m_{i,x} + f_i(x) \big)_{x \in \{0, 2..d\}}. $$
 
-        \[
-        A = 
-        \left[
-        \begin{array}{*{12}{c}}
-            1      & 2      & 0      & 0      & 0      & 0      & 0      & \cdots & 0      & 0      & 0      & 0      \\
-            -r_1   & -1     & 1      & 2      & 0      & 0      & 0      & \cdots & 0      & 0      & 0      & 0      \\
-            0      & 0      & -r_2   & -1     & 1      & 2      & 0      & \cdots & 0      & 0      & 0      & 0      \\
-            \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots & \vdots & \vdots \\
-            0      & 0      & 0      & 0      & 0      & 0      & 0      & \cdots & -r_{n-1}& -1    & 1      & 2      \\
-            0      & 0      & 0      & 0      & 0      & 0      & 0      & \cdots & 0      & 0      & r_n    & 1      \\
-        \end{array}
-        \right]
-        \]
-        \[
-        B = 
-        \left[
-        \begin{array}{*{12}{c}}
-            -1     & -2     & 0      & 0      & 0      & 0      & 0      & \cdots & 0      & 0      & 0      & 0      \\
-            r_1    & 1      & -1     & -2     & 0      & 0      & 0      & \cdots & 0      & 0      & 0      & 0      \\
-            0      & 0      & r_2    & 1      & -1     & -2     & 0      & \cdots & 0      & 0      & 0      & 0      \\
-            \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \ddots & \vdots & \vdots & \vdots & \vdots \\
-            0      & 0      & 0      & 0      & 0      & 0      & 0      & \cdots & r_{n-1}& 1      & -1     & -2     \\
-            0      & 0      & 0      & 0      & 0      & 0      & 0      & \cdots & 0      & 0      & -r_n   & -1     \\
-        \end{array}
-        \right]
-        \]
-        \begin{equation*}
-            C = 
-            \begin{bmatrix}
-                -1 & 0 \\
-                0 & 0 \\
-                0 & 0\\
-                \vdots & \vdots \\
-                0 & 0\\
-                0 & -1\\
-            \end{bmatrix}
-        \end{equation*}
+From which the verifier can interpolate the "blinded" $f'_i(X)$ and the blinded partial sum $\sigma'_i = f'_i(\alpha_i).$ Once again, we use $f'_i(1) = \sigma_{i-1} - f'_i(0)$ and $\sigma'_0 = \sigma_0.$
 
-    \item The Prover computes a public random challenge $\alpha$ (e.g. hashing the transcript) and compresses the relation into a dot product
-    \begin{equation} \label{eqn:rlc-vector-reln}
-        [\vec{u}]
-        \left[\begin{array}{c}
-            \vec{S} \\
-            \hline
-            \vec{R} \\
-            \hline
-            C \\
-            F(r) \\
-        \end{array}\right]
-        = 
-        \vec{0}
-    \end{equation}
-    where $\vec{u} = [1, \alpha, \alpha^2, \dots, \alpha^n] \left[\begin{array}{c|c|c}
-        A & B & C
-    \end{array}\right]$ is a random linear combination of the rows.
-    \item The Prover and Verifier engage in a proof-of-dot product protocol to prove the relation above, such as an Inner Product Argument used in Bulletproofs \cite{cryptoeprint:2017/1066}
-    \end{enumerate}
-\end{mdframed}
+Then we will replace the final consistency check with a zero knowledge proof $\pi$ of $m = \big( m_{i,x} \big)_{i \in [n], x \in \{0, 2..d\}}$ subject to the relation
+$$ \mathcal{R} = \bigg\{ \big(\sigma'_n, F(\alpha) ; m \big) :\sigma'_n - F(\alpha) = \big\langle m, \ell(\alpha) \big\rangle \bigg\}. $$
 
-\subsubsection{Adding ZK to the opening of $\widetilde{Z}$}\label{subsubsec:zk-open-Z}
+We do this using a zk IPA protocol. Note this is not hiding of the evaluation of $F(\alpha)$ or the sumcheck value $\sigma_0.$
 
-In order to add ZK to the opening of, we simply ``append'' $Z$ with uniformly random pads. 
-Specifically, we assign random evaluations $Z(x) \rand \mathbb{F}$ on any remaining point in the hypercube $x \in \{0,1\}^{\log n}$.
-Then, we see that $\widetilde{Z'}(x_1, \dots, x_{\log n}) = \widetilde{Z}(x_1, \dots, x_{\log n}) + eq(r, x)Z(x)$. 
-Note that now $\widetilde{Z'}(x_1, \dots, x_{\log n})$ is distributed uniformly at random.
-If $n=|Z|$ is not already a power of $2$, then we can simply fill at least one of the remaining evaluations on $\{0,1\}^{\log n}$ with a single random pad. 
-If $n=2^m$, we can add another dimension to the hypercube of evaluations of $Z$. 
+\subsubsection{Analysis}
+To show this protocol is zk, we argue in three steps. First, we assume that the PCS and IPA protocols are zk. Thus, it is sufficient to show that given both (blinded) sumcheck transcripts and the evaluations of the MLEs $a'(\alpha), b'(\alpha), c'(\alpha), z'(\alpha')$ we learn nothing about $w.$
 
-    % 1. Prover commits to pads r_i(X) (just linear polys)
-    % 2. Prover sends over padded transcript
-    % 3. Prover and verifier engage in mini SNARK to prove linear relations (using a ZK dot product)
-    % 4. Prover has to show opening - using a zk dot product (e.g. IPA)
+The Simulator $\mathcal{S}$ first chooses any witness $z,$ a random $m$ vector, and random commitment $cm(m).$ This is possible because the IPA is zero knowledge. Then, $\mathcal{S}$ will choose uniformly random values for all $$\big( {f'_i}^{(\textsf{inner})}(x), {g'_j}^{(\textsf{outer})}(x) \big)_{i \in [n], j \in [m], x \in \{0, 2..d\}}$$ and for the evaluations $a'(\alpha), b'(\alpha), c'(\alpha).$ $\mathcal{S}$ will calculate the final witness opening as
+$$ z'(\alpha') = \frac{\sigma_n' - \big\langle m, \ell(\alpha) \big\rangle}{A(\alpha, \alpha') + \chi B(\alpha, \alpha') + \chi^2 C(\alpha, \alpha')}. $$
 
-% for i = 1: 
-% linear constraint s'_i(0)-r_i(0) + s'_i(1)-r_i(1) = C
-% for i = 2 to m (where m = log n)
-% linear constraint s'_i(0)-r_i(0) + s'_i(1)-r_i(1) = s'_{i-1}(r_{i-1})-r'_{i-1}(r_{i-1})
+Then, the verifier can solve a system of linear equations to find a unique $(s_0, s_1, s_2, s_3)$ and construct a random polynomial commitment for the opening of $z'$ to $z'(\alpha').$ This is because the PCS is zk.
 
-% check s'_m(r_m)-r_i(r_m) = f_r where f_r is the claimed value of f(r_1, ... r_m)
-% in a separate zkproof, check the opening of f(r_1, ... r_m) from the commitment of f with an IPA
-
-% can use the IPA extractor to construct the snark witness extractor 
-% IPA proof of knowledge soundness is in the bulletproof paper Appendix A: (https://eprint.iacr.org/2017/1066.pdf) 
-% IPA extractor - proves you know/can get the vectors satisfying to the product relation, 
-% which means can extract pads such that, when subtracted from sumcheck transcript, creates valid sumcheck transcript
-% which is equivalent to extracting a valid transcript for spartan sumchecks, 
-% which is equivalent to knowing witness passing the relation.
+Since the verifier performs one linear check, this yields a uniformly random valid transcript for the challenges $(\rho, \alpha, \chi, \alpha').$
 
 \subsection{Cost analysis}
 
