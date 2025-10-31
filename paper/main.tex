@@ -21,6 +21,9 @@
 \usepackage{enumitem}
 \usepackage{hyperref}
 \usepackage{longtable}
+\usepackage{pdflscape}
+
+\usepackage{framed}
 
 \setcounter{MaxMatrixCols}{30}
 
@@ -31,18 +34,20 @@
 \newcommand{\rand}{\overset{{\scriptscriptstyle\$}}{\leftarrow}}
 
 %%%% 3. AUTHOR, INSTITUTE %%%%
-\author{Jane Doe\inst{1,2} \and John Doe\inst{1}}
-\institute{
-  Institute A, City, Country, \email{jane@institute}
-  \and
-  Institute B, City, Country, \email{john@institute}
-}
+%\author{Jane Doe\inst{1,2} \and John Doe\inst{1}}
+%\institute{
+%  Institute A, City, Country, \email{jane@institute}
+%  \and
+%  Institute B, City, Country, \email{john@institute}
+%}
 %%%% NOTES:
 % - We need a city name for indexation purpose, even if it is redundant
 %   (eg: University of Atlantis, Atlantis, Atlantis)
 % - \inst{} can be omitted if there is a single institute,
 %   or exactly one institute per author
 
+\author{The zkID Team}
+\institute{ Ethereum Foundation}
 
 %%%% 4. TITLE %%%%
 \title{Technical Overview: zkID for the EUDI Wallet}
@@ -61,9 +66,9 @@
 
 
 %%%% 6. ABSTRACT %%%%
-\begin{abstract}
-  Main deliveries: 1. Technical report on zk component for the digital id wallet 2. A comparison with current works 3. Applying to EUDI.
-\end{abstract}
+%\begin{abstract}
+%  Main deliveries: 1. Technical report on zk component for the digital id wallet 2. A comparison with current works 3. Applying to EUDI.
+%\end{abstract}
 
 
 %%%% 7. PAPER CONTENT %%%%
@@ -115,7 +120,8 @@
 
 \section{Introduction}
 \label{sec:introduction}
-\input{intro}
+%\input{intro}
+\input{intro2}
 
 \section{Application to EUDI}
 \label{sec:appeudi}
@@ -188,6 +194,17 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
+\clearpage
+\section*{Contributors and Acknowledgement}
+\begin{description}
+	\item[Ying Tong] description
+	\item[Hy Ngo]
+	\item[Janabel]
+\end{description}
+
+We thanks X Y Z (Nam Zoey and everyone who said something or helped with something) for ...
+
+\clearpage
 %%%% 8. BILBIOGRAPHY %%%%
 \bibliographystyle{alpha}
 \bibliography{abbrev0,crypto,biblio,references}
@@ -196,12 +213,13 @@
 % - Use biblio.bib for additional references not in the cryptobib database.
 %   If possible, take them from DBLP.
 
+\clearpage
 \section{Appendix: EUDI Annex 2 Requirements}
 \label{sec:annex}
 
 This section is devoted to a review of the EUDI ARF's Annex 2, which covers high-level requirements for the EUDI Wallet. 
 The full Annex can be found \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/1.4.0/annexes/annex-2/annex-2-high-level-requirements/#a231-topic-1-accessing-public-and-private-online-services-with-eudi-wallet}{here}.
 
-\input{annex}
+\input{annex2}
 
 \end{document}
