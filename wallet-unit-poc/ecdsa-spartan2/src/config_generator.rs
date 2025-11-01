@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crate::{
     ecdsa_circuit::ECDSACircuit,
-    jwt_circuit::JWTCircuit,
+    prepare_circuit::PrepareCircuit,
     setup::{load_keys, load_proving_key},
     E,
 };
@@ -44,7 +44,7 @@ pub fn prove_ecdsa() {
 }
 
 pub fn prove_jwt() {
-    let circuit = JWTCircuit;
+    let circuit = PrepareCircuit;
     let pk_path = "keys/jwt_proving.key";
 
     // load_proving_chunked_key also can be used here
