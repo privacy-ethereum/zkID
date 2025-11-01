@@ -2,7 +2,7 @@ import { p256 } from "@noble/curves/p256";
 import { sha256Pad } from "@zk-email/helpers";
 import { sha256 } from "@noble/hashes/sha2";
 import { strict as assert } from "assert";
-import { bigintToLimbs, extractXYFromPEM, base64ToBigInt, uint8ArrayToBigIntArray } from "./utils.ts";
+import { extractXYFromPEM, base64ToBigInt, base64urlToBase64, uint8ArrayToBigIntArray } from "./utils.ts";
 import { Field } from "@noble/curves/abstract/modular";
 
 // ES256 Circuit Parameters
@@ -58,7 +58,7 @@ export function generateES256Inputs(
   } else {
     assert.ok(pk.kty == "EC");
     assert.ok(pk.crv == "P-256");
-    [x, y] = [base64ToBigInt(pk.x), base64ToBigInt(pk.y)];
+    [x, y] = [base64ToBigInt(base64urlToBase64(pk.x)), base64ToBigInt(base64urlToBase64(pk.y))];
   }
 
   // internal check

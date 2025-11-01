@@ -1,5 +1,5 @@
 import { WitnessTester } from "circomkit";
-import { circomkit } from "./common";
+import { circomkit } from "../common";
 import { assert } from "console";
 
 describe("AgeVerifier", () => {
@@ -10,7 +10,7 @@ describe("AgeVerifier", () => {
 
   before(async () => {
     circuit = await circomkit.WitnessTester("AgeVerifier", {
-      file: "age-verifier",
+      file: "components/age-verifier",
       template: "AgeVerifier",
       params: [byteLength],
       recompile: true,
@@ -47,7 +47,7 @@ describe("AgeExtractor", () => {
 
   before(async () => {
     circuit = await circomkit.WitnessTester("AgeExtractor", {
-      file: "age-verifier",
+      file: "components/age-verifier",
       template: "AgeExtractor",
       params: [],
       recompile: true,

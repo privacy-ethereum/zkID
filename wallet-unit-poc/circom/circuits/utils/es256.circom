@@ -1,4 +1,4 @@
-pragma circom 2.2.2;
+pragma circom 2.2.3;
 
 include "circomlib/circuits/poseidon.circom";
 include "circomlib/circuits/bitify.circom";
@@ -6,7 +6,7 @@ include "@zk-email/circuits/utils/array.circom";
 include "@zk-email/circuits/utils/hash.circom";
 include "@zk-email/circuits/lib/sha.circom";
 include "@zk-email/circuits/lib/base64.circom";
-include "ecdsa/ecdsa.circom";
+include "../ecdsa/ecdsa.circom";
 include "utils.circom";
 
 template ES256(

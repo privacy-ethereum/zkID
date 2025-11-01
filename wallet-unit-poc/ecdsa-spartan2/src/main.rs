@@ -1,26 +1,28 @@
-//! Measure Spartan-2 {setup, gen_witness, prove, verify} times for either ECDSA or JWT circuits.
+//! Measure Spartan-2 {setup, gen_witness, prove, verify} times for ECDSA, Prepare, and Show circuits.
 //!
 //! Usage:
 //!   RUST_LOG=info cargo run --release -- ecdsa
 //!   RUST_LOG=info cargo run --release -- jwt
+//!   RUST_LOG=info cargo run --release -- show
 //!
-//! To benchmark only Spartan sum-check + Hyrax for ECDSA/JWT:
+//! To benchmark only Spartan sum-check + Hyrax for ECDSA/Prepare:
 //!   RUST_LOG=info cargo run --release -- prove_jwt
 //!   RUST_LOG=info cargo run --release -- prove_ecdsa
 //!
 //! To setup the ECDSA circuit:
 //!   RUST_LOG=info cargo run --release -- setup_ecdsa
 //!
-//! To setup the JWT circuit:
+//! To setup the Prepare circuit:
 //!   RUST_LOG=info cargo run --release -- setup_jwt
 //!
-//! To setup the chunked JWT circuit:
+//! To setup the chunked Prepare circuit:
 //!   RUST_LOG=info cargo run --release -- setup_chunked_jwt
 
 use crate::config_generator::{prove_ecdsa, prove_jwt};
 use crate::ecdsa_circuit::ECDSACircuit;
-use crate::jwt_circuit::JWTCircuit;
+use crate::prepare_circuit::PrepareCircuit;
 use crate::setup::{run_circuit, setup_ecdsa_keys, setup_jwt_chunked_keys, setup_jwt_keys};
+use crate::show_circuit::ShowCircuit;
 
 use spartan2::{provider::T256HyraxEngine, traits::Engine};
 use std::env::args;
@@ -32,8 +34,9 @@ pub type Scalar = <E as Engine>::Scalar;
 
 mod config_generator;
 mod ecdsa_circuit;
-mod jwt_circuit;
+mod prepare_circuit;
 mod setup;
+mod show_circuit;
 mod utils;
 
 fn main() {
@@ -60,16 +63,16 @@ fn main() {
             info!("Running ECDSA circuit with ZK-Spartan");
             run_circuit(ECDSACircuit);
         }
-        "jwt" => {
-            info!("Running JWT circuit with ZK-Spartan");
-            run_circuit(JWTCircuit);
+        "jwt" | "prepare" => {
+            info!("Running Prepare circuit with ZK-Spartan");
+            run_circuit(PrepareCircuit);
         }
-        "zk_sumcheck_jwt" => {
-            info!("Running JWT ZK-Sumcheck benchmark");
-            // TODO: add zk_sumcheck benchmarks here
+        "show" => {
+            info!("Running Show circuit with ZK-Spartan");
+            run_circuit(ShowCircuit);
         }
-        "prove_jwt" => {
-            info!("Spartan sumcheck + Hyrax PCS JWT");
+        "prove_jwt" | "prove_prepare" => {
+            info!("Spartan sumcheck + Hyrax PCS Prepare");
             prove_jwt();
         }
         "prove_ecdsa" => {

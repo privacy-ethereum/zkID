@@ -11,7 +11,7 @@ use spartan2::{
 };
 use tracing::info;
 
-use crate::{ecdsa_circuit::ECDSACircuit, jwt_circuit::JWTCircuit, E};
+use crate::{ecdsa_circuit::ECDSACircuit, prepare_circuit::PrepareCircuit, E};
 use memmap2::MmapOptions;
 
 pub fn run_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(circuit: C) {
@@ -208,7 +208,7 @@ pub fn setup_ecdsa_keys() {
 
 pub fn setup_jwt_keys() {
     info!("=== JWT Setup (ZK-Spartan): Generating and saving keys ===");
-    let circuit = JWTCircuit;
+    let circuit = PrepareCircuit;
 
     let t0 = Instant::now();
     let (pk, vk) = R1CSSNARK::<E>::setup(circuit.clone()).expect("setup failed");
@@ -234,7 +234,7 @@ pub fn setup_jwt_keys() {
 
 pub fn setup_jwt_chunked_keys() {
     info!("=== Chunked JWT Setup (ZK-Spartan): Generating and saving keys ===");
-    let circuit = JWTCircuit;
+    let circuit = PrepareCircuit;
 
     let t0 = Instant::now();
     let (pk, _) = R1CSSNARK::<E>::setup(circuit.clone()).expect("setup failed");

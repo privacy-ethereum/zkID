@@ -33,11 +33,15 @@ export function bufferToBigInt(buffer: Buffer) {
   return BigInt("0x" + buffer.toString("hex"));
 }
 
-// Convert a base64 string to a BigInt
 export function base64ToBigInt(base64Str: string) {
   const buffer = Buffer.from(base64Str, "base64");
   const hex = buffer.toString("hex");
   return BigInt("0x" + hex);
+}
+
+export function base64urlToBigInt(base64urlStr: string) {
+  const b64 = base64urlToBase64(base64urlStr);
+  return base64ToBigInt(b64);
 }
 
 export function uint8ArrayToBigIntArray(msg: Uint8Array): bigint[] {
@@ -97,3 +101,28 @@ export const base64urlToBase64 = (b64url: string) => {
   const pad = (4 - (b64.length % 4)) % 4;
   return b64 + "=".repeat(pad);
 };
+
+export function bigintToBase64url(value: bigint): string {
+  const hex = value.toString(16).padStart(64, "0");
+  return Buffer.from(hex, "hex").toString("base64url");
+}
+
+export function pointToJwk(point: { x: bigint; y: bigint }): { kty: string; crv: string; x: string; y: string } {
+  return {
+    kty: "EC",
+    crv: "P-256",
+    x: bigintToBase64url(point.x),
+    y: bigintToBase64url(point.y),
+  };
+}
+
+export function generateDidKey(publicKey: { x: string; y: string }): string {
+  const bs58 = require("bs58");
+  const xBuffer = Buffer.from(publicKey.x, "base64url");
+  const yBuffer = Buffer.from(publicKey.y, "base64url");
+  const multicodecPrefix = Buffer.from([0xeb, 0x01, 0x00]);
+  const uncompressedFlag = Buffer.from([0x04]);
+  const keyBytes = Buffer.concat([multicodecPrefix, uncompressedFlag, xBuffer, yBuffer]);
+  const encoded = (bs58.default || bs58).encode(keyBytes);
+  return `did:key:z${encoded}`;
+}

@@ -12,9 +12,9 @@ rust_witness::witness!(jwt);
 
 // jwt.circom
 #[derive(Debug, Clone)]
-pub struct JWTCircuit;
+pub struct PrepareCircuit;
 
-impl SpartanCircuit<E> for JWTCircuit {
+impl SpartanCircuit<E> for PrepareCircuit {
     fn synthesize<CS: ConstraintSystem<Scalar>>(
         &self,
         cs: &mut CS,

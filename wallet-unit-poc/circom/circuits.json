@@ -4,6 +4,11 @@
     "template": "JWT",
     "params": [2048, 2000, 4, 50, 128]
   },
+  "show": {
+    "file": "show",
+    "template": "Show",
+    "params": [256]
+  },
   "ecdsa": {
     "file": "ecdsa/ecdsa",
     "template": "ECDSA",

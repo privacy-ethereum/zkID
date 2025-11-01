@@ -1,8 +1,8 @@
 pragma circom 2.1.6;
 
-include "keyless_zk_proofs/arrays.circom";
+include "../keyless_zk_proofs/arrays.circom";
 include "circomlib/circuits/comparators.circom";
-include "utils.circom";
+include "../utils/utils.circom";
 
 template ECPublicKeyExtractor(maxPayloadLength, valueCharLen, expectedB64Len, coordinateByteLen) {
     signal input payload[maxPayloadLength];
@@ -51,42 +51,39 @@ template ECPublicKeyExtractor(maxPayloadLength, valueCharLen, expectedB64Len, co
     pubKeyY <== yToNumber.out;
 }
 
-// Optimized version using bulk extraction (VarShiftLeft) instead of per-character selection
 template ECPublicKeyExtractor_Optimized(maxPayloadLength, coordinateByteLen) {
     signal input payload[maxPayloadLength];
     signal input xStartIndex;
     signal input yStartIndex;
-    
+
     signal output pubKeyX;
     signal output pubKeyY;
-    
-    // Extract 44-char base64 strings in bulk    
+
     component xExtractor = VarShiftLeft(maxPayloadLength, 44);
     xExtractor.in <== payload;
     xExtractor.shift <== xStartIndex;
-    
+
     component yExtractor = VarShiftLeft(maxPayloadLength, 44);
     yExtractor.in <== payload;
     yExtractor.shift <== yStartIndex;
-    
+
     signal xBase64[44] <== xExtractor.out;
     signal yBase64[44] <== yExtractor.out;
 
-    // Decode base64url -> bytes
     component decodeX = DecodeSD(44, coordinateByteLen);
     decodeX.sdBytes <== xBase64;
     decodeX.sdLen <== 43;
-    
+
     component decodeY = DecodeSD(44, coordinateByteLen);
-    decodeY.sdBytes <== yBase64;  
+    decodeY.sdBytes <== yBase64;
     decodeY.sdLen <== 43;
-    
+
     component xToNumber = BytesToNumberBE(coordinateByteLen);
     xToNumber.in <== decodeX.base64Out;
-    
+
     component yToNumber = BytesToNumberBE(coordinateByteLen);
     yToNumber.in <== decodeY.base64Out;
-    
+
     pubKeyX <== xToNumber.out;
     pubKeyY <== yToNumber.out;
 }
