@@ -21,6 +21,7 @@ use crate::config_generator::{prove_ecdsa, prove_jwt};
 use crate::ecdsa_circuit::ECDSACircuit;
 use crate::jwt_circuit::JWTCircuit;
 use crate::setup::{run_circuit, setup_ecdsa_keys, setup_jwt_chunked_keys, setup_jwt_keys};
+use crate::show_circuit::ShowCircuit;
 
 use spartan2::{provider::T256HyraxEngine, traits::Engine};
 use std::env::args;
@@ -34,6 +35,7 @@ mod config_generator;
 mod ecdsa_circuit;
 mod jwt_circuit;
 mod setup;
+mod show_circuit;
 mod utils;
 
 fn main() {
@@ -63,6 +65,10 @@ fn main() {
         "jwt" => {
             info!("Running JWT circuit with ZK-Spartan");
             run_circuit(JWTCircuit);
+        }
+        "show" => {
+            info!("Running Show circuit with ZK-Spartan");
+            run_circuit(ShowCircuit);
         }
         "zk_sumcheck_jwt" => {
             info!("Running JWT ZK-Sumcheck benchmark");
