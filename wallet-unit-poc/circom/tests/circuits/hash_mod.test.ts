@@ -1,5 +1,5 @@
 import { WitnessTester } from "circomkit";
-import { circomkit } from "./common";
+import { circomkit } from "../common";
 import assert from "assert";
 
 describe("HashModScalarField", () => {

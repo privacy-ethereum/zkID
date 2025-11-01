@@ -3,7 +3,7 @@ import { Es256CircuitParams, generateES256Inputs, JwkEcdsaPublicKey, PemPublicKe
 import { encodeClaims, stringToPaddedBigIntArray } from "./utils.ts";
 
 // The JWT Circuit Parameters
-interface JwtCircuitParams {
+export interface JwtCircuitParams {
   es256: Es256CircuitParams;
   maxB64PayloadLength: number;
   maxMatches: number;

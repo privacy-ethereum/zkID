@@ -1,8 +1,8 @@
 import { sha256 } from "@noble/hashes/sha2";
 import assert from "assert";
 import { WitnessTester } from "circomkit";
-import { circomkit } from "./common";
-import { base64urlToBase64, encodeClaims } from "../src/utils";
+import { circomkit } from "../common";
+import { base64urlToBase64, encodeClaims } from "../../src/utils";
 
 describe("ClaimDecoder", () => {
   let circuit: WitnessTester<["claims", "claimLengths", "decodeFlags"], ["decodedClaims"]>;
@@ -12,7 +12,7 @@ describe("ClaimDecoder", () => {
 
   before(async () => {
     circuit = await circomkit.WitnessTester("ClaimDecoder", {
-      file: "claim-decoder",
+      file: "components/claim-decoder",
       template: "ClaimDecoder",
       params: [maxClaims, maxClaimsLength],
       recompile: true,
@@ -65,7 +65,7 @@ describe("ClaimDecoder", () => {
     const maxClaims = 8;
 
     circuit = await circomkit.WitnessTester("ClaimDecoder", {
-      file: "claim-decoder",
+      file: "components/claim-decoder",
       template: "ClaimDecoder",
       params: [maxClaims, maxClaimsLength],
       recompile: true,
@@ -113,7 +113,7 @@ describe("ClaimHasher", () => {
 
   before(async () => {
     circuit = await circomkit.WitnessTester("ClaimDecoder", {
-      file: "claim-decoder",
+      file: "components/claim-decoder",
       template: "ClaimHasher",
       params: [maxClaims, maxClaimsLength],
       recompile: true,
@@ -158,7 +158,7 @@ describe("ClaimHasher", () => {
     const maxClaims = 8;
 
     circuit = await circomkit.WitnessTester("ClaimDecoder", {
-      file: "claim-decoder",
+      file: "components/claim-decoder",
       template: "ClaimHasher",
       params: [maxClaims, maxClaimsLength],
       recompile: true,

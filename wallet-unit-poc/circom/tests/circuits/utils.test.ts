@@ -1,17 +1,11 @@
 import { WitnessTester } from "circomkit";
-import { circomkit } from "./common";
-
-// Base64URL → Base64 + padding
-function base64urlToBase64(b64url: string) {
-  let b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = (4 - (b64.length % 4)) % 4;
-  return b64 + "=".repeat(pad);
-}
+import { circomkit } from "../common";
+import { base64urlToBase64 } from "../../src/utils";
 
 describe("DecodeSD circuit", () => {
   let circuit: WitnessTester<["sdBytes", "sdLen"], ["base64Out"]>;
   const maxLength = 50;
-  const byteLength = 32; // SHA-256 digest size
+  const byteLength = 32;
 
   const sd1 = "JciGc5bKidOGmxjuvC8LdUykaVXBXBPhBX1kXpDe-Lo";
   const sd2 = "pVOw2Nj57G2NkeVHBCWwhEBjufSJhp9lp3m5W9mAh9A";
