@@ -5,6 +5,7 @@ import { generateShowCircuitParams, generateShowInputs, signDeviceNonce } from "
 import { base64ToBigInt, base64urlToBase64 } from "../../src/utils";
 import assert from "assert";
 import { p256 } from "@noble/curves/nist.js";
+import fs from "fs";
 
 describe("Show Circuit - Device Binding Verification", () => {
   let circuit: WitnessTester<["deviceKeyX", "deviceKeyY", "nonce", "nonceLength", "sig_r", "sig_s_inverse"], []>;
@@ -39,6 +40,7 @@ describe("Show Circuit - Device Binding Verification", () => {
       // Step 5: Generate Show circuit inputs
       const params = generateShowCircuitParams([256]);
       const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey);
+      fs.writeFileSync("show-inputs.json", JSON.stringify(inputs, null, 2));
 
       // Step 6: Calculate witness and verify constraints pass
       const witness = await circuit.calculateWitness(inputs);

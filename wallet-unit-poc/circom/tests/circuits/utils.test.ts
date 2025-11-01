@@ -12,7 +12,7 @@ describe("DecodeSD circuit", () => {
 
   before(async () => {
     circuit = await circomkit.WitnessTester("DecodeSD", {
-      file: "utils",
+      file: "utils/utils",
       template: "DecodeSD",
       params: [maxLength, byteLength],
       recompile: true,

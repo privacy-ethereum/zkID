@@ -11,7 +11,7 @@ describe("HashModScalarField", () => {
 
   before(async () => {
     circuit = await circomkit.WitnessTester("HashModScalarField", {
-      file: "utils",
+      file: "utils/utils",
       template: "HashModScalarField",
       params: [],
       recompile: true,
