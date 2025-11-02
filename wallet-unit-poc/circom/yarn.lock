@@ -885,7 +885,7 @@ circom_tester@^0.0.21:
     tmp-promise "^3.0.3"
     util "^0.12.5"
 
-circomkit@^0.3.3:
+circomkit@^0.3.4:
   version "0.3.4"
   resolved "https://registry.yarnpkg.com/circomkit/-/circomkit-0.3.4.tgz#1fba5da5591646162fcbcb56fb37fbb0c8f176eb"
   integrity sha512-kV/yMKR//a71qB/MInK9/CIJ9BQ0Zz2zOCh6jpWf0YsRbi8ut1WyYFXX99SWWyT3v+QqV0k8amGGjHyWg0FAkw==

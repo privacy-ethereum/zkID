@@ -116,8 +116,7 @@ export interface MockDataResult {
 export async function generateMockData(options: MockDataOptions = {}): Promise<MockDataResult> {
   const defaultClaims = [
     { key: "name", value: "John Doe" },
-    { key: "age", value: "25" },
-    { key: "email", value: "john.doe@example.com" },
+    { key: "roc_birthday", value: "1040605" },
   ];
   const claims = options.claims || defaultClaims;
   const kid = options.kid || "key-1";
@@ -131,6 +130,7 @@ export async function generateMockData(options: MockDataOptions = {}): Promise<M
   };
 
   const claimStrings = claims.map((claim) => generateClaim(claim.key, claim.value));
+
   const hashedClaims = claimStrings.map((claim) => {
     return Buffer.from(sha256(Buffer.from(claim, "utf8"))).toString("base64url");
   });
