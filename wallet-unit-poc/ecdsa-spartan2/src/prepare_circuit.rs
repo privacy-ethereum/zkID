@@ -121,6 +121,14 @@ impl SpartanCircuit<E> for PrepareCircuit {
         info!("rust-witness time: {} ms", t0.elapsed().as_millis());
 
         let witness: Vec<Scalar> = convert_bigint_to_scalar(witness_bigint)?;
+
+        // Todo: remove the hardcoding
+        let keybinding_x = witness[385];
+        let keybinding_y = witness[386];
+        
+        info!("Keybinding X: {:?}", keybinding_x);
+        info!("Keybinding Y: {:?}", keybinding_y);
+
         let r1cs = load_r1cs(r1cs);
         synthesize(cs, r1cs, Some(witness))?;
         Ok(())

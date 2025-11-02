@@ -68,10 +68,10 @@ template JWT(
     ecExtractor.xStartIndex <== matchIndex[0] + matchLength[0];
     ecExtractor.yStartIndex <== matchIndex[1] + matchLength[1];
 
-    signal output KeyBindingX <== ecExtractor.pubKeyX;
-    signal output KeyBindingY <== ecExtractor.pubKeyY;
-
     // Output the decoded claims
     signal output messages[maxMatches][decodedLen];
     messages <== decodedClaims;
+
+    signal output KeyBindingX <== ecExtractor.pubKeyX;
+    signal output KeyBindingY <== ecExtractor.pubKeyY;
 }

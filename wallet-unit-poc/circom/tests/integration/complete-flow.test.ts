@@ -4,6 +4,7 @@ import { generateMockData } from "../../src/mock-vc-generator";
 import { generateShowCircuitParams, generateShowInputs, signDeviceNonce } from "../../src/show";
 import { base64ToBigInt, base64urlToBase64 } from "../../src/utils";
 import assert from "assert";
+import fs from "fs";
 
 describe("Complete Flow: Register (JWT) → Show Circuit", () => {
   let jwtCircuit: WitnessTester<
@@ -33,7 +34,7 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
     jwtCircuit = await circomkit.WitnessTester(`JWT`, {
       file: "jwt",
       template: "JWT",
-      params: [1024 + 256, 1000, 5, 50, 128],
+      params: [2048, 2000, 4, 50, 128],
       recompile: RECOMPILE,
     });
     console.log("JWT Circuit #constraints:", await jwtCircuit.getConstraintCount());
@@ -50,9 +51,10 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
   describe("Complete End-to-End Flow", () => {
     it("should complete full flow: JWT circuit extracts device key → Show circuit verifies device signature", async () => {
       const mockData = await generateMockData({
-        circuitParams: [1024 + 256, 1000, 5, 50, 128],
+        circuitParams: [2048, 2000, 4, 50, 128],
       });
 
+      fs.writeFileSync("jwtInputs.json", JSON.stringify(mockData.circuitInputs, null, 2));
       const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
       await jwtCircuit.expectConstraintPass(jwtWitness);
 
@@ -79,6 +81,7 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
 
       const showParams = generateShowCircuitParams([256]);
       const showInputs = generateShowInputs(showParams, verifierNonce, deviceSignature, mockData.deviceKey);
+      fs.writeFileSync("showInputs.json", JSON.stringify(showInputs, null, 2));
 
       assert.strictEqual(showInputs.deviceKeyX, expectedKeyX);
       assert.strictEqual(showInputs.deviceKeyY, expectedKeyY);
@@ -90,7 +93,7 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
     it("should fail Show circuit when device signature doesn't match extracted key", async () => {
       // Phase 1: Prepare - Extract device binding key
       const mockData = await generateMockData({
-        circuitParams: [1024 + 256, 1000, 5, 50, 128],
+        circuitParams: [2048, 2000, 4, 50, 128],
       });
 
       const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
@@ -120,7 +123,7 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
     it("should complete flow with multiple verifier nonces", async () => {
       // Phase 1: Prepare - Extract device binding key once
       const mockData = await generateMockData({
-        circuitParams: [1024 + 256, 1000, 5, 50, 128],
+        circuitParams: [2048, 2000, 4, 50, 128],
       });
 
       const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);

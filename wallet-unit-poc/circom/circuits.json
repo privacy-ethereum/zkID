@@ -7,7 +7,8 @@
   "show": {
     "file": "show",
     "template": "Show",
-    "params": [256]
+    "params": [256],
+    "pubs": ["deviceKeyX", "deviceKeyY"]
   },
   "ecdsa": {
     "file": "ecdsa/ecdsa",

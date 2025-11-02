@@ -29,7 +29,7 @@ describe("VC Mock Data Generator - Circuit Tests", () => {
     circuit = await circomkit.WitnessTester(`JWT`, {
       file: "jwt",
       template: "JWT",
-      params: [1024 + 256, 1000, 6, 50, 128],
+      params: [2048, 2000, 4, 50, 128],
       recompile: RECOMPILE,
     });
     console.log("#constraints:", await circuit.getConstraintCount());
@@ -88,7 +88,7 @@ describe("VC Mock Data Generator - Circuit Tests", () => {
   describe("Device Binding Key Extraction", () => {
     it("should verify circuit outputs (KeyBindingX, KeyBindingY) match device binding key", async () => {
       const mockData = await generateMockData({
-        circuitParams: [1024 + 256, 1000, 5, 50, 128],
+        circuitParams: [2048, 2000, 4, 50, 128],
       });
 
       const witness = await circuit.calculateWitness(mockData.circuitInputs);
@@ -118,9 +118,9 @@ describe("VC Mock Data Generator - Circuit Tests", () => {
   describe("Circuit Compatibility", () => {
     it("should generate circuit inputs that pass circuit constraints", async () => {
       const mockData = await generateMockData({
-        circuitParams: [1024 + 256, 1000, 6, 50, 128],
+        circuitParams: [2048, 2000, 4, 50, 128],
         claims: [
-          { key: "name", value: "Alice" },
+          { key: "name", value: "Alice smith" },
           { key: "roc_birthday", value: "1040605" },
         ],
       });
