@@ -1,14 +1,10 @@
-use std::{collections::HashMap, env::current_dir, fs::File, time::Instant};
+use std::{env::current_dir, fs::File, io::Read, path::PathBuf};
 
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
-use circom_scotia::{reader::load_r1cs, synthesize};
-use serde_json::Value;
+use circom_scotia::{generate_witness_from_wasm, r1cs::CircomConfig, synthesize};
 use spartan2::traits::circuit::SpartanCircuit;
-use tracing::info;
 
-use crate::{utils::*, Scalar, E};
-
-rust_witness::witness!(jwt);
+use crate::{Scalar, E};
 
 // jwt.circom
 #[derive(Debug, Clone)]
@@ -24,113 +20,27 @@ impl SpartanCircuit<E> for PrepareCircuit {
     ) -> Result<(), SynthesisError> {
         let root = current_dir().unwrap().join("../circom");
         let witness_dir = root.join("build/jwt/jwt_js");
+        let wtns = witness_dir.join("main.wasm");
         let r1cs = witness_dir.join("jwt.r1cs");
-        let json_file = {
+
+        let witness_input_json: String = {
             let path = current_dir()
                 .unwrap()
                 .join("../circom/inputs/jwt/default.json");
-            File::open(path).expect("Failed to open jwt_input.json")
+            let mut file = File::open(path).unwrap();
+            let mut witness_input = String::new();
+            file.read_to_string(&mut witness_input).unwrap();
+            witness_input
         };
 
-        let json_value: Value =
-            serde_json::from_reader(json_file).expect("Failed to parse jwt_input.json");
-
-        // Parse inputs
-        let mut inputs = HashMap::new();
-        inputs.insert(
-            "sig_r".to_string(),
-            vec![parse_bigint_scalar(&json_value, "sig_r")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "sig_s_inverse".to_string(),
-            vec![parse_bigint_scalar(&json_value, "sig_s_inverse")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "pubKeyX".to_string(),
-            vec![parse_bigint_scalar(&json_value, "pubKeyX")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "pubKeyY".to_string(),
-            vec![parse_bigint_scalar(&json_value, "pubKeyY")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
+        let witness: Vec<_> = generate_witness_from_wasm(
+            witness_dir,
+            witness_input_json,
+            PathBuf::from("output.wtns"),
         );
 
-        // Parse scalar u64 fields (stored as numbers)
-        inputs.insert(
-            "messageLength".to_string(),
-            vec![parse_u64_scalar(&json_value, "messageLength")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "periodIndex".to_string(),
-            vec![parse_u64_scalar(&json_value, "periodIndex")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "matchesCount".to_string(),
-            vec![parse_u64_scalar(&json_value, "matchesCount")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-
-        // Parse array fields
-        inputs.insert(
-            "message".to_string(),
-            parse_bigint_string_array(&json_value, "message")
-                .map_err(|_| SynthesisError::AssignmentMissing)?,
-        );
-        inputs.insert(
-            "matchIndex".to_string(),
-            parse_u64_array(&json_value, "matchIndex")
-                .map_err(|_| SynthesisError::AssignmentMissing)?,
-        );
-        inputs.insert(
-            "matchLength".to_string(),
-            parse_u64_array(&json_value, "matchLength")
-                .map_err(|_| SynthesisError::AssignmentMissing)?,
-        );
-        inputs.insert(
-            "claimLengths".to_string(),
-            parse_bigint_string_array(&json_value, "claimLengths")
-                .map_err(|_| SynthesisError::AssignmentMissing)?,
-        );
-        inputs.insert(
-            "decodeFlags".to_string(),
-            parse_u64_array(&json_value, "decodeFlags")
-                .map_err(|_| SynthesisError::AssignmentMissing)?,
-        );
-
-        // Parse 2D array fields (flattened)
-        inputs.insert(
-            "matchSubstring".to_string(),
-            parse_2d_bigint_array(&json_value, "matchSubstring")
-                .map_err(|_| SynthesisError::AssignmentMissing)?,
-        );
-        inputs.insert(
-            "claims".to_string(),
-            parse_2d_bigint_array(&json_value, "claims")
-                .map_err(|_| SynthesisError::AssignmentMissing)?,
-        );
-
-        // Generate witness using native Rust (rust-witness)
-        info!("Generating witness using native Rust (rust-witness)...");
-        let t0 = Instant::now();
-        let witness_bigint = jwt_witness(inputs);
-        info!("rust-witness time: {} ms", t0.elapsed().as_millis());
-
-        let witness: Vec<Scalar> = convert_bigint_to_scalar(witness_bigint)?;
-
-        // Todo: remove the hardcoding
-        let keybinding_x = witness[385];
-        let keybinding_y = witness[386];
-        
-        info!("Keybinding X: {:?}", keybinding_x);
-        info!("Keybinding Y: {:?}", keybinding_y);
-
-        let r1cs = load_r1cs(r1cs);
-        synthesize(cs, r1cs, Some(witness))?;
+        let cfg = CircomConfig::new(wtns, r1cs).unwrap();
+        synthesize(cs, cfg.r1cs.clone(), Some(witness))?;
         Ok(())
     }
 
