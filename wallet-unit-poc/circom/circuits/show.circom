@@ -2,6 +2,7 @@ pragma circom 2.2.3;
 
 include "utils/es256.circom";
 
+// TODO: Do ECDSA, not ES256
 template Show(maxNonceLength) {
     signal input deviceKeyX;
     signal input deviceKeyY;

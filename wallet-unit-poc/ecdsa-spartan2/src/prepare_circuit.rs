@@ -39,6 +39,13 @@ impl SpartanCircuit<E> for PrepareCircuit {
             PathBuf::from("output.wtns"),
         );
 
+         // Todo: remove the hardcoding
+        let keybinding_x = witness[385];
+        let keybinding_y = witness[386];
+
+        println!("Keybinding X: {:?}", keybinding_x);
+        println!("Keybinding Y: {:?}", keybinding_y);
+
         let cfg = CircomConfig::new(wtns, r1cs).unwrap();
         synthesize(cs, cfg.r1cs.clone(), Some(witness))?;
         Ok(())
