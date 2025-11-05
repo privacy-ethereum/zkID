@@ -1,8 +1,8 @@
 pragma circom 2.1.6;
-include "jwt_tx_builder/array.circom";
+include "../jwt_tx_builder/array.circom";
 include "@zk-email/circuits/lib/base64.circom";
 include "@zk-email/circuits/lib/sha.circom";
-include "utils.circom";
+include "../utils/utils.circom";
 
 /// @title ClaimDecoder
 /// @notice Decodes multiple Base64 input claims that might be padded with zeros

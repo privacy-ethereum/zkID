@@ -1,6 +1,7 @@
-pragma circom 2.1.6;
-include "jwt_tx_builder/array.circom";
-include "keyless_zk_proofs/arrays.circom";
+pragma circom 2.2.3;
+
+include "../jwt_tx_builder/array.circom";
+include "../keyless_zk_proofs/arrays.circom";
 include "@zk-email/circuits/lib/base64.circom";
 include "circomlib/circuits/comparators.circom";
 include "circomlib/circuits/bitify.circom";

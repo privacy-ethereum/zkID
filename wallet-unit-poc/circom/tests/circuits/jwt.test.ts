@@ -1,6 +1,6 @@
 import { WitnessTester } from "circomkit";
-import { circomkit } from "./common";
-import { generateJwtCircuitParams, generateJwtInputs } from "../src/jwt";
+import { circomkit } from "../common";
+import { generateJwtCircuitParams, generateJwtInputs } from "../../src/jwt";
 import { sha256 } from "@noble/hashes/sha2";
 
 describe("JWT Verifier", () => {

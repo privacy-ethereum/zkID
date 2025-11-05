@@ -11,7 +11,9 @@
     "test": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha --timeout 900000",
     "save_input_file": "npx ts-node src/save_inputs.ts",
     "compile:jwt": "bash scripts/compile.sh jwt",
+    "compile:show": "bash scripts/compile.sh show",
     "compile:ecdsa": "bash scripts/compile.sh ecdsa",
+    "compile:all": "bash scripts/compile.sh all",
     "setup": "npx circomkit setup jwt",
     "prove": "npx circomkit prove jwt",
     "verify": "npx circomkit verify jwt"
@@ -27,7 +29,7 @@
     "base64-js": "^1.5.1",
     "bs58": "^6.0.0",
     "circom_tester": "^0.0.21",
-    "circomkit": "^0.3.3",
+    "circomkit": "^0.3.4",
     "circomlib": "^2.0.5",
     "did-resolver": "^4.1.0",
     "jose": "^6.0.10",
@@ -39,9 +41,12 @@
     "safe-buffer": "^5.2.1"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/jwk-to-pem": "^2.0.3",
     "@types/mocha": "^10.0.1",
     "@types/node": "^20.3.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.3"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

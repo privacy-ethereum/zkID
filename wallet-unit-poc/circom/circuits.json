@@ -4,6 +4,12 @@
     "template": "JWT",
     "params": [2048, 2000, 4, 50, 128]
   },
+  "show": {
+    "file": "show",
+    "template": "Show",
+    "params": [256],
+    "pubs": ["deviceKeyX", "deviceKeyY"]
+  },
   "ecdsa": {
     "file": "ecdsa/ecdsa",
     "template": "ECDSA",

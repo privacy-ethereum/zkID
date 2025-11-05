@@ -1,18 +1,16 @@
-pragma circom 2.1.6;
+pragma circom 2.2.3;
 
-include "es256.circom";
+include "utils/es256.circom";
 include "keyless_zk_proofs/hashtofield.circom";
 include "@zk-email/circuits/lib/sha.circom";
-include "claim-decoder.circom";
-include "utils.circom";
-include "payload_matcher.circom";
-include "ec-extractor.circom";
+include "components/claim-decoder.circom";
+include "utils/utils.circom";
+include "components/payload_matcher.circom";
+include "components/ec-extractor.circom";
 
-// Prepare Circuit
 template JWT(
     maxMessageLength,
     maxB64PayloadLength,
-
     maxMatches,
     maxSubstringLength,
     maxClaimsLength
@@ -20,9 +18,9 @@ template JWT(
     var decodedLen = (maxClaimsLength * 3) / 4;
     var maxPayloadLength = (maxB64PayloadLength * 3) / 4;
 
-    signal input message[maxMessageLength]; // JWT message (header + payload)
-    signal input messageLength; // Length of the message signed in the JWT
-    signal input periodIndex; // Index of the period in the JWT message
+    signal input message[maxMessageLength];
+    signal input messageLength;
+    signal input periodIndex;
 
     signal input sig_r;
     signal input sig_s_inverse;
@@ -41,13 +39,21 @@ template JWT(
    
     signal decodedClaims[maxMatches][decodedLen] <== ClaimDecoder(maxMatches, maxClaimsLength)(claims, claimLengths, decodeFlags);
     signal claimHashes[maxMatches][32] <== ClaimHasher(maxMatches, maxClaimsLength)(claims);
+    
+    // Compare the claim hashes with the match substrings
     ClaimComparator(maxMatches, maxSubstringLength)(claimHashes ,claimLengths, matchSubstring, matchLength);
 
     // Verify the signature
     ES256(maxMessageLength)(message, messageLength, sig_r, sig_s_inverse, pubKeyX, pubKeyY);
 
-    signal payload[maxPayloadLength] <== PayloadExtractor(maxMessageLength, maxB64PayloadLength)(message, messageLength, periodIndex);
+    // Extract the payload
+    signal payload[maxPayloadLength] <== PayloadExtractor(maxMessageLength, maxB64PayloadLength)(
+        message,
+        messageLength,
+        periodIndex
+    );
 
+    // Check if the match substrings are in the payload
     signal payloadHash <== PayloadSubstringMatcher(maxPayloadLength, maxMatches, maxSubstringLength)(
         payload,
         matchesCount,
@@ -56,16 +62,16 @@ template JWT(
         matchIndex
     );
 
-  
+    // Extract the device binding public key
     component ecExtractor = ECPublicKeyExtractor_Optimized(maxPayloadLength, 32);
     ecExtractor.payload <== payload;
-    ecExtractor.xStartIndex <==  matchIndex[0] + matchLength[0];
-    ecExtractor.yStartIndex <==  matchIndex[1] + matchLength[1];
+    ecExtractor.xStartIndex <== matchIndex[0] + matchLength[0];
+    ecExtractor.yStartIndex <== matchIndex[1] + matchLength[1];
 
+    // Output the decoded claims
+    signal output messages[maxMatches][decodedLen];
+    messages <== decodedClaims;
 
     signal output KeyBindingX <== ecExtractor.pubKeyX;
     signal output KeyBindingY <== ecExtractor.pubKeyY;
-
-    signal output messages[maxMatches][decodedLen];
-    messages <== decodedClaims; 
 }

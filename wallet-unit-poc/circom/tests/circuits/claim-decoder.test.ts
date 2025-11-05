@@ -1,8 +1,9 @@
 import { sha256 } from "@noble/hashes/sha2";
 import assert from "assert";
 import { WitnessTester } from "circomkit";
-import { circomkit } from "./common";
-import { base64urlToBase64, encodeClaims } from "../src/utils";
+import { circomkit } from "../common";
+import { base64urlToBase64, encodeClaims } from "../../src/utils";
+import { generateMockData } from "../../src/mock-vc-generator";
 
 describe("ClaimDecoder", () => {
   let circuit: WitnessTester<["claims", "claimLengths", "decodeFlags"], ["decodedClaims"]>;
@@ -12,7 +13,7 @@ describe("ClaimDecoder", () => {
 
   before(async () => {
     circuit = await circomkit.WitnessTester("ClaimDecoder", {
-      file: "claim-decoder",
+      file: "components/claim-decoder",
       template: "ClaimDecoder",
       params: [maxClaims, maxClaimsLength],
       recompile: true,
@@ -65,7 +66,7 @@ describe("ClaimDecoder", () => {
     const maxClaims = 8;
 
     circuit = await circomkit.WitnessTester("ClaimDecoder", {
-      file: "claim-decoder",
+      file: "components/claim-decoder",
       template: "ClaimDecoder",
       params: [maxClaims, maxClaimsLength],
       recompile: true,
@@ -103,6 +104,63 @@ describe("ClaimDecoder", () => {
 
     await circuit.expectConstraintPass(witness);
   });
+
+  it("Decode Raw claim testcase-3", async () => {
+    let mockdata = await generateMockData({
+      claims: [
+        { key: "name", value: "John Doe" },
+        { key: "age", value: "25" },
+        { key: "email", value: "john.doe@example.com" },
+      ],
+      decodeFlags: [1, 1, 1],
+    });
+
+    let claims = mockdata.circuitInputs.claims;
+    let claimLengths = mockdata.circuitInputs.claimLengths;
+    let decodeFlags = mockdata.circuitInputs.decodeFlags;
+
+    let claimString: string[] = claims.map((c: bigint[], i: number) => {
+      const length = Number(claimLengths[i]);
+      if (length === 0) return "";
+      const bytesArray = c.slice(0, length).map((b: bigint) => Number(b));
+      return Buffer.from(bytesArray).toString("utf8");
+    });
+
+    const expectedOutputs = claimString.map((s) => atob(base64urlToBase64(s)));
+
+    circuit = await circomkit.WitnessTester("ClaimDecoder", {
+      file: "components/claim-decoder",
+      template: "ClaimDecoder",
+      params: [mockdata.circuitParams.maxMatches, mockdata.circuitParams.maxClaimLength],
+      recompile: true,
+    });
+
+    const witness = await circuit.calculateWitness({
+      claims: claims,
+      claimLengths: claimLengths,
+      decodeFlags: decodeFlags,
+    });
+
+    await circuit.expectConstraintPass(witness);
+
+    const outputs = await circuit.readWitnessSignals(witness, ["decodedClaims"]);
+    const decodedClaims = outputs.decodedClaims as number[][];
+
+    for (let i = 0; i < claimString.length; i++) {
+      const length = Number(claimLengths[i]);
+      const base64 = decodedClaims[i]
+        .slice(0, length)
+        .map((c) => String.fromCharCode(Number(c)))
+        .join("")
+        .replace(/[\x00-\x1F]+$/g, "");
+
+      if (decodeFlags[i] === 1) {
+        assert.strictEqual(base64, expectedOutputs[i]);
+      } else {
+        assert.strictEqual(base64, "");
+      }
+    }
+  });
 });
 
 describe("ClaimHasher", () => {
@@ -113,7 +171,7 @@ describe("ClaimHasher", () => {
 
   before(async () => {
     circuit = await circomkit.WitnessTester("ClaimDecoder", {
-      file: "claim-decoder",
+      file: "components/claim-decoder",
       template: "ClaimHasher",
       params: [maxClaims, maxClaimsLength],
       recompile: true,
@@ -131,6 +189,8 @@ describe("ClaimHasher", () => {
       claims: claimArray,
     });
 
+    await circuit.expectConstraintPass(witness);
+
     const outputs = await circuit.readWitnessSignals(witness, ["claimHashes"]);
     const circuitClaimHash = outputs.claimHashes as number[][];
 
@@ -141,7 +201,6 @@ describe("ClaimHasher", () => {
       const circuitHashHex = circuitClaimHash[i].map((b) => b.toString(16).padStart(2, "0")).join("");
       assert.strictEqual(circuitHashHex, expectedHashHex);
     }
-    await circuit.expectConstraintPass(witness);
   });
 
   it("sha256 of rawclaims testcase-2", async () => {
@@ -158,7 +217,7 @@ describe("ClaimHasher", () => {
     const maxClaims = 8;
 
     circuit = await circomkit.WitnessTester("ClaimDecoder", {
-      file: "claim-decoder",
+      file: "components/claim-decoder",
       template: "ClaimHasher",
       params: [maxClaims, maxClaimsLength],
       recompile: true,
@@ -180,5 +239,50 @@ describe("ClaimHasher", () => {
     }
 
     await circuit.expectConstraintPass(witness);
+  });
+
+  it("sha256 of rawclaims testcase-3", async () => {
+    let mockdata = await generateMockData({
+      claims: [
+        { key: "name", value: "John Doe" },
+        { key: "roc_birthday", value: "1040605" },
+        { key: "email", value: "john.doe@example.com" },
+      ],
+    });
+
+    const maxClaimsLength = mockdata.circuitParams.maxClaimLength;
+    const maxClaims = mockdata.circuitParams.maxMatches;
+
+    circuit = await circomkit.WitnessTester("ClaimDecoder", {
+      file: "components/claim-decoder",
+      template: "ClaimHasher",
+      params: [maxClaims, maxClaimsLength],
+      recompile: true,
+    });
+
+    const claimArray = mockdata.circuitInputs.claims;
+    const claimLengths = mockdata.circuitInputs.claimLengths;
+
+    let claimString: string[] = claimArray.map((c: bigint[], i: number) => {
+      const length = Number(claimLengths[i]);
+      if (length === 0) return "";
+      const bytesArray = c.slice(0, length).map((b: bigint) => Number(b));
+      return Buffer.from(bytesArray).toString("utf8");
+    });
+
+    const witness = await circuit.calculateWitness({ claims: claimArray });
+    await circuit.expectConstraintPass(witness);
+
+    const outputs = await circuit.readWitnessSignals(witness, ["claimHashes"]);
+    const circuitClaimHash = outputs.claimHashes as number[][];
+
+    for (let i = 0; i < claimString.length; i++) {
+      if (claimString[i] !== "") {
+        const expectedHash = sha256(Uint8Array.from(Buffer.from(claimString[i], "utf8")));
+        let expectedHashHex: string = Array.from(expectedHash, (b) => b.toString(16).padStart(2, "0")).join("");
+        let circuitHash: string = circuitClaimHash[i].map((b) => b.toString(16).padStart(2, "0")).join("");
+        assert.strictEqual(circuitHash, expectedHashHex);
+      }
+    }
   });
 });

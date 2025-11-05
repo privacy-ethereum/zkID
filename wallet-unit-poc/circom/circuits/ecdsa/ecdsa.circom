@@ -1,4 +1,4 @@
-pragma circom 2.1.2;
+pragma circom 2.2.3;
 
 include "./p256/mul.circom";
 include "../../node_modules/circomlib/circuits/bitify.circom";
