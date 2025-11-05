@@ -39,13 +39,6 @@ impl SpartanCircuit<E> for PrepareCircuit {
             PathBuf::from("output.wtns"),
         );
 
-         // Todo: remove the hardcoding
-        let keybinding_x = witness[385];
-        let keybinding_y = witness[386];
-
-        println!("Keybinding X: {:?}", keybinding_x);
-        println!("Keybinding Y: {:?}", keybinding_y);
-
         let cfg = CircomConfig::new(wtns, r1cs).unwrap();
         synthesize(cs, cfg.r1cs.clone(), Some(witness))?;
         Ok(())
@@ -58,6 +51,35 @@ impl SpartanCircuit<E> for PrepareCircuit {
         &self,
         _cs: &mut CS,
     ) -> Result<Vec<AllocatedNum<Scalar>>, SynthesisError> {
+        // ISSUE: Returning empty vector works completely fine
+        // When shared values are returned for keybinding, the circuit size changes, causing num_rows to be
+        // non-power-of-2 (e.g., 2047). The Hyrax prove function expects blind.blind to have
+        // length equal to 2^num_vars_rows (e.g., 2048), but it only has num_rows elements,
+        // causing an index out of bounds panic at hyrax_pc.rs:333.
+
+        // let root = current_dir().unwrap().join("../circom");
+        // let witness_dir = root.join("build/jwt/jwt_js");
+        // let witness_input_json: String = {
+        //     let path = current_dir()
+        //         .unwrap()
+        //         .join("../circom/inputs/jwt/default.json");
+        //     let mut file = File::open(path).unwrap();
+        //     let mut witness_input = String::new();
+        //     file.read_to_string(&mut witness_input).unwrap();
+        //     witness_input
+        // };
+        // let witness: Vec<_> = generate_witness_from_wasm(
+        //     witness_dir,
+        //     witness_input_json,
+        //     PathBuf::from("output.wtns"),
+        // );
+        // let mut shared: Vec<AllocatedNum<Scalar>> = Vec::new();
+        // let keybinding_x = witness[385];
+        // let keybinding_y = witness[386];
+        // shared.push(AllocatedNum::alloc(&mut cs, || Ok(keybinding_x))?);
+        // shared.push(AllocatedNum::alloc(&mut cs, || Ok(keybinding_y))?);
+        // Ok(shared)
+
         Ok(vec![])
     }
     fn precommitted<CS: ConstraintSystem<Scalar>>(
