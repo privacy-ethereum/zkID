@@ -89,27 +89,27 @@ pub fn parse_show_inputs(
     parse_inputs(json_value, field_defs)
 }
 
+/// Convert a single BigInt to Scalar
+pub fn bigint_to_scalar(bigint_val: BigInt) -> Result<Scalar, SynthesisError> {
+    let bytes = bigint_val.to_bytes_le().1;
+
+    // Validate size before padding
+    if bytes.len() > 32 {
+        return Err(SynthesisError::Unsatisfiable);
+    }
+
+    let mut padded = [0u8; 32];
+    padded[..bytes.len()].copy_from_slice(&bytes);
+
+    Scalar::from_bytes(&padded)
+        .into_option()
+        .ok_or(SynthesisError::Unsatisfiable)
+}
+
 pub fn convert_bigint_to_scalar(
     bigint_witness: Vec<BigInt>,
 ) -> Result<Vec<Scalar>, SynthesisError> {
-    bigint_witness
-        .into_iter()
-        .map(|bigint_val| {
-            let bytes = bigint_val.to_bytes_le().1;
-
-            // Validate size before padding
-            if bytes.len() > 32 {
-                return Err(SynthesisError::Unsatisfiable);
-            }
-
-            let mut padded = [0u8; 32];
-            padded[..bytes.len()].copy_from_slice(&bytes);
-
-            Scalar::from_bytes(&padded)
-                .into_option()
-                .ok_or(SynthesisError::Unsatisfiable)
-        })
-        .collect()
+    bigint_witness.into_iter().map(bigint_to_scalar).collect()
 }
 
 // JSON Parsing Helpers
