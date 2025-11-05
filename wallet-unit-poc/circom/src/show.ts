@@ -4,7 +4,7 @@ import { sha256Pad } from "@zk-email/helpers";
 import { Field } from "@noble/curves/abstract/modular";
 import { strict as assert } from "assert";
 import { JwkEcdsaPublicKey } from "./es256.ts";
-import { base64urlToBigInt, uint8ArrayToBigIntArray } from "./utils.ts";
+import { base64urlToBigInt, bufferToBigInt, uint8ArrayToBigIntArray } from "./utils.ts";
 
 export interface ShowCircuitParams {
   maxNonceLength: number;
@@ -28,10 +28,9 @@ export function generateShowInputs(
 ): {
   deviceKeyX: bigint;
   deviceKeyY: bigint;
-  nonce: bigint[];
-  nonceLength: number;
   sig_r: bigint;
   sig_s_inverse: bigint;
+  messageHash: bigint;
 } {
   assert.ok(nonce.length <= params.maxNonceLength, `Nonce length exceeds maxNonceLength`);
 
@@ -48,15 +47,17 @@ export function generateShowInputs(
   const isValid = p256.verify(sig, sha256(nonce), pubkey.toRawBytes());
   assert.ok(isValid, "Device signature verification failed");
 
-  const encoder = new TextEncoder();
-  const [noncePadded, nonceLength] = sha256Pad(encoder.encode(nonce), params.maxNonceLength);
+  const messageHash = sha256(nonce);
+  const messageHashBigInt = bufferToBigInt(Buffer.from(messageHash));
+  // Reduce message hash modulo scalar field order (required for ECDSA)
+  const scalarFieldOrder = BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+  const messageHashModQ = messageHashBigInt % scalarFieldOrder;
 
   return {
     deviceKeyX,
     deviceKeyY,
-    nonce: uint8ArrayToBigIntArray(noncePadded),
-    nonceLength,
     sig_r: sig_decoded.r,
     sig_s_inverse,
+    messageHash: messageHashModQ,
   };
 }

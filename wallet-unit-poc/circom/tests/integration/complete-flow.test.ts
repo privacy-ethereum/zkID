@@ -27,7 +27,7 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
     ["KeyBindingX", "KeyBindingY", "messages"]
   >;
 
-  let showCircuit: WitnessTester<["deviceKeyX", "deviceKeyY", "nonce", "nonceLength", "sig_r", "sig_s_inverse"], []>;
+  let showCircuit: WitnessTester<["deviceKeyX", "deviceKeyY", "sig_r", "sig_s_inverse", "messageHash"], []>;
 
   before(async () => {
     const RECOMPILE = true;
