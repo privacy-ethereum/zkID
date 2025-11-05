@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env::current_dir, fs::File};
+use std::{any::type_name, collections::HashMap, env::current_dir, fs::File};
 
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use circom_scotia::{reader::load_r1cs, synthesize};
@@ -24,6 +24,19 @@ impl SpartanCircuit<E> for ECDSACircuit {
         let root = current_dir().unwrap().join("../circom");
         let witness_dir = root.join("build/ecdsa/ecdsa_js");
         let r1cs = witness_dir.join("ecdsa.r1cs");
+
+        // Detect if we're in setup phase (ShapeCS) or prove phase (SatisfyingAssignment)
+        // During setup, we only need constraint structure instead of actual witness values
+        let cs_type = type_name::<CS>();
+        let is_setup_phase = cs_type.contains("ShapeCS");
+
+        if is_setup_phase {
+            let r1cs = load_r1cs(r1cs);
+            // Pass None for witness during setup
+            synthesize(cs, r1cs, None)?;
+            return Ok(());
+        }
+
         let json_file = {
             let path = current_dir()
                 .unwrap()
