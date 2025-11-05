@@ -1,11 +1,11 @@
-use std::{collections::HashMap, env::current_dir, fs::File};
+use std::{env::current_dir, fs::File};
 
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use circom_scotia::{reader::load_r1cs, synthesize};
 use serde_json::Value;
 use spartan2::traits::circuit::SpartanCircuit;
 
-use crate::{utils::*, Scalar, E};
+use crate::{prover::generate_prepare_witness, utils::*, Scalar, E};
 
 rust_witness::witness!(show);
 
@@ -34,45 +34,12 @@ impl SpartanCircuit<E> for ShowCircuit {
         let json_value: Value =
             serde_json::from_reader(json_file).expect("Failed to parse show_input.json");
 
-        // Parse inputs
-        let mut inputs = HashMap::new();
-        inputs.insert(
-            "deviceKeyX".to_string(),
-            vec![parse_bigint_scalar(&json_value, "deviceKeyX")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "deviceKeyY".to_string(),
-            vec![parse_bigint_scalar(&json_value, "deviceKeyY")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "sig_r".to_string(),
-            vec![parse_bigint_scalar(&json_value, "sig_r")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "sig_s_inverse".to_string(),
-            vec![parse_bigint_scalar(&json_value, "sig_s_inverse")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-        inputs.insert(
-            "nonceLength".to_string(),
-            vec![parse_u64_scalar(&json_value, "nonceLength")
-                .map_err(|_| SynthesisError::AssignmentMissing)?],
-        );
-
-        // Parse array field
-        inputs.insert(
-            "nonce".to_string(),
-            parse_bigint_string_array(&json_value, "nonce")
-                .map_err(|_| SynthesisError::AssignmentMissing)?,
-        );
-
+        // Parse inputs using declarative field definitions
+        let inputs = parse_show_inputs(&json_value)?;
         // Generate witness using native Rust (rust-witness)
         let witness_bigint = show_witness(inputs);
-
         let witness: Vec<Scalar> = convert_bigint_to_scalar(witness_bigint)?;
+
         let r1cs = load_r1cs(r1cs);
         synthesize(cs, r1cs, Some(witness))?;
         Ok(())
@@ -83,9 +50,14 @@ impl SpartanCircuit<E> for ShowCircuit {
     }
     fn shared<CS: ConstraintSystem<Scalar>>(
         &self,
-        _cs: &mut CS,
+        cs: &mut CS,
     ) -> Result<Vec<AllocatedNum<Scalar>>, SynthesisError> {
-        Ok(vec![])
+        let (_, keybinding_x, keybinding_y) = generate_prepare_witness(None)?;
+
+        let kb_x = AllocatedNum::alloc(cs.namespace(|| "KeyBindingX"), || Ok(keybinding_x))?;
+        let kb_y = AllocatedNum::alloc(cs.namespace(|| "KeyBindingY"), || Ok(keybinding_y))?;
+
+        Ok(vec![kb_x, kb_y])
     }
     fn precommitted<CS: ConstraintSystem<Scalar>>(
         &self,

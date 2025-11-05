@@ -1,28 +1,26 @@
-//! Measure Spartan-2 {setup, gen_witness, prove, verify} times for ECDSA, Prepare, and Show circuits.
+//! Measure Spartan-2 {setup, gen_witness, prove, verify} times for Prepare, and Show circuits.
 //!
 //! Usage:
-//!   RUST_LOG=info cargo run --release -- ecdsa
-//!   RUST_LOG=info cargo run --release -- jwt
+//! To benchmark complete Spartan2 flow
+//!   RUST_LOG=info cargo run --release -- prepare
 //!   RUST_LOG=info cargo run --release -- show
 //!
-//! To benchmark only Spartan sum-check + Hyrax for ECDSA/Prepare:
-//!   RUST_LOG=info cargo run --release -- prove_jwt
-//!   RUST_LOG=info cargo run --release -- prove_ecdsa
+//! To benchmark only Spartan2 Proof
+//!   RUST_LOG=info cargo run --release -- prove_prepare
+//!   RUST_LOG=info cargo run --release -- prove_show
 //!
-//! To setup the ECDSA circuit:
-//!   RUST_LOG=info cargo run --release -- setup_ecdsa
-//!
-//! To setup the Prepare circuit:
-//!   RUST_LOG=info cargo run --release -- setup_jwt
-//!
-//! To setup the chunked Prepare circuit:
-//!   RUST_LOG=info cargo run --release -- setup_chunked_jwt
+//! To setup the Spartan2 circuits:
+//!   RUST_LOG=info cargo run --release -- setup_prepare
+//!   RUST_LOG=info cargo run --release -- setup_show
 
-use crate::config_generator::{prove_ecdsa, prove_jwt};
-use crate::ecdsa_circuit::ECDSACircuit;
-use crate::prepare_circuit::PrepareCircuit;
-use crate::setup::{run_circuit, setup_ecdsa_keys, setup_jwt_chunked_keys, setup_jwt_keys};
-use crate::show_circuit::ShowCircuit;
+use crate::{
+    circuits::{prepare_circuit::PrepareCircuit, show_circuit::ShowCircuit},
+    prover::{prove_circuit, run_circuit},
+    setup::{
+        setup_circuit_keys, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY, SHOW_PROVING_KEY,
+        SHOW_VERIFYING_KEY,
+    },
+};
 
 use spartan2::{provider::T256HyraxEngine, traits::Engine};
 use std::env::args;
@@ -32,11 +30,9 @@ use tracing_subscriber::EnvFilter;
 pub type E = T256HyraxEngine;
 pub type Scalar = <E as Engine>::Scalar;
 
-mod config_generator;
-mod ecdsa_circuit;
-mod prepare_circuit;
+mod circuits;
+mod prover;
 mod setup;
-mod show_circuit;
 mod utils;
 
 fn main() {
@@ -50,34 +46,27 @@ fn main() {
     let choice = args.get(1).map(|s| s.as_str()).unwrap_or("ecdsa");
 
     match choice {
-        "setup_ecdsa" => {
-            setup_ecdsa_keys();
+        "setup_prepare" => {
+            setup_circuit_keys(PrepareCircuit, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY);
         }
-        "setup_jwt" => {
-            setup_jwt_keys();
+        "setup_show" => {
+            setup_circuit_keys(ShowCircuit, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY);
         }
-        "setup_chunked_jwt" => {
-            setup_jwt_chunked_keys();
+        "prove_show" => {
+            info!("Running Show circuit with ZK-Spartan");
+            prove_circuit(ShowCircuit, SHOW_PROVING_KEY);
         }
-        "ecdsa" => {
-            info!("Running ECDSA circuit with ZK-Spartan");
-            run_circuit(ECDSACircuit);
+        "prove_prepare" => {
+            info!("Spartan sumcheck + Hyrax PCS Prepare");
+            prove_circuit(PrepareCircuit, PREPARE_PROVING_KEY);
         }
-        "jwt" | "prepare" => {
+        "prepare" => {
             info!("Running Prepare circuit with ZK-Spartan");
             run_circuit(PrepareCircuit);
         }
         "show" => {
             info!("Running Show circuit with ZK-Spartan");
             run_circuit(ShowCircuit);
-        }
-        "prove_jwt" | "prove_prepare" => {
-            info!("Spartan sumcheck + Hyrax PCS Prepare");
-            prove_jwt();
-        }
-        "prove_ecdsa" => {
-            info!("Spartan sumcheck + Hyrax PCS ECDSA");
-            prove_ecdsa();
         }
         other => {
             eprintln!("Unknown choice '{}'", other);
