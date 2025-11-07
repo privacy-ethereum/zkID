@@ -46,13 +46,23 @@ RUST_LOG=info cargo run --release -- prove_jwt
 
 ### Mobile Benchmarks
 
-(with precomputed witness generation)
+For the reproduction of mobile benchmarks, please check this repo: https://github.com/moven0831/spartan2-hyrax-mopro
 
-| Device                     | Proving Time |
-| -------------------------- | ------------ |
-| iPhone 17 simulator        | ~2.2s        |
-| iPhone 16 (old device)     | ~2.14s       |
-| Memory peak (JWT circuits) | 1.97 GiB     |
+### Prepare Circuits
+|    Device    | Prover Time | Verifier Time | Key Setup |
+|:------------:|:-----------:|:-------------:|:---------:|
+|  iPhone 17   |   2996 ms   |    156 ms     |  3718 ms  |
+| Pixel 10 Pro |   6680 ms   |    342 ms     |  9682 ms  |
+
+Peak Memory Usage for Proving: **2.27 GiB**
+
+### Show Circuits
+|    Device    | Prover Time | Verifier Time | Key Setup |
+|:------------:|:-----------:|:-------------:|:---------:|
+|  iPhone 17   |    79 ms    |     12 ms     |   93 ms   |
+| Pixel 10 Pro |   344 ms    |     54 ms     |  180 ms   |
+
+Peak Memory Usage for Proving: **1.96 GiB**
 
 ### PC Benchmarks
 
