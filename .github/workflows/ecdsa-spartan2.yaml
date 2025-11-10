@@ -47,11 +47,11 @@ jobs:
       - name: Compile Show circuit
         run: cd wallet-unit-poc/circom && yarn compile:show
 
-      - name: Run ECDSA binary
-        run: cd wallet-unit-poc/ecdsa-spartan2 && RUST_LOG=info cargo run --release -- ecdsa
+      - name: Run Prepare binary
+        run: cd wallet-unit-poc/ecdsa-spartan2 && RUST_LOG=info cargo run --release -- prepare
 
-      - name: Run JWT binary
-        run: cd wallet-unit-poc/ecdsa-spartan2 && RUST_LOG=info cargo run --release -- jwt
+      - name: Run Show binary
+        run: cd wallet-unit-poc/ecdsa-spartan2 && RUST_LOG=info cargo run --release -- show
 
       - name: Run tests
         run: cd wallet-unit-poc/circom && yarn test
