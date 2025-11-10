@@ -1,4 +1,4 @@
-use std::{env::current_dir, fs::File, sync::OnceLock};
+use std::{any::type_name, env::current_dir, fs::File, sync::OnceLock};
 
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use circom_scotia::{reader::load_r1cs, synthesize};
@@ -41,6 +41,18 @@ impl SpartanCircuit<E> for ShowCircuit {
 
         // Parse inputs using declarative field definitions
         let inputs = parse_show_inputs(&json_value)?;
+
+        // Detect if we're in setup phase (ShapeCS) or prove phase (SatisfyingAssignment)
+        // During setup, we only need constraint structure instead of actual witness values
+        let cs_type = type_name::<CS>();
+        let is_setup_phase = cs_type.contains("ShapeCS");
+
+        if is_setup_phase {
+            let r1cs = load_r1cs(r1cs);
+            // Pass None for witness during setup
+            synthesize(cs, r1cs, None)?;
+            return Ok(());
+        }
 
         // Generate witness using native Rust (rust-witness)
         let witness_bigint = show_witness(inputs);
