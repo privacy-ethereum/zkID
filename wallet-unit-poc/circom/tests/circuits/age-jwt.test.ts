@@ -19,7 +19,8 @@ describe("Selective Disclosure", () => {
       "matchIndex",
       "claims",
       "claimLengths",
-      "decodeFlags"
+      "decodeFlags",
+      "ageClaimIndex"
     ],
     ["jwtClaims"]
   >;

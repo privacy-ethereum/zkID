@@ -68,6 +68,7 @@ pub fn parse_jwt_inputs(
         // 2D array fields (flattened)
         ("matchSubstring", FieldParser::BigInt2DArray),
         ("claims", FieldParser::BigInt2DArray),
+        ("ageClaimIndex", FieldParser::U64Scalar),
     ];
 
     parse_inputs(json_value, field_defs)
@@ -84,6 +85,10 @@ pub fn parse_show_inputs(
         ("sig_r", FieldParser::BigIntScalar),
         ("sig_s_inverse", FieldParser::BigIntScalar),
         ("messageHash", FieldParser::BigIntScalar),
+        ("claim", FieldParser::BigIntArray),
+        ("currentYear", FieldParser::BigIntScalar),
+        ("currentMonth", FieldParser::BigIntScalar),
+        ("currentDay", FieldParser::BigIntScalar),
     ];
 
     parse_inputs(json_value, field_defs)

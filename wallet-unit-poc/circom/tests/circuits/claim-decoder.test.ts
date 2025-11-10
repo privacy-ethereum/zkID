@@ -109,7 +109,7 @@ describe("ClaimDecoder", () => {
     let mockdata = await generateMockData({
       claims: [
         { key: "name", value: "John Doe" },
-        { key: "age", value: "25" },
+        { key: "roc_birthday", value: "1040605" },
         { key: "email", value: "john.doe@example.com" },
       ],
       decodeFlags: [1, 1, 1],

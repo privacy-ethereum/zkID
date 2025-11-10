@@ -4,14 +4,22 @@ import { sha256Pad } from "@zk-email/helpers";
 import { Field } from "@noble/curves/abstract/modular";
 import { strict as assert } from "assert";
 import { JwkEcdsaPublicKey } from "./es256.ts";
-import { base64urlToBigInt, bufferToBigInt, uint8ArrayToBigIntArray } from "./utils.ts";
+import { JwtCircuitParams } from "./jwt.ts";
+import { base64urlToBigInt, base64urlToBase64, bufferToBigInt } from "./utils.ts";
 
 export interface ShowCircuitParams {
-  maxNonceLength: number;
+  maxClaimsLength: number;
 }
 
-export function generateShowCircuitParams(params: number[]): ShowCircuitParams {
-  return { maxNonceLength: params[0] };
+export function generateShowCircuitParams(params: number[] | JwtCircuitParams): ShowCircuitParams {
+  const maxClaimsLength = Array.isArray(params) ? params.at(-1) : params.maxClaimLength;
+
+  assert.ok(
+    typeof maxClaimsLength === "number" && Number.isFinite(maxClaimsLength) && maxClaimsLength > 0,
+    "maxClaimsLength must be a positive finite number"
+  );
+
+  return { maxClaimsLength };
 }
 
 export function signDeviceNonce(message: string, privateKey: Uint8Array | string): string {
@@ -24,15 +32,41 @@ export function generateShowInputs(
   params: ShowCircuitParams,
   nonce: string,
   deviceSignature: string,
-  deviceKey: JwkEcdsaPublicKey
+  deviceKey: JwkEcdsaPublicKey,
+  claim: string,
+  currentDate: { year: number; month: number; day: number }
 ): {
   deviceKeyX: bigint;
   deviceKeyY: bigint;
   sig_r: bigint;
   sig_s_inverse: bigint;
   messageHash: bigint;
+  claim: bigint[];
+  currentYear: bigint;
+  currentMonth: bigint;
+  currentDay: bigint;
 } {
-  assert.ok(nonce.length <= params.maxNonceLength, `Nonce length exceeds maxNonceLength`);
+  assert.ok(nonce.length <= params.maxClaimsLength, `Nonce length exceeds maxClaimsLength`);
+  const decodedLen = Math.floor((params.maxClaimsLength * 3) / 4);
+
+  const b64 = base64urlToBase64(claim);
+  const decodedClaim = Buffer.from(b64, "base64").toString("utf8");
+  assert.ok(decodedClaim.length <= decodedLen, "Decoded claim length exceeds circuit capacity");
+
+  const claimArray = Array(decodedLen).fill(0n);
+  for (let i = 0; i < decodedClaim.length; i++) {
+    claimArray[i] = BigInt(decodedClaim.charCodeAt(i));
+  }
+
+  assert.ok(Number.isInteger(currentDate.year) && currentDate.year > 0, "Current year must be positive integer");
+  assert.ok(
+    Number.isInteger(currentDate.month) && currentDate.month >= 1 && currentDate.month <= 12,
+    "Current month must be between 1 and 12"
+  );
+  assert.ok(
+    Number.isInteger(currentDate.day) && currentDate.day >= 1 && currentDate.day <= 31,
+    "Current day must be between 1 and 31"
+  );
 
   const sig = Buffer.from(deviceSignature, "base64url");
   const sig_decoded = p256.Signature.fromCompact(sig.toString("hex"));
@@ -59,5 +93,9 @@ export function generateShowInputs(
     sig_r: sig_decoded.r,
     sig_s_inverse,
     messageHash: messageHashModQ,
+    claim: claimArray,
+    currentYear: BigInt(currentDate.year),
+    currentMonth: BigInt(currentDate.month),
+    currentDay: BigInt(currentDate.day),
   };
 }

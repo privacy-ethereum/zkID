@@ -1,6 +1,6 @@
 import { strict as assert } from "assert";
 import { Es256CircuitParams, generateES256Inputs, JwkEcdsaPublicKey, PemPublicKey } from "./es256.ts";
-import { encodeClaims, stringToPaddedBigIntArray } from "./utils.ts";
+import { base64urlToBase64, encodeClaims, stringToPaddedBigIntArray } from "./utils.ts";
 
 // The JWT Circuit Parameters
 export interface JwtCircuitParams {
@@ -76,6 +76,19 @@ export function generateJwtInputs(
   }
   const decodeFlagsOut = decodeFlagsAligned.slice(0, params.maxMatches);
 
+  const ageClaimOffset = claims.findIndex((claim) => {
+    try {
+      const decoded = Buffer.from(base64urlToBase64(claim), "base64").toString("utf8");
+      const parsed = JSON.parse(decoded);
+      return Array.isArray(parsed) && parsed[1] === "roc_birthday";
+    } catch {
+      return false;
+    }
+  });
+
+  assert.ok(ageClaimOffset >= 0, "roc_birthday claim not found among provided claims");
+  const ageClaimIndex = ageClaimOffset + 2;
+
   // const now = new Date();
   // const currentYear = BigInt(now.getUTCFullYear());
   // const currentMonth = BigInt(now.getUTCMonth() + 1);
@@ -91,5 +104,6 @@ export function generateJwtInputs(
     claims: claimArray,
     claimLengths,
     decodeFlags: decodeFlagsOut,
+    ageClaimIndex,
   };
 }

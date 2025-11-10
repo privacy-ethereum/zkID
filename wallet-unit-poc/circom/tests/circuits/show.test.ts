@@ -8,14 +8,29 @@ import { p256 } from "@noble/curves/nist.js";
 import fs from "fs";
 
 describe("Show Circuit - Device Binding Verification", () => {
-  let circuit: WitnessTester<["deviceKeyX", "deviceKeyY", "sig_r", "sig_s_inverse", "messageHash"], []>;
+  let circuit: WitnessTester<
+    [
+      "deviceKeyX",
+      "deviceKeyY",
+      "sig_r",
+      "sig_s_inverse",
+      "messageHash",
+      "claim",
+      "currentYear",
+      "currentMonth",
+      "currentDay"
+    ],
+    ["ageAbove18"]
+  >;
+  const claim = "WyJGc2w4ZWpObEFNT2Vqc1lTdjc2Z1NnIiwicm9jX2JpcnRoZGF5IiwiMTA0MDYwNSJd";
+  const currentDate = { year: 2025, month: 1, day: 1 };
 
   before(async () => {
     const RECOMPILE = true;
     circuit = await circomkit.WitnessTester(`Show`, {
       file: "show",
       template: "Show",
-      params: [256],
+      params: [128],
       recompile: RECOMPILE,
     });
     console.log("#constraints:", await circuit.getConstraintCount());
@@ -38,14 +53,17 @@ describe("Show Circuit - Device Binding Verification", () => {
       const deviceSignature = signDeviceNonce(verifierNonce, devicePrivateKey);
 
       // Step 5: Generate Show circuit inputs
-      const params = generateShowCircuitParams([256]);
-      const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey);
+      const params = generateShowCircuitParams(mockData.circuitParams);
+      const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, claim, {
+        year: currentDate.year,
+        month: currentDate.month,
+        day: currentDate.day,
+      });
 
-      fs.writeFileSync("show-inputs.json", JSON.stringify(inputs, null, 2));
-
-      // Step 6: Calculate witness and verify constraints pass
       const witness = await circuit.calculateWitness(inputs);
       await circuit.expectConstraintPass(witness);
+      const signals = await circuit.readWitnessSignals(witness, ["ageAbove18"]);
+      assert.strictEqual(signals.ageAbove18, 0n, "Expect ageAbove18 to be 0 for underage claim");
     });
 
     it("should fail when device signature doesn't match device binding key", async () => {
@@ -57,10 +75,14 @@ describe("Show Circuit - Device Binding Verification", () => {
       const verifierNonce = "challenge-nonce-12345";
       const deviceSignature = signDeviceNonce(verifierNonce, wrongPrivateKey);
 
-      const params = generateShowCircuitParams([256]);
+      const params = generateShowCircuitParams(mockData.circuitParams);
 
       assert.throws(() => {
-        generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey);
+        generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, claim, {
+          year: currentDate.year,
+          month: currentDate.month,
+          day: currentDate.day,
+        });
       }, /Device signature verification failed/);
     });
 
@@ -80,8 +102,12 @@ describe("Show Circuit - Device Binding Verification", () => {
       for (const nonce of nonces) {
         if (nonce.length <= 256) {
           const deviceSignature = signDeviceNonce(nonce, devicePrivateKey);
-          const params = generateShowCircuitParams([256]);
-          const inputs = generateShowInputs(params, nonce, deviceSignature, mockData.deviceKey);
+          const params = generateShowCircuitParams(mockData.circuitParams);
+          const inputs = generateShowInputs(params, nonce, deviceSignature, mockData.deviceKey, claim, {
+            year: currentDate.year,
+            month: currentDate.month,
+            day: currentDate.day,
+          });
 
           const witness = await circuit.calculateWitness(inputs);
           await circuit.expectConstraintPass(witness);
@@ -105,8 +131,12 @@ describe("Show Circuit - Device Binding Verification", () => {
       const verifierNonce = "verifier-challenge-2024";
       const deviceSignature = signDeviceNonce(verifierNonce, mockData.devicePrivateKey);
 
-      const params = generateShowCircuitParams([256]);
-      const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey);
+      const params = generateShowCircuitParams(mockData.circuitParams);
+      const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, claim, {
+        year: currentDate.year,
+        month: currentDate.month,
+        day: currentDate.day,
+      });
 
       const witness = await circuit.calculateWitness(inputs);
       await circuit.expectConstraintPass(witness);

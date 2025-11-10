@@ -19,7 +19,8 @@ describe("JWT Verifier", () => {
       "matchIndex",
       "claims",
       "claimLengths",
-      "decodeFlags"
+      "decodeFlags",
+      "ageClaimIndex"
     ],
     ["jwtClaims"]
   >;
@@ -60,8 +61,7 @@ describe("JWT Verifier", () => {
       const params = generateJwtCircuitParams([2048, 2000, 4, 50, 128]);
 
       const decodeFlags = [0, 0, 1, 1];
-      const inputs = generateJwtInputs(params, token, jwk, hashedClaims, claims, decodeFlags);
-
+      let inputs = generateJwtInputs(params, token, jwk, hashedClaims, claims, decodeFlags);
       const witness = await circuit.calculateWitness(inputs);
 
       await circuit.expectConstraintPass(witness);

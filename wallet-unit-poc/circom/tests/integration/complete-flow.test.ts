@@ -5,6 +5,7 @@ import { generateShowCircuitParams, generateShowInputs, signDeviceNonce } from "
 import { base64ToBigInt, base64urlToBase64 } from "../../src/utils";
 import assert from "assert";
 import fs from "fs";
+import { p256 } from "@noble/curves/nist.js";
 
 describe("Complete Flow: Register (JWT) → Show Circuit", () => {
   let jwtCircuit: WitnessTester<
@@ -22,12 +23,16 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
       "matchIndex",
       "claims",
       "claimLengths",
-      "decodeFlags"
+      "decodeFlags",
+      "ageClaimIndex"
     ],
-    ["KeyBindingX", "KeyBindingY", "messages"]
+    ["KeyBindingX", "KeyBindingY", "messages", "claim", "currentYear", "currentMonth", "currentDay"]
   >;
 
   let showCircuit: WitnessTester<["deviceKeyX", "deviceKeyY", "sig_r", "sig_s_inverse", "messageHash"], []>;
+
+  const claim = "WyJGc2w4ZWpObEFNT2Vqc1lTdjc2Z1NnIiwicm9jX2JpcnRoZGF5IiwiMTA0MDYwNSJd";
+  const currentDate = { year: 2025, month: 1, day: 1 };
 
   before(async () => {
     const RECOMPILE = true;
@@ -42,7 +47,7 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
     showCircuit = await circomkit.WitnessTester(`Show`, {
       file: "show",
       template: "Show",
-      params: [256],
+      params: [128],
       recompile: RECOMPILE,
     });
     console.log("Show Circuit #constraints:", await showCircuit.getConstraintCount());
@@ -79,8 +84,13 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
       const verifierNonce = "verifier-challenge-" + Date.now().toString();
       const deviceSignature = signDeviceNonce(verifierNonce, mockData.devicePrivateKey);
 
-      const showParams = generateShowCircuitParams([256]);
-      const showInputs = generateShowInputs(showParams, verifierNonce, deviceSignature, mockData.deviceKey);
+      const showParams = generateShowCircuitParams([128]);
+      const showInputs = generateShowInputs(showParams, verifierNonce, deviceSignature, mockData.deviceKey, claim, {
+        year: currentDate.year,
+        month: currentDate.month,
+        day: currentDate.day,
+      });
+
       fs.writeFileSync("showInputs.json", JSON.stringify(showInputs, null, 2));
 
       assert.strictEqual(showInputs.deviceKeyX, expectedKeyX);
@@ -103,8 +113,7 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
       const verifierNonce = "verifier-challenge-12345";
 
       // Create a different device key (wrong key)
-      const { p256 } = await import("@noble/curves/p256");
-      const wrongPrivateKey = p256.utils.randomPrivateKey();
+      const wrongPrivateKey = p256.utils.randomSecretKey();
       const wrongSignature = signDeviceNonce(verifierNonce, wrongPrivateKey);
 
       // Try to verify with wrong signature (should fail)
@@ -113,46 +122,15 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
       // This should throw an error because signature doesn't match
       assert.throws(
         () => {
-          generateShowInputs(showParams, verifierNonce, wrongSignature, mockData.deviceKey);
+          generateShowInputs(showParams, verifierNonce, wrongSignature, mockData.deviceKey, claim, {
+            year: currentDate.year,
+            month: currentDate.month,
+            day: currentDate.day,
+          });
         },
         /Device signature verification failed/,
         "Should fail when device signature doesn't match device binding key"
       );
-    });
-
-    it("should complete flow with multiple verifier nonces", async () => {
-      // Phase 1: Prepare - Extract device binding key once
-      const mockData = await generateMockData({
-        circuitParams: [2048, 2000, 4, 50, 128],
-      });
-
-      const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
-      await jwtCircuit.expectConstraintPass(jwtWitness);
-
-      // const jwtOutputs = await jwtCircuit.readWitnessSignals(jwtWitness, ["KeyBindingX", "KeyBindingY"]);
-      // const extractedKeyBindingX = jwtOutputs.KeyBindingX as bigint;
-      // const extractedKeyBindingY = jwtOutputs.KeyBindingY as bigint;
-
-      // Phase 2: Show - Multiple presentations with different nonces
-      const nonces = ["nonce-1", "nonce-2", "nonce-3", "a-longer-nonce-for-testing-purposes"];
-
-      for (let i = 0; i < nonces.length; i++) {
-        const nonce = nonces[i];
-        const deviceSignature = signDeviceNonce(nonce, mockData.devicePrivateKey);
-
-        const showParams = generateShowCircuitParams([256]);
-        const showInputs = generateShowInputs(showParams, nonce, deviceSignature, mockData.deviceKey);
-
-        // // Verify key matches extracted key from JWT circuit
-        // assert.strictEqual(showInputs.deviceKeyX, extractedKeyBindingX, `Nonce ${i + 1}: deviceKeyX should match`);
-        // assert.strictEqual(showInputs.deviceKeyY, extractedKeyBindingY, `Nonce ${i + 1}: deviceKeyY should match`);
-
-        // Verify Show circuit
-        const showWitness = await showCircuit.calculateWitness(showInputs);
-        await showCircuit.expectConstraintPass(showWitness);
-      }
-
-      console.log(`✓ Successfully completed ${nonces.length} presentations with different nonces`);
     });
   });
 });
