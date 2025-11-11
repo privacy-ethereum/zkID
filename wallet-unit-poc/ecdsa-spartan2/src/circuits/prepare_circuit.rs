@@ -11,6 +11,7 @@ rust_witness::witness!(jwt);
 thread_local! {
     static KEYBINDING_X: OnceLock<Scalar> = OnceLock::new();
     static KEYBINDING_Y: OnceLock<Scalar> = OnceLock::new();
+    static AGE_CLAIM: OnceLock<Vec<Scalar>> = OnceLock::new();
 }
 
 // jwt.circom
@@ -42,7 +43,17 @@ impl SpartanCircuit<E> for PrepareCircuit {
         }
 
         // Generate witness using the dedicated function
-        let (witness, keybinding_x, keybinding_y) = generate_prepare_witness(None)?;
+        let (witness, age_claim, keybinding_x, keybinding_y) = generate_prepare_witness(None)?;
+
+        let age_claim_scalars: Vec<Scalar> = age_claim
+            .iter()
+            .map(|byte| Scalar::from(*byte as u64))
+            .collect();
+
+        AGE_CLAIM.with(|cell| {
+            cell.set(age_claim_scalars)
+                .map_err(|_| SynthesisError::AssignmentMissing)
+        })?;
 
         KEYBINDING_X.with(|cell| {
             cell.set(keybinding_x)
@@ -73,10 +84,26 @@ impl SpartanCircuit<E> for PrepareCircuit {
             _ => (Scalar::zero(), Scalar::zero()),
         };
 
+        let age_claim = AGE_CLAIM
+            .with(|cell| cell.get().cloned())
+            .unwrap_or_default();
+
         let kb_x = AllocatedNum::alloc(cs.namespace(|| "KeyBindingX"), || Ok(keybinding_x))?;
         let kb_y = AllocatedNum::alloc(cs.namespace(|| "KeyBindingY"), || Ok(keybinding_y))?;
 
-        Ok(vec![kb_x, kb_y])
+        let mut shared_values = Vec::with_capacity(2 + age_claim.len());
+        shared_values.push(kb_x);
+        shared_values.push(kb_y);
+
+        for (idx, byte_scalar) in age_claim.iter().enumerate() {
+            let byte_alloc =
+                AllocatedNum::alloc(cs.namespace(|| format!("AgeClaimByte{idx}")), || {
+                    Ok(*byte_scalar)
+                })?;
+            shared_values.push(byte_alloc);
+        }
+
+        Ok(shared_values)
     }
     fn precommitted<CS: ConstraintSystem<Scalar>>(
         &self,

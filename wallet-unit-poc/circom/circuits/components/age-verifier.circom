@@ -114,9 +114,13 @@ template AgeVerifier(decodedLen) {
     ageExtractor.currentMonth <== currentMonth;
     ageExtractor.currentDay <== currentDay;
 
+    // log("ageExtractor.age: ", ageExtractor.age);
+
     component ageAbove18Checker = GreaterThan(8);
     ageAbove18Checker.in[0] <== ageExtractor.age;
     ageAbove18Checker.in[1] <== 18;
     ageAbove18 <== ageAbove18Checker.out;
+
+    // log("ageAbove18: ", ageAbove18);
 }
 

@@ -19,7 +19,7 @@ describe("AgeVerifier", () => {
   });
 
   it("should decode raw claims with padding correctly and pass constraints", async () => {
-    const input = "WyJYMXllNDloV0s1bTJneWFBLXROQXRnIiwicm9jX2JpcnRoZGF5IiwiMDc1MDEwMSJd";
+    const input = "WyJGc2w4ZWpObEFNT2Vqc1lTdjc2Z1NnIiwicm9jX2JpcnRoZGF5IiwiMTA0MDYwNSJd";
 
     let decodedClaims = Array.from(Buffer.from(atob(input)));
     while (decodedClaims.length < byteLength) {

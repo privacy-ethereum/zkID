@@ -7,6 +7,7 @@ include "components/claim-decoder.circom";
 include "utils/utils.circom";
 include "components/payload_matcher.circom";
 include "components/ec-extractor.circom";
+include "components/age-verifier.circom";
 
 template JWT(
     maxMessageLength,
@@ -35,8 +36,8 @@ template JWT(
     signal input claims[maxMatches][maxClaimsLength];
     signal input claimLengths[maxMatches];
     signal input decodeFlags[maxMatches];
+    signal input ageClaimIndex;
 
-   
     signal decodedClaims[maxMatches][decodedLen] <== ClaimDecoder(maxMatches, maxClaimsLength)(claims, claimLengths, decodeFlags);
     signal claimHashes[maxMatches][32] <== ClaimHasher(maxMatches, maxClaimsLength)(claims);
     
@@ -68,10 +69,14 @@ template JWT(
     ecExtractor.xStartIndex <== matchIndex[0] + matchLength[0];
     ecExtractor.yStartIndex <== matchIndex[1] + matchLength[1];
 
-    // Output the decoded claims
-    signal output messages[maxMatches][decodedLen];
-    messages <== decodedClaims;
+    component ageSelector = Multiplexer(decodedLen, maxMatches);
+    ageSelector.sel <== ageClaimIndex;
+    ageSelector.inp <== decodedClaims;
 
+    // Output the age claim
+    signal output ageClaim[decodedLen] <== ageSelector.out;
+    
+    // Output the key binding public key
     signal output KeyBindingX <== ecExtractor.pubKeyX;
     signal output KeyBindingY <== ecExtractor.pubKeyY;
 }
