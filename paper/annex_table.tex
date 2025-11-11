@@ -4,7 +4,7 @@
 \begin{landscape}
 \small
 \begin{longtable}{p{3cm} p{10cm} p{7cm}}
-\caption*{Table A — Requirements directly implemented by zkID}\\
+\caption*{Requirements directly implemented by zkID}\label{tab:groupA}\\
 \toprule
 \textbf{Annex 2 ID} &
 \textbf{Requirement} &
@@ -156,10 +156,6 @@ ISSU\_37 &
 For ISSU\_37, see components Component prepare batches in \S~5.2.1 and prepareBatch in \S~5.2.1. &
 see component prepare batches in \S~5.2.1 and \texttt{prepareBatch} in \S~5.2.1. \\
 
-ISSU\_37a &
-For ISSU\_37a, see components prepareBatch in \S~5.2.1 and Proof interface in \S~5.2. &
-see \texttt{prepareBatch} in \S~5.2.1 and Proof interface in \S~5.2. \\
-
 ISSU\_38 &
 For ISSU\_38, see components Show relation in \S~5.2.2 and Show relation in \S~5.2. &
 see Show relation in \S~5.2.2 and Show relation in \S~5.2. \\
@@ -167,18 +163,6 @@ see Show relation in \S~5.2.2 and Show relation in \S~5.2. \\
 ISSU\_39 &
 For ISSU\_39, see components prepareBatch in \S~5.2.1 and Prepare relation in \S~5.2. &
 see \texttt{prepareBatch} in \S~5.2.1 and Prepare relation in \S~5.2. \\
-
-ISSU\_41a &
-For ISSU\_41a, see components Show relation in \S~5.2.2 and Show relation in \S~5.2. &
-see Show relation in \S~5.2.2 and Show relation in \S~5.2. \\
-
-ISSU\_41b &
-For ISSU\_41b, see components Component prepare batches in \S~5.2.1 and Show relation in \S~5.2. &
-see component prepare batches in \S~5.2.1 and Show relation in \S~5.2. \\
-
-ISSU\_41c &
-For ISSU\_41c, see components Show relation in \S~5.2.2 and Show relation in \S~5.2. &
-see Show relation in \S~5.2.2 and Show relation in \S~5.2. \\
 
 ISSU\_44 &
 For ISSU\_44, see components Component prepare batches in \S~5.2.1 and Show relation in \S~5.2. &
@@ -274,7 +258,7 @@ see Show relation in \S~5.2.2 and Proof interface in \S~5.2. \\
 \begin{landscape}
 \small
 \begin{longtable}{p{3cm} p{10cm} p{7cm}}
-\caption*{Table B — Requirements implementable by minor extension or modification of zkID components}\\
+\caption*{Requirements implementable by minor extension or modification of zkID components}\label{tab:groupB}\\
 \toprule
 \textbf{Annex 2 ID} &
 \textbf{Requirement} &
@@ -631,7 +615,7 @@ modify components Security notes in \S~3 and Proof interface in \S~5.2. \\
 \begin{landscape}
 \small
 \begin{longtable}{p{3cm} p{10cm} p{7cm}}
-\caption*{Table C — Requirements requiring integration with external systems or protocol adaptations}\\
+\caption*{Requirements requiring integration with external systems or protocol adaptations}\label{tab:groupC}\\
 \toprule
 \textbf{Annex 2 Topic / ID} &
 \textbf{Requirement} &
@@ -681,6 +665,33 @@ Topic 9 &
  &
 \\
 
+\multicolumn{3}{l}{\textbf{Topic 10 — Issuance and Credential Handling (ISSU) (continued)}}\\
+
+ISSU\_01     & & Protocol interoperability (OpenID4VCI profile); outside zkID components. \\
+ISSU\_01a    & & Provider-side protocol interoperability (OpenID4VCI); outside zkID. \\
+ISSU\_03     & & API-level interoperability (W3C Digital Credentials API); outside zkID. \\
+ISSU\_04     & & Protocol feature: batch issuance in OpenID4VCI; outside zkID. \\
+ISSU\_05     & & Wallet activation flow; wallet runtime responsibility, not zkID. \\
+ISSU\_06     & & Post-issuance content check by wallet; outside zkID. \\
+ISSU\_11     & & User-approval and display handled by wallet UX; outside zkID. \\
+ISSU\_11b    & & Failure handling (delete and notify) by wallet; outside zkID. \\
+ISSU\_12b    & & Per-credential keypair generation (device/HSM); key management, not zkID. \\
+ISSU\_12c    & & Expiry alignment (PID $leq$ WUA expiry); lifecycle rule, not zkID. \\
+ISSU\_12d    & & Expiry alignment for attestations (if revocation chaining); lifecycle rule, not zkID. \\
+ISSU\_13–15  & & Rulebook compliance and OpenID4VCI support across Wallet/Provider; governance/protocol layer. \\
+ISSU\_17–20  & & Device binding, high-assurance identification, trusted lists, published support; provider operations, not zkID. \\
+ISSU\_21–23b & & Trusted lists and signed issuer metadata; wallet verifies; governance/protocol. \\
+ISSU\_24–24a & & Wallet validates PID Provider access/registration before requesting; refuse if untrusted; wallet policy. \\
+ISSU\_25–26  & & Attestation Providers: Rulebook compliance and OpenID4VCI support; provider-side. \\
+ISSU\_27a–27c& & Attestation Provider subject/eligibility verification; provider-side. \\
+ISSU\_28–32  & & Registration/trusted-lists/metadata publication; governance/protocol (ISSU\_31 empty). \\
+ISSU\_34–34a & & Wallet checks provider authorisation/entitlement for requested type; block/warn if invalid. \\
+ISSU\_35–35b & & Provider-side privacy (unique elements minimisation/discard); policy/operations. \\
+ISSU\_36     & & Wallet-side minimisation/scope enforcement; wallet policy. \\
+ISSU\_40–43  & & Anti-linkability methodswallet uses provider’s preference if supported; user impact minimal; batch semantics where applicable; protocol/UX. \\
+ISSU\_45–50  & & Privacy-preserving handling during issuance flows; operational/protocol behaviours, not zkID components. \\
+ISSU\_51–57  & & General issuance lifecycle policies beyond zkID scope (retries, scheduling, operational controls); wallet/provider operations. \\
+ISSU\_65     & & Re-issuance binding continuity; protocol-layer control. \\
 \multicolumn{3}{l}{\textbf{Topic 16 — Signing documents with a Wallet Unit}}\\
 
 Topic 16 &
@@ -781,7 +792,7 @@ Topic 48 &
 \begin{landscape}
 \small
 \begin{longtable}{p{3cm} p{10cm} p{7cm}}
-\caption*{Table D — Requirements dependent on product, user interface, or user-experience considerations}\\
+\caption*{Requirements dependent on product, user interface, or user-experience considerations}\label{tab:groupD}\\
 \toprule
 \textbf{Annex 2 Topic / ID} & \textbf{Requirement} & \textbf{Coverage}\\
 \midrule
