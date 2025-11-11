@@ -5,20 +5,24 @@
 //!   RUST_LOG=info cargo run --release -- prepare
 //!   RUST_LOG=info cargo run --release -- show
 //!
+//! To setup the Spartan2 circuits:
+//!   RUST_LOG=info cargo run --release -- setup_prepare
+//!   RUST_LOG=info cargo run --release -- setup_show
+//!
 //! To benchmark only Spartan2 Proof
 //!   RUST_LOG=info cargo run --release -- prove_prepare
 //!   RUST_LOG=info cargo run --release -- prove_show
 //!
-//! To setup the Spartan2 circuits:
-//!   RUST_LOG=info cargo run --release -- setup_prepare
-//!   RUST_LOG=info cargo run --release -- setup_show
+//! To verify saved proofs:
+//!   RUST_LOG=info cargo run --release -- verify_prepare
+//!   RUST_LOG=info cargo run --release -- verify_show
 
 use crate::{
     circuits::{prepare_circuit::PrepareCircuit, show_circuit::ShowCircuit},
-    prover::{prove_circuit, run_circuit},
+    prover::{prove_circuit, verify_circuit, run_circuit},
     setup::{
-        setup_circuit_keys, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY, SHOW_PROVING_KEY,
-        SHOW_VERIFYING_KEY,
+        setup_circuit_keys, PREPARE_PROOF, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY,
+        SHOW_PROOF, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY,
     },
 };
 
@@ -54,11 +58,19 @@ fn main() {
         }
         "prove_show" => {
             info!("Running Show circuit with ZK-Spartan");
-            prove_circuit(ShowCircuit, SHOW_PROVING_KEY);
+            prove_circuit(ShowCircuit, SHOW_PROVING_KEY, SHOW_PROOF);
         }
         "prove_prepare" => {
             info!("Spartan sumcheck + Hyrax PCS Prepare");
-            prove_circuit(PrepareCircuit, PREPARE_PROVING_KEY);
+            prove_circuit(PrepareCircuit, PREPARE_PROVING_KEY, PREPARE_PROOF);
+        }
+        "verify_prepare" => {
+            info!("Verifying Prepare circuit proof");
+            verify_circuit(PREPARE_PROOF, PREPARE_VERIFYING_KEY);
+        }
+        "verify_show" => {
+            info!("Verifying Show circuit proof");
+            verify_circuit(SHOW_PROOF, SHOW_VERIFYING_KEY);
         }
         "prepare" => {
             info!("Running Prepare circuit with ZK-Spartan");

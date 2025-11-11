@@ -17,6 +17,8 @@ pub const PREPARE_PROVING_KEY: &str = "keys/prepare_proving.key";
 pub const PREPARE_VERIFYING_KEY: &str = "keys/prepare_verifying.key";
 pub const SHOW_PROVING_KEY: &str = "keys/show_proving.key";
 pub const SHOW_VERIFYING_KEY: &str = "keys/show_verifying.key";
+pub const PREPARE_PROOF: &str = "keys/prepare_proof.bin";
+pub const SHOW_PROOF: &str = "keys/show_proof.bin";
 
 pub fn save_keys(
     pk_path: &str,
@@ -76,6 +78,39 @@ pub fn load_proving_key(
     let pk: <R1CSSNARK<E> as R1CSSNARKTrait<E>>::ProverKey =
         bincode::deserialize_from(Cursor::new(&pk_mmap[..]))?;
     Ok(pk)
+}
+
+pub fn load_verifying_key(
+    vk_path: &str,
+) -> Result<<R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey, Box<dyn std::error::Error>> {
+    let vk_file = File::open(vk_path)?;
+    let vk_mmap = unsafe { MmapOptions::new().map(&vk_file)? };
+    let vk: <R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey =
+        bincode::deserialize_from(Cursor::new(&vk_mmap[..]))?;
+    Ok(vk)
+}
+
+pub fn save_proof(
+    proof_path: &str,
+    proof: &R1CSSNARK<E>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = std::path::Path::new(proof_path).parent() {
+        create_dir_all(parent)?;
+    }
+
+    let proof_bytes = bincode::serialize(proof)?;
+    let mut proof_file = File::create(proof_path)?;
+    proof_file.write_all(&proof_bytes)?;
+    info!("Saved ZK-Spartan proof to: {}", proof_path);
+
+    Ok(())
+}
+
+pub fn load_proof(proof_path: &str) -> Result<R1CSSNARK<E>, Box<dyn std::error::Error>> {
+    let proof_file = File::open(proof_path)?;
+    let proof: R1CSSNARK<E> = bincode::deserialize_from(&mut BufReader::new(proof_file))?;
+    info!("Loaded ZK-Spartan proof from: {}", proof_path);
+    Ok(proof)
 }
 
 pub fn setup_circuit_keys<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(

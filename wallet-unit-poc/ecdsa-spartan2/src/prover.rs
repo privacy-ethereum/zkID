@@ -2,7 +2,7 @@ use std::{env::current_dir, fs::File, time::Instant};
 
 use crate::{
     circuits::prepare_circuit::jwt_witness,
-    setup::load_proving_key,
+    setup::{load_proof, load_proving_key, load_verifying_key, save_proof},
     utils::{calculate_jwt_output_indices, convert_bigint_to_scalar, parse_jwt_inputs},
     Scalar, E,
 };
@@ -54,7 +54,11 @@ pub fn run_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(circuit: C) {
 }
 
 /// Only run the proving part of the circuit using ZK-Spartan (prep_prove, prove)
-pub fn prove_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(circuit: C, pk_path: &str) {
+pub fn prove_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(
+    circuit: C,
+    pk_path: &str,
+    proof_path: &str,
+) {
     let pk = load_proving_key(pk_path).expect("load proving key failed");
 
     let t0 = Instant::now();
@@ -64,7 +68,8 @@ pub fn prove_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(circuit: C,
     info!("ZK-Spartan prep_prove: {} ms", prep_ms);
 
     let t0 = Instant::now();
-    R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
+    let proof =
+        R1CSSNARK::<E>::prove(&pk, circuit.clone(), &mut prep_snark, false).expect("prove failed");
     let prove_ms = t0.elapsed().as_millis();
 
     info!("ZK-Spartan prove: {} ms", prove_ms);
@@ -75,6 +80,25 @@ pub fn prove_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(circuit: C,
         "ZK-Spartan prep_prove: ({} ms) + prove: ({} ms) = TOTAL: {} ms",
         prep_ms, prove_ms, total_ms
     );
+
+    // Save the proof to file
+    if let Err(e) = save_proof(proof_path, &proof) {
+        eprintln!("Failed to save proof: {}", e);
+        std::process::exit(1);
+    }
+}
+
+/// Only run the verification part using ZK-Spartan
+pub fn verify_circuit(proof_path: &str, vk_path: &str) {
+    let proof = load_proof(proof_path).expect("load proof failed");
+    let vk = load_verifying_key(vk_path).expect("load verifying key failed");
+
+    let t0 = Instant::now();
+    proof.verify(&vk).expect("verify errored");
+    let verify_ms = t0.elapsed().as_millis();
+    info!(elapsed_ms = verify_ms, "ZK-Spartan verify");
+
+    info!("Verification successful! Time: {} ms", verify_ms);
 }
 
 /// Generate witness for the Prepare circuit.
