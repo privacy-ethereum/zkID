@@ -8,6 +8,7 @@ use crate::{
 };
 
 use bellpepper_core::SynthesisError;
+use ff::PrimeField;
 use serde_json::Value;
 use spartan2::{
     traits::{circuit::SpartanCircuit, snark::R1CSSNARKTrait},
@@ -76,11 +77,11 @@ pub fn prove_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(circuit: C,
     );
 }
 
-/// Generate witness for the Prepare circuit
-/// Returns the witness vector and the extracted KeyBindingX and KeyBindingY values
+/// Generate witness for the Prepare circuit.
+/// Returns the full witness vector, the decoded age-claim bytes, and the extracted KeyBindingX/Y values.
 pub fn generate_prepare_witness(
     input_json_path: Option<&std::path::Path>,
-) -> Result<(Vec<Scalar>, Scalar, Scalar), SynthesisError> {
+) -> Result<(Vec<Scalar>, Vec<u8>, Scalar, Scalar), SynthesisError> {
     let root = current_dir().unwrap().join("../circom");
 
     let json_path = input_json_path
@@ -111,18 +112,41 @@ pub fn generate_prepare_witness(
     const MAX_MATCHES: usize = 4;
     const MAX_CLAIMS_LENGTH: usize = 128;
 
-    let (keybinding_x_idx, keybinding_y_idx) =
-        calculate_jwt_output_indices(MAX_MATCHES, MAX_CLAIMS_LENGTH);
+    let output_layout = calculate_jwt_output_indices(MAX_MATCHES, MAX_CLAIMS_LENGTH);
+
+    let age_claim_slice = witness
+        .get(output_layout.age_claim_range())
+        .ok_or_else(|| SynthesisError::AssignmentMissing)?;
+
+    let mut age_claim_bytes: Vec<u8> = age_claim_slice
+        .iter()
+        .map(scalar_to_u8)
+        .collect::<Result<_, _>>()?;
+
+    while matches!(age_claim_bytes.last(), Some(0)) {
+        age_claim_bytes.pop();
+    }
 
     let keybinding_x = witness
-        .get(keybinding_x_idx)
+        .get(output_layout.keybinding_x_index)
         .copied()
         .ok_or_else(|| SynthesisError::AssignmentMissing)?;
 
     let keybinding_y = witness
-        .get(keybinding_y_idx)
+        .get(output_layout.keybinding_y_index)
         .copied()
         .ok_or_else(|| SynthesisError::AssignmentMissing)?;
 
-    Ok((witness, keybinding_x, keybinding_y))
+    Ok((witness, age_claim_bytes, keybinding_x, keybinding_y))
+}
+
+fn scalar_to_u8(value: &Scalar) -> Result<u8, SynthesisError> {
+    let repr = value.to_repr();
+    let bytes = repr.as_ref();
+
+    if bytes.iter().skip(1).any(|&b| b != 0) {
+        return Err(SynthesisError::Unsatisfiable);
+    }
+
+    Ok(bytes[0])
 }

@@ -1,7 +1,7 @@
 use bellpepper_core::SynthesisError;
 use rust_witness::BigInt;
 use serde_json::Value;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, ops::Range, str::FromStr};
 
 use crate::Scalar;
 
@@ -197,31 +197,42 @@ fn parse_2d_bigint_array(json: &Value, key: &str) -> Result<Vec<BigInt>, String>
     Ok(result)
 }
 
-/// Calculate output signal indices for JWT circuit based on circuit parameters
-/// This avoids parsing the large .sym file by calculating indices from known circuit structure.
+/// Layout information for the JWT circuit outputs within the witness vector.
+#[derive(Debug, Clone, Copy)]
+pub struct JwtOutputLayout {
+    pub age_claim_start: usize,
+    pub age_claim_len: usize,
+    pub keybinding_x_index: usize,
+    pub keybinding_y_index: usize,
+}
+
+impl JwtOutputLayout {
+    pub fn age_claim_range(&self) -> Range<usize> {
+        self.age_claim_start..self.age_claim_start + self.age_claim_len
+    }
+}
+
+/// Calculate output signal indices for JWT circuit based on circuit parameters.
 ///
-/// JWT circuit outputs:
-/// 1. messages[maxMatches][decodedLen] where decodedLen = (maxClaimsLength * 3) / 4
-/// 2. KeyBindingX (single scalar)
-/// 3. KeyBindingY (single scalar)
+/// JWT circuit outputs (in order):
+/// 1. `ageClaim[decodedLen]` where `decodedLen = (maxClaimsLength * 3) / 4`
+/// 2. `KeyBindingX`
+/// 3. `KeyBindingY`
 ///
-/// Parameters: [maxMessageLength, maxB64PayloadLength, maxMatches, maxSubstringLength, maxClaimsLength]
-/// Example: [2048, 2000, 4, 50, 128]
+/// Parameters: `[maxMessageLength, maxB64PayloadLength, maxMatches, maxSubstringLength, maxClaimsLength]`
 pub fn calculate_jwt_output_indices(
-    max_matches: usize,
+    _max_matches: usize,
     max_claims_length: usize,
-) -> (usize, usize) {
-    // decodedLen = (maxClaimsLength * 3) / 4
+) -> JwtOutputLayout {
     let decoded_len = (max_claims_length * 3) / 4;
+    let age_claim_start = 1; // Index 0 is reserved for the constant signal in Circom witness
+    let keybinding_x_index = age_claim_start + decoded_len;
+    let keybinding_y_index = keybinding_x_index + 1;
 
-    // messages array size: maxMatches * decodedLen
-    let messages_size = max_matches * decoded_len;
-
-    // In Circom, outputs are placed after all intermediate signals
-    // The messages output starts at index 1 (after constant 1 at index 0)
-    // KeyBindingX comes after messages, KeyBindingY after KeyBindingX
-    let keybinding_x_index = 1 + messages_size; // After messages array
-    let keybinding_y_index = keybinding_x_index + 1; // After KeyBindingX
-
-    (keybinding_x_index, keybinding_y_index)
+    JwtOutputLayout {
+        age_claim_start,
+        age_claim_len: decoded_len,
+        keybinding_x_index,
+        keybinding_y_index,
+    }
 }
