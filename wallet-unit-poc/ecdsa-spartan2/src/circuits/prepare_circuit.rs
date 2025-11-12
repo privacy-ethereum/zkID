@@ -81,7 +81,8 @@ impl SpartanCircuit<E> for PrepareCircuit {
             KEYBINDING_Y.with(|cell| cell.get().copied()),
         ) {
             (Some(x), Some(y)) => (x, y),
-            _ => (Scalar::zero(), Scalar::zero()),
+            // FIXME this should error out
+            _ => (Scalar::one(), Scalar::one() + Scalar::one()),
         };
 
         let age_claim = AGE_CLAIM

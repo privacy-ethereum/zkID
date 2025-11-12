@@ -5,7 +5,8 @@ use std::{
 };
 
 use spartan2::{
-    traits::{circuit::SpartanCircuit, snark::R1CSSNARKTrait},
+    r1cs::{R1CSWitness, SplitR1CSInstance},
+    traits::{Engine, circuit::SpartanCircuit, snark::R1CSSNARKTrait},
     zk_spartan::R1CSSNARK,
 };
 use tracing::info;
@@ -18,7 +19,12 @@ pub const PREPARE_VERIFYING_KEY: &str = "keys/prepare_verifying.key";
 pub const SHOW_PROVING_KEY: &str = "keys/show_proving.key";
 pub const SHOW_VERIFYING_KEY: &str = "keys/show_verifying.key";
 pub const PREPARE_PROOF: &str = "keys/prepare_proof.bin";
+pub const PREPARE_WITNESS: &str = "keys/prepare_witness.bin";
+pub const PREPARE_INSTANCE: &str = "keys/prepare_instance.bin";
 pub const SHOW_PROOF: &str = "keys/show_proof.bin";
+pub const SHOW_WITNESS: &str = "keys/show_witness.bin";
+pub const SHOW_INSTANCE: &str = "keys/show_instance.bin";
+pub const SHARED_BLINDS: &str = "keys/shared_blinds.bin";
 
 pub fn save_keys(
     pk_path: &str,
@@ -90,6 +96,22 @@ pub fn load_verifying_key(
     Ok(vk)
 }
 
+pub fn save_shared_blinds<E: Engine>(
+    shared_blinds_path: &str,
+    shared_blinds: &[E::Scalar],
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = std::path::Path::new(shared_blinds_path).parent() {
+        create_dir_all(parent)?;
+    }
+
+    let shared_blinds_bytes = bincode::serialize(shared_blinds)?;
+    let mut shared_blinds_file = File::create(shared_blinds_path)?;
+    shared_blinds_file.write_all(&shared_blinds_bytes)?;
+    info!("Saved ZK-Spartan shared_blinds to: {}", shared_blinds_path);
+
+    Ok(())
+}
+
 pub fn save_proof(
     proof_path: &str,
     proof: &R1CSSNARK<E>,
@@ -106,11 +128,67 @@ pub fn save_proof(
     Ok(())
 }
 
+pub fn save_instance(
+    instance_path: &str,
+    instance: &SplitR1CSInstance<E>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = std::path::Path::new(instance_path).parent() {
+        create_dir_all(parent)?;
+    }
+
+    let instance_bytes = bincode::serialize(instance)?;
+    let mut instance_file = File::create(instance_path)?;
+    instance_file.write_all(&instance_bytes)?;
+    info!("Saved ZK-Spartan instance to: {}", instance_path);
+
+    Ok(())
+}
+
+pub fn save_witness(
+    witness_path: &str,
+    witness: &R1CSWitness<E>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = std::path::Path::new(witness_path).parent() {
+        create_dir_all(parent)?;
+    }
+
+    let witness_bytes = bincode::serialize(witness)?;
+    let mut witness_file = File::create(witness_path)?;
+    witness_file.write_all(&witness_bytes)?;
+    info!("Saved ZK-Spartan witness to: {}", witness_path);
+
+    Ok(())
+}
+
+pub fn load_shared_blinds<E: Engine>(shared_blinds_path: &str) -> Result<Vec<E::Scalar>, Box<dyn std::error::Error>> {
+    let shared_blinds_file = File::open(shared_blinds_path)?;
+    let shared_blinds: Vec<E::Scalar> = bincode::deserialize_from(&mut BufReader::new(shared_blinds_file))?;
+    info!("Loaded ZK-Spartan shared_blinds from: {}", shared_blinds_path);
+    Ok(shared_blinds)
+}
+
 pub fn load_proof(proof_path: &str) -> Result<R1CSSNARK<E>, Box<dyn std::error::Error>> {
     let proof_file = File::open(proof_path)?;
     let proof: R1CSSNARK<E> = bincode::deserialize_from(&mut BufReader::new(proof_file))?;
     info!("Loaded ZK-Spartan proof from: {}", proof_path);
     Ok(proof)
+}
+
+pub fn load_instance(
+    instance_path: &str,
+) -> Result<SplitR1CSInstance<E>, Box<dyn std::error::Error>> {
+    let instance_file = File::open(instance_path)?;
+    let instance: SplitR1CSInstance<E> =
+        bincode::deserialize_from(&mut BufReader::new(instance_file))?;
+    info!("Loaded ZK-Spartan instance from: {}", instance_path);
+    Ok(instance)
+}
+
+pub fn load_witness(witness_path: &str) -> Result<R1CSWitness<E>, Box<dyn std::error::Error>> {
+    let witness_file = File::open(witness_path)?;
+    let witness: R1CSWitness<E> = bincode::deserialize_from(&mut BufReader::new(witness_file))?;
+    info!("Loaded ZK-Spartan witness from: {}", witness_path);
+    Ok(witness)
 }
 
 pub fn setup_circuit_keys<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(

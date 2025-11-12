@@ -19,10 +19,9 @@
 
 use crate::{
     circuits::{prepare_circuit::PrepareCircuit, show_circuit::ShowCircuit},
-    prover::{prove_circuit, verify_circuit, run_circuit},
+    prover::{generate_shared_blinds, prove_circuit, reblind, run_circuit, verify_circuit},
     setup::{
-        setup_circuit_keys, PREPARE_PROOF, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY,
-        SHOW_PROOF, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY,
+        PREPARE_INSTANCE, PREPARE_PROOF, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY, PREPARE_WITNESS, SHARED_BLINDS, SHOW_INSTANCE, SHOW_PROOF, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY, SHOW_WITNESS, setup_circuit_keys
     },
 };
 
@@ -48,6 +47,8 @@ fn main() {
 
     let args: Vec<String> = args().collect();
     let choice = args.get(1).map(|s| s.as_str()).unwrap_or("ecdsa");
+    // FIXME make this dynamic
+    const NUM_SHARED: usize = 1;
 
     match choice {
         "setup_prepare" => {
@@ -56,13 +57,50 @@ fn main() {
         "setup_show" => {
             setup_circuit_keys(ShowCircuit, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY);
         }
+        "generate_shared_blinds" => {
+            generate_shared_blinds::<E>(SHARED_BLINDS, NUM_SHARED);
+        }
         "prove_show" => {
             info!("Running Show circuit with ZK-Spartan");
-            prove_circuit(ShowCircuit, SHOW_PROVING_KEY, SHOW_PROOF);
+            prove_circuit(
+                ShowCircuit,
+                SHOW_PROVING_KEY,
+                SHOW_INSTANCE,
+                SHOW_WITNESS,
+                SHOW_PROOF,
+            );
+        }
+        "reblind_show" => {
+            info!("Reblind Spartan sumcheck + Hyrax PCS Show");
+            reblind(
+                ShowCircuit,
+                SHOW_PROVING_KEY,
+                SHOW_INSTANCE,
+                SHOW_WITNESS,
+                SHOW_PROOF,
+                SHARED_BLINDS,
+            );
         }
         "prove_prepare" => {
             info!("Spartan sumcheck + Hyrax PCS Prepare");
-            prove_circuit(PrepareCircuit, PREPARE_PROVING_KEY, PREPARE_PROOF);
+            prove_circuit(
+                PrepareCircuit,
+                PREPARE_PROVING_KEY,
+                PREPARE_INSTANCE,
+                PREPARE_WITNESS,
+                PREPARE_PROOF,
+            );
+        }
+        "reblind_prepare" => {
+            info!("Reblind Spartan sumcheck + Hyrax PCS Prepare");
+            reblind(
+                PrepareCircuit,
+                PREPARE_PROVING_KEY,
+                PREPARE_INSTANCE,
+                PREPARE_WITNESS,
+                PREPARE_PROOF,
+                SHARED_BLINDS,
+            );
         }
         "verify_prepare" => {
             info!("Verifying Prepare circuit proof");

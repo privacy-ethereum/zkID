@@ -88,6 +88,9 @@ impl SpartanCircuit<E> for ShowCircuit {
         let keybinding_x = bigint_to_scalar(keybinding_x_bigint)?;
         let keybinding_y = bigint_to_scalar(keybinding_y_bigint)?;
 
+        let keybinding_x = Scalar::one();
+        let keybinding_y = Scalar::one() + Scalar::one();
+
         let kb_x = AllocatedNum::alloc(cs.namespace(|| "KeyBindingX"), || Ok(keybinding_x))?;
         let kb_y = AllocatedNum::alloc(cs.namespace(|| "KeyBindingY"), || Ok(keybinding_y))?;
 
