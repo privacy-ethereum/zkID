@@ -17,11 +17,11 @@ cargo run --release -- generate_shared_blinds
 
 # 3. Produce and reblind the prepare proof
 cargo run --release -- prepare prove   --input ../circom/inputs/jwt/default.json
-cargo run --release -- prepare reblind
+RUST_LOG=info cargo run --release -- prepare reblind
 
 # 4. Produce and reblind the show proof
-cargo run --release -- show prove   --input ../circom/inputs/show/default.json
-cargo run --release -- show reblind
+RUST_LOG=info cargo run --release -- show prove   --input ../circom/inputs/show/default.json
+RUST_LOG=info cargo run --release -- show reblind
 
 # 5. Verify the prepare proof
 cargo run --release -- prepare verify
