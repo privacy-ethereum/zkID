@@ -7,6 +7,16 @@
 //!   cargo run --release -- show verify
 //!
 //! Legacy aliases such as `prepare`, `show`, `prove_prepare`, `setup_show`, etc. remain available.
+//!
+//! Typical post-keygen flow:
+//! 0. `prepare setup` and `show setup` — load proving/verification keys and witnesses for each circuit.
+//! 1. `generate_shared_blinds` — derive shared blinding factors used by both circuits.
+//! 2. `prove_prepare` — produce the initial Prepare proof.
+//! 3. `reblind_prepare` — reblind the Prepare proof without changing its `comm_W_shared`.
+//! 4. `prove_show` — produce the Show proof using the shared witness commitment.
+//! 5. `reblind_show` — reblind the Show proof; the reblinded proof maintains the same `comm_W_shared` as step 3.
+//!
+//! Every proof emitted in this sequence (including the reblinded variants) should verify successfully.
 
 use ecdsa_spartan2::{
     generate_shared_blinds, prove_circuit, reblind, run_circuit, setup::PREPARE_INSTANCE,
@@ -77,12 +87,12 @@ fn main() {
 fn execute_prepare(action: CircuitAction, options: CommandOptions) {
     match action {
         CircuitAction::Setup => {
-            info!("Setting up Spartan-2 keys for the Prepare circuit");
-            setup_circuit_keys(
-                PrepareCircuit::default(),
-                PREPARE_PROVING_KEY,
-                PREPARE_VERIFYING_KEY,
+            info!(
+                input = ?options.input,
+                "Setting up Spartan-2 keys for the Prepare circuit"
             );
+            let circuit = PrepareCircuit::new(options.input.clone());
+            setup_circuit_keys(circuit, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY);
         }
         CircuitAction::Run => {
             let circuit = PrepareCircuit::new(options.input.clone());
@@ -125,8 +135,9 @@ fn execute_prepare(action: CircuitAction, options: CommandOptions) {
 fn execute_show(action: CircuitAction, options: CommandOptions) {
     match action {
         CircuitAction::Setup => {
-            info!("Setting up Spartan-2 keys for the Show circuit");
-            setup_circuit_keys(ShowCircuit::default(), SHOW_PROVING_KEY, SHOW_VERIFYING_KEY);
+            info!(input = ?options.input, "Setting up Spartan-2 keys for the Show circuit");
+            let circuit = ShowCircuit::new(options.input.clone());
+            setup_circuit_keys(circuit, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY);
         }
         CircuitAction::Run => {
             let circuit = ShowCircuit::new(options.input.clone());
@@ -181,12 +192,12 @@ fn parse_command(args: &[String]) -> Result<ParsedCommand, String> {
         "setup_prepare" => Ok(ParsedCommand {
             circuit: CircuitKind::Prepare,
             action: CircuitAction::Setup,
-            options: ensure_no_options(&args[1..])?,
+            options: parse_options(&args[1..])?,
         }),
         "setup_show" => Ok(ParsedCommand {
             circuit: CircuitKind::Show,
             action: CircuitAction::Setup,
-            options: ensure_no_options(&args[1..])?,
+            options: parse_options(&args[1..])?,
         }),
         "prove_prepare" => Ok(ParsedCommand {
             circuit: CircuitKind::Prepare,
@@ -261,11 +272,12 @@ fn parse_circuit_command(circuit: CircuitKind, tail: &[String]) -> Result<Parsed
 
     let options_slice = &tail[option_start..];
     let options = match action {
-        CircuitAction::Setup
-        | CircuitAction::Verify
-        | CircuitAction::Reblind
-        | CircuitAction::GenerateSharedBlinds => ensure_no_options(options_slice)?,
-        CircuitAction::Run | CircuitAction::Prove => parse_options(options_slice)?,
+        CircuitAction::Run | CircuitAction::Prove | CircuitAction::Setup => {
+            parse_options(options_slice)?
+        }
+        CircuitAction::Verify | CircuitAction::Reblind | CircuitAction::GenerateSharedBlinds => {
+            ensure_no_options(options_slice)?
+        }
     };
 
     Ok(ParsedCommand {
@@ -318,7 +330,7 @@ fn print_usage() {
   ecdsa-spartan2 <prepare|show> [run|setup|prove|verify] [options]
 
 Options:
-  --input, -i <path>   Override the circuit input JSON (run/prove only)
+  --input, -i <path>   Override the circuit input JSON (run/prove/setup)
 
 Examples:
   cargo run --release -- prepare run --input ../circom/inputs/jwt/generated.json
