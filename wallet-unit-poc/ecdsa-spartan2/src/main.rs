@@ -9,16 +9,19 @@
 //! Legacy aliases such as `prepare`, `show`, `prove_prepare`, `setup_show`, etc. remain available.
 
 use ecdsa_spartan2::{
-    prove_circuit, run_circuit, set_prepare_input_path, set_show_input_path, setup::PREPARE_PROOF,
-    setup::PREPARE_PROVING_KEY, setup::PREPARE_VERIFYING_KEY, setup::SHOW_PROOF,
-    setup::SHOW_PROVING_KEY, setup::SHOW_VERIFYING_KEY, setup_circuit_keys, verify_circuit,
-    PrepareCircuit, ShowCircuit,
+    generate_shared_blinds, prove_circuit, reblind, run_circuit, set_prepare_input_path,
+    set_show_input_path, setup::PREPARE_INSTANCE, setup::PREPARE_PROOF, setup::PREPARE_PROVING_KEY,
+    setup::PREPARE_VERIFYING_KEY, setup::PREPARE_WITNESS, setup::SHARED_BLINDS,
+    setup::SHOW_INSTANCE, setup::SHOW_PROOF, setup::SHOW_PROVING_KEY, setup::SHOW_VERIFYING_KEY,
+    setup::SHOW_WITNESS, setup_circuit_keys, verify_circuit, PrepareCircuit, ShowCircuit, E,
 };
-use std::{env, path::PathBuf, process};
+use std::{env::args, path::PathBuf, process};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-#[derive(Debug, Clone, Copy)]
+const NUM_SHARED: usize = 1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CircuitKind {
     Prepare,
     Show,
@@ -30,6 +33,8 @@ enum CircuitAction {
     Setup,
     Prove,
     Verify,
+    Reblind,
+    GenerateSharedBlinds,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -51,13 +56,10 @@ fn main() {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let args: Vec<String> = env::args().skip(1).collect();
-    if args.is_empty() {
-        print_usage();
-        process::exit(1);
-    }
+    let args: Vec<String> = args().collect();
+    let command_args: &[String] = if args.len() > 1 { &args[1..] } else { &[] };
 
-    let command = match parse_command(&args) {
+    let command = match parse_command(command_args) {
         Ok(cmd) => cmd,
         Err(err) => {
             eprintln!("Error: {}", err);
@@ -87,12 +89,33 @@ fn execute_prepare(action: CircuitAction, options: CommandOptions) {
         CircuitAction::Prove => {
             set_prepare_input_path(options.input.clone());
             info!("Proving Prepare circuit with ZK-Spartan");
-            prove_circuit(PrepareCircuit, PREPARE_PROVING_KEY, PREPARE_PROOF);
+            prove_circuit(
+                PrepareCircuit,
+                PREPARE_PROVING_KEY,
+                PREPARE_INSTANCE,
+                PREPARE_WITNESS,
+                PREPARE_PROOF,
+            );
             set_prepare_input_path(Option::<PathBuf>::None);
         }
         CircuitAction::Verify => {
             info!("Verifying Prepare proof with ZK-Spartan");
             verify_circuit(PREPARE_PROOF, PREPARE_VERIFYING_KEY);
+        }
+        CircuitAction::Reblind => {
+            info!("Reblind Spartan sumcheck + Hyrax PCS Prepare");
+            reblind(
+                PrepareCircuit,
+                PREPARE_PROVING_KEY,
+                PREPARE_INSTANCE,
+                PREPARE_WITNESS,
+                PREPARE_PROOF,
+                SHARED_BLINDS,
+            );
+        }
+        CircuitAction::GenerateSharedBlinds => {
+            info!("Generating shared blinds for Spartan-2 circuits");
+            generate_shared_blinds::<E>(SHARED_BLINDS, NUM_SHARED);
         }
     }
 }
@@ -112,12 +135,33 @@ fn execute_show(action: CircuitAction, options: CommandOptions) {
         CircuitAction::Prove => {
             set_show_input_path(options.input.clone());
             info!("Proving Show circuit with ZK-Spartan");
-            prove_circuit(ShowCircuit, SHOW_PROVING_KEY, SHOW_PROOF);
+            prove_circuit(
+                ShowCircuit,
+                SHOW_PROVING_KEY,
+                SHOW_INSTANCE,
+                SHOW_WITNESS,
+                SHOW_PROOF,
+            );
             set_show_input_path(Option::<PathBuf>::None);
         }
         CircuitAction::Verify => {
             info!("Verifying Show proof with ZK-Spartan");
             verify_circuit(SHOW_PROOF, SHOW_VERIFYING_KEY);
+        }
+        CircuitAction::Reblind => {
+            info!("Reblind Spartan sumcheck + Hyrax PCS Show");
+            reblind(
+                ShowCircuit,
+                SHOW_PROVING_KEY,
+                SHOW_INSTANCE,
+                SHOW_WITNESS,
+                SHOW_PROOF,
+                SHARED_BLINDS,
+            );
+        }
+        CircuitAction::GenerateSharedBlinds => {
+            eprintln!("Error: generate_shared_blinds is only supported for the Prepare circuit");
+            process::exit(1);
         }
     }
 }
@@ -164,6 +208,21 @@ fn parse_command(args: &[String]) -> Result<ParsedCommand, String> {
             action: CircuitAction::Verify,
             options: ensure_no_options(&args[1..])?,
         }),
+        "reblind_prepare" => Ok(ParsedCommand {
+            circuit: CircuitKind::Prepare,
+            action: CircuitAction::Reblind,
+            options: ensure_no_options(&args[1..])?,
+        }),
+        "reblind_show" => Ok(ParsedCommand {
+            circuit: CircuitKind::Show,
+            action: CircuitAction::Reblind,
+            options: ensure_no_options(&args[1..])?,
+        }),
+        "generate_shared_blinds" => Ok(ParsedCommand {
+            circuit: CircuitKind::Prepare,
+            action: CircuitAction::GenerateSharedBlinds,
+            options: ensure_no_options(&args[1..])?,
+        }),
         other => Err(format!("Unknown command '{other}'")),
     }
 }
@@ -183,18 +242,29 @@ fn parse_circuit_command(circuit: CircuitKind, tail: &[String]) -> Result<Parsed
         "setup" => (CircuitAction::Setup, 1),
         "prove" => (CircuitAction::Prove, 1),
         "verify" => (CircuitAction::Verify, 1),
+        "reblind" => (CircuitAction::Reblind, 1),
+        "generate_shared_blinds" => (CircuitAction::GenerateSharedBlinds, 1),
         s if s.starts_with('-') => (CircuitAction::Run, 0),
         other => {
             return Err(format!(
-                "Unknown action '{other}' for {:?}. Expected one of run|setup|prove|verify.",
+                "Unknown action '{other}' for {:?}. Expected one of run|setup|prove|verify|reblind|generate_shared_blinds.",
                 circuit
             ))
         }
     };
 
+    if action == CircuitAction::GenerateSharedBlinds && circuit != CircuitKind::Prepare {
+        return Err(
+            "The generate_shared_blinds action is only supported for the Prepare circuit".into(),
+        );
+    }
+
     let options_slice = &tail[option_start..];
     let options = match action {
-        CircuitAction::Setup | CircuitAction::Verify => ensure_no_options(options_slice)?,
+        CircuitAction::Setup
+        | CircuitAction::Verify
+        | CircuitAction::Reblind
+        | CircuitAction::GenerateSharedBlinds => ensure_no_options(options_slice)?,
         CircuitAction::Run | CircuitAction::Prove => parse_options(options_slice)?,
     };
 
