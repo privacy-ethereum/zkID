@@ -1,22 +1,44 @@
-use std::{any::type_name, env::current_dir, sync::OnceLock};
-
+use crate::{
+    prover::generate_prepare_witness,
+    utils::{compute_prepare_shared_scalars, PrepareSharedScalars},
+    Scalar, E,
+};
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use circom_scotia::{reader::load_r1cs, synthesize};
+use serde_json::Value;
 use spartan2::traits::circuit::SpartanCircuit;
-
-use crate::{prover::generate_prepare_witness, Scalar, E};
+use std::{any::type_name, env::current_dir, fs::File, path::PathBuf};
 
 rust_witness::witness!(jwt);
 
-thread_local! {
-    static KEYBINDING_X: OnceLock<Scalar> = OnceLock::new();
-    static KEYBINDING_Y: OnceLock<Scalar> = OnceLock::new();
-    static AGE_CLAIM: OnceLock<Vec<Scalar>> = OnceLock::new();
+// jwt.circom
+#[derive(Debug, Clone, Default)]
+pub struct PrepareCircuit {
+    input_path: Option<PathBuf>,
 }
 
-// jwt.circom
-#[derive(Debug, Clone)]
-pub struct PrepareCircuit;
+impl PrepareCircuit {
+    pub fn new<P: Into<Option<PathBuf>>>(path: P) -> Self {
+        Self {
+            input_path: path.into(),
+        }
+    }
+
+    fn input_path_absolute(&self, cwd: &PathBuf) -> Option<PathBuf> {
+        self.input_path.as_ref().map(|p| {
+            if p.is_absolute() {
+                p.clone()
+            } else {
+                cwd.join(p)
+            }
+        })
+    }
+
+    fn resolve_input_json(&self, cwd: &PathBuf) -> PathBuf {
+        self.input_path_absolute(cwd)
+            .unwrap_or_else(|| cwd.join("../circom/inputs/jwt/default.json"))
+    }
+}
 
 impl SpartanCircuit<E> for PrepareCircuit {
     fn synthesize<CS: ConstraintSystem<Scalar>>(
@@ -26,7 +48,8 @@ impl SpartanCircuit<E> for PrepareCircuit {
         _: &[AllocatedNum<Scalar>],
         _: Option<&[Scalar]>,
     ) -> Result<(), SynthesisError> {
-        let root = current_dir().unwrap().join("../circom");
+        let cwd = current_dir().unwrap();
+        let root = cwd.join("../circom");
         let witness_dir = root.join("build/jwt/jwt_js");
         let r1cs = witness_dir.join("jwt.r1cs");
 
@@ -43,26 +66,8 @@ impl SpartanCircuit<E> for PrepareCircuit {
         }
 
         // Generate witness using the dedicated function
-        let (witness, age_claim, keybinding_x, keybinding_y) = generate_prepare_witness(None)?;
-
-        let age_claim_scalars: Vec<Scalar> = age_claim
-            .iter()
-            .map(|byte| Scalar::from(*byte as u64))
-            .collect();
-
-        AGE_CLAIM.with(|cell| {
-            cell.set(age_claim_scalars)
-                .map_err(|_| SynthesisError::AssignmentMissing)
-        })?;
-
-        KEYBINDING_X.with(|cell| {
-            cell.set(keybinding_x)
-                .map_err(|_| SynthesisError::AssignmentMissing)
-        })?;
-        KEYBINDING_Y.with(|cell| {
-            cell.set(keybinding_y)
-                .map_err(|_| SynthesisError::AssignmentMissing)
-        })?;
+        let input_path = self.input_path_absolute(&cwd);
+        let witness = generate_prepare_witness(input_path.as_ref().map(|p| p.as_path()))?;
 
         let r1cs = load_r1cs(r1cs);
         synthesize(cs, r1cs, Some(witness))?;
@@ -76,32 +81,35 @@ impl SpartanCircuit<E> for PrepareCircuit {
         &self,
         cs: &mut CS,
     ) -> Result<Vec<AllocatedNum<Scalar>>, SynthesisError> {
-        let (keybinding_x, keybinding_y) = match (
-            KEYBINDING_X.with(|cell| cell.get().copied()),
-            KEYBINDING_Y.with(|cell| cell.get().copied()),
-        ) {
-            (Some(x), Some(y)) => (x, y),
-            // FIXME this should error out
-            _ => (Scalar::one(), Scalar::one() + Scalar::one()),
-        };
+        let cwd = current_dir().unwrap();
+        let json_path = self.resolve_input_json(&cwd);
 
-        let age_claim = AGE_CLAIM
-            .with(|cell| cell.get().cloned())
-            .unwrap_or_default();
+        let json_file = File::open(&json_path).map_err(|_| SynthesisError::AssignmentMissing)?;
 
-        let kb_x = AllocatedNum::alloc(cs.namespace(|| "KeyBindingX"), || Ok(keybinding_x))?;
-        let kb_y = AllocatedNum::alloc(cs.namespace(|| "KeyBindingY"), || Ok(keybinding_y))?;
+        let json_value: Value =
+            serde_json::from_reader(json_file).map_err(|_| SynthesisError::AssignmentMissing)?;
 
-        let mut shared_values = Vec::with_capacity(2 + age_claim.len());
-        shared_values.push(kb_x);
-        shared_values.push(kb_y);
+        let PrepareSharedScalars {
+            keybinding_x,
+            keybinding_y,
+            claim_scalars,
+        } = compute_prepare_shared_scalars(&json_value)?;
 
-        for (idx, byte_scalar) in age_claim.iter().enumerate() {
-            let byte_alloc =
-                AllocatedNum::alloc(cs.namespace(|| format!("AgeClaimByte{idx}")), || {
-                    Ok(*byte_scalar)
+        let keybinding_x_alloc =
+            AllocatedNum::alloc(cs.namespace(|| "KeyBindingX"), || Ok(keybinding_x))?;
+        let keybinding_y_alloc =
+            AllocatedNum::alloc(cs.namespace(|| "KeyBindingY"), || Ok(keybinding_y))?;
+
+        let mut shared_values = Vec::with_capacity(2 + claim_scalars.len());
+        shared_values.push(keybinding_x_alloc);
+        shared_values.push(keybinding_y_alloc);
+
+        for (idx, claim_scalar) in claim_scalars.into_iter().enumerate() {
+            let claim_alloc =
+                AllocatedNum::alloc(cs.namespace(|| format!("Claim{idx}")), move || {
+                    Ok(claim_scalar)
                 })?;
-            shared_values.push(byte_alloc);
+            shared_values.push(claim_alloc);
         }
 
         Ok(shared_values)

@@ -6,7 +6,7 @@ use std::{
 
 use spartan2::{
     r1cs::{R1CSWitness, SplitR1CSInstance},
-    traits::{Engine, circuit::SpartanCircuit, snark::R1CSSNARKTrait},
+    traits::{circuit::SpartanCircuit, snark::R1CSSNARKTrait, Engine},
     zk_spartan::R1CSSNARK,
 };
 use tracing::info;
@@ -160,10 +160,16 @@ pub fn save_witness(
     Ok(())
 }
 
-pub fn load_shared_blinds<E: Engine>(shared_blinds_path: &str) -> Result<Vec<E::Scalar>, Box<dyn std::error::Error>> {
+pub fn load_shared_blinds<E: Engine>(
+    shared_blinds_path: &str,
+) -> Result<Vec<E::Scalar>, Box<dyn std::error::Error>> {
     let shared_blinds_file = File::open(shared_blinds_path)?;
-    let shared_blinds: Vec<E::Scalar> = bincode::deserialize_from(&mut BufReader::new(shared_blinds_file))?;
-    info!("Loaded ZK-Spartan shared_blinds from: {}", shared_blinds_path);
+    let shared_blinds: Vec<E::Scalar> =
+        bincode::deserialize_from(&mut BufReader::new(shared_blinds_file))?;
+    info!(
+        "Loaded ZK-Spartan shared_blinds from: {}",
+        shared_blinds_path
+    );
     Ok(shared_blinds)
 }
 

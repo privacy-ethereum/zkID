@@ -47,11 +47,18 @@ jobs:
       - name: Compile Show circuit
         run: cd wallet-unit-poc/circom && yarn compile:show
 
-      - name: Run Prepare binary
-        run: cd wallet-unit-poc/ecdsa-spartan2 && RUST_LOG=info cargo run --release -- prepare
-
-      - name: Run Show binary
-        run: cd wallet-unit-poc/ecdsa-spartan2 && RUST_LOG=info cargo run --release -- show
+      - name: Run ecdsa-spartan2 end-to-end flow
+        run: |
+          cd wallet-unit-poc/ecdsa-spartan2
+          cargo run --release -- prepare setup --input ../circom/inputs/jwt/default.json
+          cargo run --release -- show setup --input ../circom/inputs/show/default.json
+          cargo run --release -- generate_shared_blinds
+          cargo run --release -- prepare prove --input ../circom/inputs/jwt/default.json
+          RUST_LOG=info cargo run --release -- prepare reblind
+          RUST_LOG=info cargo run --release -- show prove --input ../circom/inputs/show/default.json
+          RUST_LOG=info cargo run --release -- show reblind
+          cargo run --release -- prepare verify
+          cargo run --release -- show verify
 
       - name: Run tests
         run: cd wallet-unit-poc/circom && yarn test
