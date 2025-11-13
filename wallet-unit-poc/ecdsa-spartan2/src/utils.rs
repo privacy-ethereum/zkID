@@ -203,21 +203,61 @@ pub fn extract_prepare_shared_data(
         .and_then(|value| value.as_array())
         .ok_or(SynthesisError::AssignmentMissing)?;
 
-    let mut claim_bytes = claim_values
+    let claim_bytes = claim_values
         .iter()
         .map(parse_byte)
         .collect::<Result<Vec<_>, _>>()?;
 
-    while matches!(claim_bytes.last(), Some(0)) {
-        claim_bytes.pop();
+    let max_claim_length = claim_values.len();
+    if max_claim_length == 0 {
+        return Err(SynthesisError::AssignmentMissing);
+    }
+
+    let claim_lengths = root_json
+        .get("claimLengths")
+        .and_then(|value| value.as_array())
+        .ok_or(SynthesisError::AssignmentMissing)?;
+
+    let encoded_claim_len_value = claim_lengths
+        .get(age_claim_index)
+        .ok_or(SynthesisError::AssignmentMissing)?;
+
+    let encoded_claim_len = match encoded_claim_len_value {
+        Value::String(s) => s
+            .parse::<usize>()
+            .map_err(|_| SynthesisError::AssignmentMissing)?,
+        Value::Number(n) => n
+            .as_u64()
+            .map(|value| value as usize)
+            .ok_or(SynthesisError::AssignmentMissing)?,
+        _ => return Err(SynthesisError::AssignmentMissing),
+    };
+
+    if encoded_claim_len > claim_bytes.len() {
+        return Err(SynthesisError::AssignmentMissing);
+    }
+
+    let encoded_claim = String::from_utf8(claim_bytes[..encoded_claim_len].to_vec())
+        .map_err(|_| SynthesisError::AssignmentMissing)?;
+
+    let decoded_claim_bytes = decode_base64(&encoded_claim)?;
+    let decoded_len = (max_claim_length * 3) / 4;
+
+    if decoded_claim_bytes.len() > decoded_len {
+        return Err(SynthesisError::AssignmentMissing);
+    }
+
+    let mut claim_scalars: Vec<Scalar> = decoded_claim_bytes
+        .into_iter()
+        .map(|byte| Scalar::from(byte as u64))
+        .collect();
+
+    while claim_scalars.len() < decoded_len {
+        claim_scalars.push(Scalar::from(0u64));
     }
 
     let keybinding_x = bigint_to_scalar(keybinding_x_bigint)?;
     let keybinding_y = bigint_to_scalar(keybinding_y_bigint)?;
-    let claim_scalars = claim_bytes
-        .iter()
-        .map(|byte| Scalar::from(*byte as u64))
-        .collect();
 
     Ok(PrepareSharedScalars {
         keybinding_x,

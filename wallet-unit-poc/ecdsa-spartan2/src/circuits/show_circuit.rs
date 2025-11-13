@@ -1,40 +1,46 @@
+use crate::{utils::*, Scalar, E};
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
 use circom_scotia::{reader::load_r1cs, synthesize};
 use serde_json::Value;
 use spartan2::traits::circuit::SpartanCircuit;
-use std::{any::type_name, cell::RefCell, env::current_dir, fs::File, path::PathBuf};
-use crate::{utils::*, Scalar, E};
+use std::{any::type_name, env::current_dir, fs::File, path::PathBuf};
 use tracing::info;
 
 rust_witness::witness!(show);
 
-thread_local! {
-    static SHOW_INPUT_PATH: RefCell<Option<PathBuf>> = RefCell::new(None);
-}
-
-pub fn set_show_input_path<P: Into<Option<PathBuf>>>(path: P) {
-    SHOW_INPUT_PATH.with(|cell| {
-        *cell.borrow_mut() = path.into();
-    });
-}
-
-fn resolve_show_input_path(cwd: &PathBuf) -> PathBuf {
-    SHOW_INPUT_PATH
-        .with(|cell| cell.borrow().clone())
-        .map(|p| if p.is_absolute() { p } else { cwd.join(p) })
-        .unwrap_or_else(|| cwd.join("../circom/inputs/show/default.json"))
-}
-
-fn load_show_inputs(cwd: &PathBuf) -> Result<Value, SynthesisError> {
-    let path = resolve_show_input_path(cwd);
-    info!("Loading show inputs from {}", path.display());
-    let file = File::open(&path).map_err(|_| SynthesisError::AssignmentMissing)?;
-    serde_json::from_reader(file).map_err(|_| SynthesisError::AssignmentMissing)
-}
-
 // show.circom
-#[derive(Debug, Clone)]
-pub struct ShowCircuit;
+#[derive(Debug, Clone, Default)]
+pub struct ShowCircuit {
+    input_path: Option<PathBuf>,
+}
+
+impl ShowCircuit {
+    pub fn new<P: Into<Option<PathBuf>>>(path: P) -> Self {
+        Self {
+            input_path: path.into(),
+        }
+    }
+
+    fn input_path_absolute(&self, cwd: &PathBuf) -> PathBuf {
+        self.input_path
+            .as_ref()
+            .map(|p| {
+                if p.is_absolute() {
+                    p.clone()
+                } else {
+                    cwd.join(p)
+                }
+            })
+            .unwrap_or_else(|| cwd.join("../circom/inputs/show/default.json"))
+    }
+
+    fn load_inputs(&self, cwd: &PathBuf) -> Result<Value, SynthesisError> {
+        let path = self.input_path_absolute(cwd);
+        info!("Loading show inputs from {}", path.display());
+        let file = File::open(&path).map_err(|_| SynthesisError::AssignmentMissing)?;
+        serde_json::from_reader(file).map_err(|_| SynthesisError::AssignmentMissing)
+    }
+}
 
 impl SpartanCircuit<E> for ShowCircuit {
     fn synthesize<CS: ConstraintSystem<Scalar>>(
@@ -48,7 +54,7 @@ impl SpartanCircuit<E> for ShowCircuit {
         let root = cwd.join("../circom");
         let witness_dir = root.join("build/show/show_js");
         let r1cs = witness_dir.join("show.r1cs");
-        let json_value = load_show_inputs(&cwd)?;
+        let json_value = self.load_inputs(&cwd)?;
 
         // Parse inputs using declarative field definitions
         let inputs = parse_show_inputs(&json_value)?;
@@ -82,7 +88,7 @@ impl SpartanCircuit<E> for ShowCircuit {
         cs: &mut CS,
     ) -> Result<Vec<AllocatedNum<Scalar>>, SynthesisError> {
         let cwd = current_dir().unwrap();
-        let json_value = load_show_inputs(&cwd)?;
+        let json_value = self.load_inputs(&cwd)?;
 
         let inputs = parse_show_inputs(&json_value)?;
         let keybinding_x_bigint = inputs.get("deviceKeyX").unwrap()[0].clone();

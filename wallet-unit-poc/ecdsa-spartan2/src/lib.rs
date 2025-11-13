@@ -17,10 +17,7 @@ pub mod setup;
 pub mod utils;
 
 // Re-export commonly used types and functions
-pub use circuits::{
-    prepare_circuit::{set_prepare_input_path, PrepareCircuit},
-    show_circuit::{set_show_input_path, ShowCircuit},
-};
+pub use circuits::{prepare_circuit::PrepareCircuit, show_circuit::ShowCircuit};
 pub use prover::{
     generate_prepare_witness, generate_shared_blinds, prove_circuit, reblind, run_circuit,
     verify_circuit,

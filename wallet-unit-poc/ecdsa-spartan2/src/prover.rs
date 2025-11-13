@@ -171,8 +171,6 @@ pub fn reblind<C: SpartanCircuit<E>>(
     // absorb the public values into the reblind_transcript
     reblind_transcript.absorb(b"public_values", &public_values.as_slice());
 
-    println!("old instance: {:?}", instance.comm_W_shared);
-
     let (new_instance, new_witness) = SatisfyingAssignment::reblind_r1cs_instance_and_witness(
         &randomness,
         instance,

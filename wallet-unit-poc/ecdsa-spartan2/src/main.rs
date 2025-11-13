@@ -9,11 +9,11 @@
 //! Legacy aliases such as `prepare`, `show`, `prove_prepare`, `setup_show`, etc. remain available.
 
 use ecdsa_spartan2::{
-    generate_shared_blinds, prove_circuit, reblind, run_circuit, set_prepare_input_path,
-    set_show_input_path, setup::PREPARE_INSTANCE, setup::PREPARE_PROOF, setup::PREPARE_PROVING_KEY,
-    setup::PREPARE_VERIFYING_KEY, setup::PREPARE_WITNESS, setup::SHARED_BLINDS,
-    setup::SHOW_INSTANCE, setup::SHOW_PROOF, setup::SHOW_PROVING_KEY, setup::SHOW_VERIFYING_KEY,
-    setup::SHOW_WITNESS, setup_circuit_keys, verify_circuit, PrepareCircuit, ShowCircuit, E,
+    generate_shared_blinds, prove_circuit, reblind, run_circuit, setup::PREPARE_INSTANCE,
+    setup::PREPARE_PROOF, setup::PREPARE_PROVING_KEY, setup::PREPARE_VERIFYING_KEY,
+    setup::PREPARE_WITNESS, setup::SHARED_BLINDS, setup::SHOW_INSTANCE, setup::SHOW_PROOF,
+    setup::SHOW_PROVING_KEY, setup::SHOW_VERIFYING_KEY, setup::SHOW_WITNESS, setup_circuit_keys,
+    verify_circuit, PrepareCircuit, ShowCircuit, E,
 };
 use std::{env::args, path::PathBuf, process};
 use tracing::info;
@@ -78,25 +78,27 @@ fn execute_prepare(action: CircuitAction, options: CommandOptions) {
     match action {
         CircuitAction::Setup => {
             info!("Setting up Spartan-2 keys for the Prepare circuit");
-            setup_circuit_keys(PrepareCircuit, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY);
+            setup_circuit_keys(
+                PrepareCircuit::default(),
+                PREPARE_PROVING_KEY,
+                PREPARE_VERIFYING_KEY,
+            );
         }
         CircuitAction::Run => {
-            set_prepare_input_path(options.input.clone());
+            let circuit = PrepareCircuit::new(options.input.clone());
             info!("Running Prepare circuit with ZK-Spartan");
-            run_circuit(PrepareCircuit);
-            set_prepare_input_path(Option::<PathBuf>::None);
+            run_circuit(circuit);
         }
         CircuitAction::Prove => {
-            set_prepare_input_path(options.input.clone());
+            let circuit = PrepareCircuit::new(options.input.clone());
             info!("Proving Prepare circuit with ZK-Spartan");
             prove_circuit(
-                PrepareCircuit,
+                circuit,
                 PREPARE_PROVING_KEY,
                 PREPARE_INSTANCE,
                 PREPARE_WITNESS,
                 PREPARE_PROOF,
             );
-            set_prepare_input_path(Option::<PathBuf>::None);
         }
         CircuitAction::Verify => {
             info!("Verifying Prepare proof with ZK-Spartan");
@@ -105,7 +107,7 @@ fn execute_prepare(action: CircuitAction, options: CommandOptions) {
         CircuitAction::Reblind => {
             info!("Reblind Spartan sumcheck + Hyrax PCS Prepare");
             reblind(
-                PrepareCircuit,
+                PrepareCircuit::default(),
                 PREPARE_PROVING_KEY,
                 PREPARE_INSTANCE,
                 PREPARE_WITNESS,
@@ -124,25 +126,23 @@ fn execute_show(action: CircuitAction, options: CommandOptions) {
     match action {
         CircuitAction::Setup => {
             info!("Setting up Spartan-2 keys for the Show circuit");
-            setup_circuit_keys(ShowCircuit, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY);
+            setup_circuit_keys(ShowCircuit::default(), SHOW_PROVING_KEY, SHOW_VERIFYING_KEY);
         }
         CircuitAction::Run => {
-            set_show_input_path(options.input.clone());
+            let circuit = ShowCircuit::new(options.input.clone());
             info!("Running Show circuit with ZK-Spartan");
-            run_circuit(ShowCircuit);
-            set_show_input_path(Option::<PathBuf>::None);
+            run_circuit(circuit);
         }
         CircuitAction::Prove => {
-            set_show_input_path(options.input.clone());
+            let circuit = ShowCircuit::new(options.input.clone());
             info!("Proving Show circuit with ZK-Spartan");
             prove_circuit(
-                ShowCircuit,
+                circuit,
                 SHOW_PROVING_KEY,
                 SHOW_INSTANCE,
                 SHOW_WITNESS,
                 SHOW_PROOF,
             );
-            set_show_input_path(Option::<PathBuf>::None);
         }
         CircuitAction::Verify => {
             info!("Verifying Show proof with ZK-Spartan");
@@ -151,7 +151,7 @@ fn execute_show(action: CircuitAction, options: CommandOptions) {
         CircuitAction::Reblind => {
             info!("Reblind Spartan sumcheck + Hyrax PCS Show");
             reblind(
-                ShowCircuit,
+                ShowCircuit::default(),
                 SHOW_PROVING_KEY,
                 SHOW_INSTANCE,
                 SHOW_WITNESS,
