@@ -3,12 +3,11 @@ use std::{env::current_dir, fs::File, time::Instant};
 use crate::{
     circuits::prepare_circuit::jwt_witness,
     setup::{load_proof, load_proving_key, load_verifying_key, save_proof},
-    utils::{calculate_jwt_output_indices, convert_bigint_to_scalar, parse_jwt_inputs},
+    utils::{convert_bigint_to_scalar, parse_jwt_inputs},
     Scalar, E,
 };
 
 use bellpepper_core::SynthesisError;
-use ff::PrimeField;
 use serde_json::Value;
 use spartan2::{
     traits::{circuit::SpartanCircuit, snark::R1CSSNARKTrait},
@@ -105,12 +104,14 @@ pub fn verify_circuit(proof_path: &str, vk_path: &str) {
 /// Returns the full witness vector, the decoded age-claim bytes, and the extracted KeyBindingX/Y values.
 pub fn generate_prepare_witness(
     input_json_path: Option<&std::path::Path>,
-) -> Result<(Vec<Scalar>, Vec<u8>, Scalar, Scalar), SynthesisError> {
+) -> Result<Vec<Scalar>, SynthesisError> {
     let root = current_dir().unwrap().join("../circom");
 
     let json_path = input_json_path
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| root.join("inputs/jwt/default.json"));
+
+    info!("Loading prepare inputs from {}", json_path.display());
 
     let json_file = File::open(&json_path).map_err(|_| SynthesisError::AssignmentMissing)?;
 
@@ -127,50 +128,5 @@ pub fn generate_prepare_witness(
     info!("rust-witness time: {} ms", t0.elapsed().as_millis());
 
     let witness: Vec<Scalar> = convert_bigint_to_scalar(witness_bigint)?;
-
-    // Calculate KeyBindingX and KeyBindingY indices from circuit parameters
-    // JWT circuit params: [maxMessageLength, maxB64PayloadLength, maxMatches, maxSubstringLength, maxClaimsLength]
-    // From circuits.json: [2048, 2000, 4, 50, 128]
-
-    // Todo: we can make this dynamic by parsing the circuit parameters from the circuit file
-    const MAX_MATCHES: usize = 4;
-    const MAX_CLAIMS_LENGTH: usize = 128;
-
-    let output_layout = calculate_jwt_output_indices(MAX_MATCHES, MAX_CLAIMS_LENGTH);
-
-    let age_claim_slice = witness
-        .get(output_layout.age_claim_range())
-        .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-
-    let mut age_claim_bytes: Vec<u8> = age_claim_slice
-        .iter()
-        .map(scalar_to_u8)
-        .collect::<Result<_, _>>()?;
-
-    while matches!(age_claim_bytes.last(), Some(0)) {
-        age_claim_bytes.pop();
-    }
-
-    let keybinding_x = witness
-        .get(output_layout.keybinding_x_index)
-        .copied()
-        .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-
-    let keybinding_y = witness
-        .get(output_layout.keybinding_y_index)
-        .copied()
-        .ok_or_else(|| SynthesisError::AssignmentMissing)?;
-
-    Ok((witness, age_claim_bytes, keybinding_x, keybinding_y))
-}
-
-fn scalar_to_u8(value: &Scalar) -> Result<u8, SynthesisError> {
-    let repr = value.to_repr();
-    let bytes = repr.as_ref();
-
-    if bytes.iter().skip(1).any(|&b| b != 0) {
-        return Err(SynthesisError::Unsatisfiable);
-    }
-
-    Ok(bytes[0])
+    Ok(witness)
 }

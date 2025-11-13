@@ -1,3 +1,5 @@
+use base64::engine::general_purpose::{STANDARD, URL_SAFE, URL_SAFE_NO_PAD};
+use base64::Engine;
 use bellpepper_core::SynthesisError;
 use rust_witness::BigInt;
 use serde_json::Value;
@@ -117,6 +119,162 @@ pub fn convert_bigint_to_scalar(
     bigint_witness.into_iter().map(bigint_to_scalar).collect()
 }
 
+#[derive(Debug, Clone)]
+pub struct PrepareSharedScalars {
+    pub keybinding_x: Scalar,
+    pub keybinding_y: Scalar,
+    pub claim_scalars: Vec<Scalar>,
+}
+
+pub fn compute_prepare_shared_scalars(
+    root_json: &Value,
+) -> Result<PrepareSharedScalars, SynthesisError> {
+    let message_length = root_json
+        .get("messageLength")
+        .and_then(|value| value.as_u64())
+        .ok_or(SynthesisError::AssignmentMissing)? as usize;
+
+    let message_values = root_json
+        .get("message")
+        .and_then(|value| value.as_array())
+        .ok_or(SynthesisError::AssignmentMissing)?;
+
+    let mut truncated_message = Vec::with_capacity(message_length);
+    for value in message_values.iter().take(message_length) {
+        truncated_message.push(parse_byte(value)?);
+    }
+
+    let jwt_ascii: Vec<u8> = truncated_message
+        .iter()
+        .take_while(|byte| **byte != 0)
+        .filter(|byte| byte.is_ascii())
+        .copied()
+        .collect();
+
+    let jwt_string = String::from_utf8(jwt_ascii).map_err(|_| SynthesisError::AssignmentMissing)?;
+
+    let jwt_parts: Vec<&str> = jwt_string.split('.').collect();
+    if jwt_parts.len() < 2 {
+        return Err(SynthesisError::AssignmentMissing);
+    }
+    let payload_b64 = jwt_parts[1];
+
+    let payload_bytes = decode_base64(payload_b64)?;
+    let payload_json: Value =
+        serde_json::from_slice(&payload_bytes).map_err(|_| SynthesisError::AssignmentMissing)?;
+
+    extract_prepare_shared_data(&payload_json, root_json)
+}
+
+pub fn extract_prepare_shared_data(
+    payload_json: &Value,
+    root_json: &Value,
+) -> Result<PrepareSharedScalars, SynthesisError> {
+    let jwk = payload_json
+        .get("cnf")
+        .and_then(|value| value.get("jwk"))
+        .ok_or(SynthesisError::AssignmentMissing)?;
+
+    let keybinding_x_b64 = jwk
+        .get("x")
+        .and_then(|value| value.as_str())
+        .ok_or(SynthesisError::AssignmentMissing)?;
+
+    let keybinding_y_b64 = jwk
+        .get("y")
+        .and_then(|value| value.as_str())
+        .ok_or(SynthesisError::AssignmentMissing)?;
+
+    let keybinding_x_bigint = bytes_to_bigint(&decode_base64(keybinding_x_b64)?);
+    let keybinding_y_bigint = bytes_to_bigint(&decode_base64(keybinding_y_b64)?);
+
+    let age_claim_index = root_json
+        .get("ageClaimIndex")
+        .and_then(|value| value.as_u64())
+        .ok_or(SynthesisError::AssignmentMissing)? as usize;
+
+    let claims = root_json
+        .get("claims")
+        .and_then(|value| value.as_array())
+        .ok_or(SynthesisError::AssignmentMissing)?;
+
+    let claim_values = claims
+        .get(age_claim_index)
+        .and_then(|value| value.as_array())
+        .ok_or(SynthesisError::AssignmentMissing)?;
+
+    let mut claim_bytes = claim_values
+        .iter()
+        .map(parse_byte)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    while matches!(claim_bytes.last(), Some(0)) {
+        claim_bytes.pop();
+    }
+
+    let keybinding_x = bigint_to_scalar(keybinding_x_bigint)?;
+    let keybinding_y = bigint_to_scalar(keybinding_y_bigint)?;
+    let claim_scalars = claim_bytes
+        .iter()
+        .map(|byte| Scalar::from(*byte as u64))
+        .collect();
+
+    Ok(PrepareSharedScalars {
+        keybinding_x,
+        keybinding_y,
+        claim_scalars,
+    })
+}
+
+pub fn parse_byte(value: &Value) -> Result<u8, SynthesisError> {
+    if let Some(as_str) = value.as_str() {
+        let parsed = as_str
+            .parse::<u16>()
+            .map_err(|_| SynthesisError::AssignmentMissing)?;
+        return u8::try_from(parsed).map_err(|_| SynthesisError::AssignmentMissing);
+    }
+
+    if let Some(as_u64) = value.as_u64() {
+        return u8::try_from(as_u64).map_err(|_| SynthesisError::AssignmentMissing);
+    }
+
+    Err(SynthesisError::AssignmentMissing)
+}
+
+pub fn decode_base64(encoded: &str) -> Result<Vec<u8>, SynthesisError> {
+    if encoded.len() % 4 == 1 {
+        return Err(SynthesisError::AssignmentMissing);
+    }
+
+    let mut candidates = vec![encoded.to_string()];
+
+    let mut padded = encoded.to_string();
+    match encoded.len() % 4 {
+        0 => {}
+        2 => padded.push_str("=="),
+        3 => padded.push('='),
+        _ => {}
+    }
+
+    if padded != encoded {
+        candidates.push(padded);
+    }
+
+    for candidate in candidates {
+        if let Ok(decoded) = URL_SAFE_NO_PAD.decode(candidate.as_bytes()) {
+            return Ok(decoded);
+        }
+        if let Ok(decoded) = URL_SAFE.decode(candidate.as_bytes()) {
+            return Ok(decoded);
+        }
+        if let Ok(decoded) = STANDARD.decode(candidate.as_bytes()) {
+            return Ok(decoded);
+        }
+    }
+
+    Err(SynthesisError::AssignmentMissing)
+}
+
 // JSON Parsing Helpers
 /// Parse a single BigInt from a string field
 fn parse_bigint_scalar(json: &Value, key: &str) -> Result<BigInt, String> {
@@ -195,6 +353,14 @@ fn parse_2d_bigint_array(json: &Value, key: &str) -> Result<Vec<BigInt>, String>
     }
 
     Ok(result)
+}
+
+fn bytes_to_bigint(bytes: &[u8]) -> BigInt {
+    let mut acc = BigInt::from(0u8);
+    for &byte in bytes {
+        acc = (acc << 8) + BigInt::from(byte);
+    }
+    acc
 }
 
 /// Layout information for the JWT circuit outputs within the witness vector.
