@@ -2,7 +2,7 @@
   "jwt": {
     "file": "jwt",
     "template": "JWT",
-    "params": [2048, 2000, 4, 50, 128]
+    "params": [1920, 1900, 4, 50, 128]
   },
   "show": {
     "file": "show",
