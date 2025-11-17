@@ -1,0 +1,55 @@
+
+╔════════════════════════════════════════════════╗
+║     STARTING COMPLETE BENCHMARK PIPELINE       ║
+╚════════════════════════════════════════════════╝
+
+✓ Prepare setup completed: 9060 ms
+
+✓ Show setup completed: 44 ms
+
+✓ Shared blinds generated: 0 ms
+
+✓ Prepare proof generated: 5430 ms
+
+v: (0xcfc8652d5da2241f5c5f6a276aab125ecfe289abd68f7d58acfc6bfa23b82b01, 0x5204c22a009e6768f30550bf5c7178687cb846d3c470ee93e15a888e84760e08)
+new instance: Some(())
+✓ Prepare proof reblinded: 3119 ms
+
+✓ Show proof generated: 113 ms
+
+v: (0xcfc8652d5da2241f5c5f6a276aab125ecfe289abd68f7d58acfc6bfa23b82b01, 0x5204c22a009e6768f30550bf5c7178687cb846d3c470ee93e15a888e84760e08)
+new instance: Some(())
+✓ Show proof reblinded: 49 ms
+
+✓ Prepare proof verified: 3617 ms
+
+✓ Show proof verified: 32 ms
+
+
+╔════════════════════════════════════════════════╗
+║        BENCHMARK RESULTS SUMMARY               ║
+╠════════════════════════════════════════════════╣
+║ TIMING MEASUREMENTS                            ║
+╠════════════════════════════════════════════════╣
+║ Prepare Setup:                9060 ms      ║
+║ Show Setup:                     44 ms      ║
+║ Generate Blinds:                 0 ms      ║
+║ Prove Prepare:                5430 ms      ║
+║ Reblind Prepare:              3119 ms      ║
+║ Prove Show:                    113 ms      ║
+║ Reblind Show:                   49 ms      ║
+║ Verify Prepare:               3617 ms      ║
+║ Verify Show:                    32 ms      ║
+╠════════════════════════════════════════════════╣
+║ SIZE MEASUREMENTS                              ║
+╠════════════════════════════════════════════════╣
+║ Prepare Proving Key:       768.11 MB       ║
+║ Prepare Verifying Key:     768.11 MB       ║
+║ Show Proving Key:            3.45 MB       ║
+║ Show Verifying Key:          3.45 MB       ║
+║ Prepare Proof:             175.77 KB       ║
+║ Show Proof:                 40.41 KB       ║
+║ Prepare Witness:           128.13 MB       ║
+║ Show Witness:              512.52 KB       ║
+╚════════════════════════════════════════════════╝
+
