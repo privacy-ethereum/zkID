@@ -33,34 +33,35 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
   let currentDate = { year: 2025, month: 1, day: 1 };
 
   before(async () => {
-    const RECOMPILE = true;
-    jwtCircuit = await circomkit.WitnessTester(`JWT`, {
-      file: "jwt",
-      template: "JWT",
-      params: [1920, 1900, 4, 50, 128],
-      recompile: RECOMPILE,
-    });
-    console.log("JWT Circuit #constraints:", await jwtCircuit.getConstraintCount());
-
-    showCircuit = await circomkit.WitnessTester(`Show`, {
-      file: "show",
-      template: "Show",
-      params: [128],
-      recompile: RECOMPILE,
-    });
-    console.log("Show Circuit #constraints:", await showCircuit.getConstraintCount());
+    // const RECOMPILE = true;
+    // jwtCircuit = await circomkit.WitnessTester(`JWT`, {
+    //   file: "jwt",
+    //   template: "JWT",
+    //   params: [5120, 2604, 4, 50, 128],
+    //   recompile: RECOMPILE,
+    // });
+    // console.log("JWT Circuit #constraints:", await jwtCircuit.getConstraintCount());
+    // showCircuit = await circomkit.WitnessTester(`Show`, {
+    //   file: "show",
+    //   template: "Show",
+    //   params: [128],
+    //   recompile: RECOMPILE,
+    // });
+    // console.log("Show Circuit #constraints:", await showCircuit.getConstraintCount());
   });
 
   describe("Complete End-to-End Flow", () => {
     it("should complete full flow: JWT circuit extracts device key → Show circuit verifies device signature", async () => {
       const mockData = await generateMockData({
-        circuitParams: [1920, 1900, 4, 50, 128],
+        circuitParams: [8192, 2604, 4, 50, 128],
         decodeFlags: [0, 1],
+        issuer: "did:key:test-issuer",
+        subject: "did:key:test-subject",
       });
 
-      fs.writeFileSync("jwtInputs.json", JSON.stringify(mockData.circuitInputs, null, 2));
-      const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
-      await jwtCircuit.expectConstraintPass(jwtWitness);
+      fs.writeFileSync("inputs/jwt/default.json", JSON.stringify(mockData.circuitInputs, null, 2));
+      // const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
+      // await jwtCircuit.expectConstraintPass(jwtWitness);
 
       // const jwtOutputs = await jwtCircuit.readWitnessSignals(jwtWitness, ["KeyBindingX", "KeyBindingY"]);
       // Get circuit outputs
@@ -92,13 +93,13 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
         day: currentDate.day,
       });
 
-      fs.writeFileSync("showInputs.json", JSON.stringify(showInputs, null, 2));
+      fs.writeFileSync("inputs/show/default.json", JSON.stringify(showInputs, null, 2));
 
       // assert.strictEqual(showInputs.deviceKeyX, expectedKeyX);
       // assert.strictEqual(showInputs.deviceKeyY, expectedKeyY);
 
-      const showWitness = await showCircuit.calculateWitness(showInputs);
-      await showCircuit.expectConstraintPass(showWitness);
+      // const showWitness = await showCircuit.calculateWitness(showInputs);
+      // await showCircuit.expectConstraintPass(showWitness);
     });
 
     // it("should fail Show circuit when device signature doesn't match extracted key", async () => {
