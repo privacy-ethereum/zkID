@@ -1,0 +1,55 @@
+
+╔════════════════════════════════════════════════╗
+║     STARTING COMPLETE BENCHMARK PIPELINE       ║
+╚════════════════════════════════════════════════╝
+
+✓ Prepare setup completed: 17815 ms
+
+✓ Show setup completed: 51 ms
+
+✓ Shared blinds generated: 0 ms
+
+✓ Prepare proof generated: 10903 ms
+
+v: (0x513c26b81a948527b867cf11f6db18fbc19b082df8e16b9804372d3e68e1db0c, 0x5bb1e41c1d0e04c0107521a48b782f43fd6e7fa605a4a107f788b742bd887e2c)
+new instance: Some(())
+✓ Prepare proof reblinded: 4421 ms
+
+✓ Show proof generated: 142 ms
+
+v: (0x513c26b81a948527b867cf11f6db18fbc19b082df8e16b9804372d3e68e1db0c, 0x5bb1e41c1d0e04c0107521a48b782f43fd6e7fa605a4a107f788b742bd887e2c)
+new instance: Some(())
+✓ Show proof reblinded: 37 ms
+
+✓ Prepare proof verified: 7664 ms
+
+✓ Show proof verified: 39 ms
+
+
+╔════════════════════════════════════════════════╗
+║        BENCHMARK RESULTS SUMMARY               ║
+╠════════════════════════════════════════════════╣
+║ TIMING MEASUREMENTS                            ║
+╠════════════════════════════════════════════════╣
+║ Prepare Setup:               17815 ms      ║
+║ Show Setup:                     51 ms      ║
+║ Generate Blinds:                 0 ms      ║
+║ Prove Prepare:               10903 ms      ║
+║ Reblind Prepare:              4421 ms      ║
+║ Prove Show:                    142 ms      ║
+║ Reblind Show:                   37 ms      ║
+║ Verify Prepare:               7664 ms      ║
+║ Verify Show:                    39 ms      ║
+╠════════════════════════════════════════════════╣
+║ SIZE MEASUREMENTS                              ║
+╠════════════════════════════════════════════════╣
+║ Prepare Proving Key:      1396.12 MB       ║
+║ Prepare Verifying Key:    1396.12 MB       ║
+║ Show Proving Key:            3.45 MB       ║
+║ Show Verifying Key:          3.45 MB       ║
+║ Prepare Proof:             308.26 KB       ║
+║ Show Proof:                 40.41 KB       ║
+║ Prepare Witness:           256.25 MB       ║
+║ Show Witness:              512.52 KB       ║
+╚════════════════════════════════════════════════╝
+
