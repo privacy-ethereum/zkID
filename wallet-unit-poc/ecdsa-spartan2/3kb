@@ -1,0 +1,55 @@
+
+╔════════════════════════════════════════════════╗
+║     STARTING COMPLETE BENCHMARK PIPELINE       ║
+╚════════════════════════════════════════════════╝
+
+✓ Prepare setup completed: 7257 ms
+
+✓ Show setup completed: 45 ms
+
+✓ Shared blinds generated: 0 ms
+
+✓ Prepare proof generated: 4174 ms
+
+v: (0x8cc193abba2714d743d67c2bfedd39e1d90ae196e09d976b7fadb97ec632d083, 0x04d3318b5bb2152e88781363986b9dad41481a8f1e2f2da620198c4570081b9e)
+new instance: Some(())
+✓ Prepare proof reblinded: 2023 ms
+
+✓ Show proof generated: 80 ms
+
+v: (0x8cc193abba2714d743d67c2bfedd39e1d90ae196e09d976b7fadb97ec632d083, 0x04d3318b5bb2152e88781363986b9dad41481a8f1e2f2da620198c4570081b9e)
+new instance: Some(())
+✓ Show proof reblinded: 35 ms
+
+✓ Prepare proof verified: 2461 ms
+
+✓ Show proof verified: 30 ms
+
+
+╔════════════════════════════════════════════════╗
+║        BENCHMARK RESULTS SUMMARY               ║
+╠════════════════════════════════════════════════╣
+║ TIMING MEASUREMENTS                            ║
+╠════════════════════════════════════════════════╣
+║ Prepare Setup:                7257 ms      ║
+║ Show Setup:                     45 ms      ║
+║ Generate Blinds:                 0 ms      ║
+║ Prove Prepare:                4174 ms      ║
+║ Reblind Prepare:              2023 ms      ║
+║ Prove Show:                     80 ms      ║
+║ Reblind Show:                   35 ms      ║
+║ Verify Prepare:               2461 ms      ║
+║ Verify Show:                    30 ms      ║
+╠════════════════════════════════════════════════╣
+║ SIZE MEASUREMENTS                              ║
+╠════════════════════════════════════════════════╣
+║ Prepare Proving Key:       611.44 MB       ║
+║ Prepare Verifying Key:     611.44 MB       ║
+║ Show Proving Key:            3.45 MB       ║
+║ Show Verifying Key:          3.45 MB       ║
+║ Prepare Proof:             175.77 KB       ║
+║ Show Proof:                 40.41 KB       ║
+║ Prepare Witness:           128.13 MB       ║
+║ Show Witness:              512.52 KB       ║
+╚════════════════════════════════════════════════╝
+
