@@ -115,19 +115,19 @@ For the reproduction of mobile benchmarks, please check this repo: https://githu
 
 #### Prepare Circuit (Mobile)
 
-|    Device    | Prover Time | Verifier Time | Key Setup |
-| :----------: | :---------: | :-----------: | :-------: |
-|  iPhone 17   |   3460 ms   |    1858 ms    |  4602 ms  |
-| Pixel 10 Pro |   8398 ms   |    2972 ms    | 12994 ms  |
+| Device        | Proving Time | Reblind Time | Verifier Time | Key Setup |
+|---------------|--------------|--------------|----------------|-----------|
+| iPhone 17     | 3460 ms      | 1401 ms      | 1858 ms        | 4602 ms   |
+| Pixel 10 Pro  | 8398 ms      | 3113 ms       | 2972 ms        | 12994 ms  |
 
-Peak Memory Usage for Proving: **2.27 GiB**
+<!-- Peak Memory Usage for Proving: **2.27 GiB** -->
 
 #### Show Circuit (Mobile)
 
-|    Device    | Prover Time | Verifier Time | Key Setup |
-| :----------: | :---------: | :-----------: | :-------: |
-|  iPhone 17   |   115 ms    |     36 ms     |   60 ms   |
-| Pixel 10 Pro |   394 ms    |    120 ms     |  210 ms   |
+|    Device     | Prover Time (Includes Reblind) | Verifier Time | Key Setup |
+|:-------------:|:-------------------------------:|:-------------:|:---------:|
+|   iPhone 17    |              158 ms             |     36 ms     |   60 ms   |
+| Pixel 10 Pro  |              609 ms             |    120 ms     |  210 ms   |
 
 <table>
   <tr>
