@@ -48,27 +48,34 @@ RUST_LOG=info cargo run --release -- prove_jwt
 
 For the reproduction of mobile benchmarks, please check this repo: https://github.com/moven0831/spartan2-hyrax-mopro
 
+
 ### Prepare Circuits
 |    Device    | Prover Time | Verifier Time | Key Setup |
 |:------------:|:-----------:|:-------------:|:---------:|
-|  iPhone 17   |   2996 ms   |    156 ms     |  3718 ms  |
-| Pixel 10 Pro |   6680 ms   |    342 ms     |  9682 ms  |
+|  iPhone 17   |   3460 ms   |    1858 ms     |  4602 ms  |
+| Pixel 10 Pro |   8398 ms   |    2972 ms     |  12994 ms  |
 
 Peak Memory Usage for Proving: **2.27 GiB**
 
 ### Show Circuits
 |    Device    | Prover Time | Verifier Time | Key Setup |
 |:------------:|:-----------:|:-------------:|:---------:|
-|  iPhone 17   |    79 ms    |     12 ms     |   93 ms   |
-| Pixel 10 Pro |   344 ms    |     54 ms     |  180 ms   |
+|  iPhone 17   |    115 ms    |     36 ms     |   60 ms   |
+| Pixel 10 Pro |   394 ms    |     120 ms     |  210 ms   |
 
-Peak Memory Usage for Proving: **1.96 GiB**
 
-### PC Benchmarks
+<table>
+  <tr>
+    <th>iPhone 17</th>
+    <th>Pixel 10 Pro</th>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/fd1a26aa-6838-46ff-81e5-4b3ee68d4268" width="250">
+    </td>
+    <td align="center">
+      <img src="https://github.com/user-attachments/assets/29b8434b-6eb2-43c7-88f2-e8dd9427f778" width="250">
+    </td>
+  </tr>
+</table>
 
-(MacBook Pro, 24 GB RAM, 14-core GPU, M4)
-
-| Operation                                         | Time        |
-| ------------------------------------------------- | ----------- |
-| Complete jwt_prove (include witness generation)   | 2.7 seconds |
-| Complete ecdsa_prove (include witness generation) | 69ms        |
