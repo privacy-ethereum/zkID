@@ -33,35 +33,35 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
   let currentDate = { year: 2025, month: 1, day: 1 };
 
   before(async () => {
-    // const RECOMPILE = true;
-    // jwtCircuit = await circomkit.WitnessTester(`JWT`, {
-    //   file: "jwt",
-    //   template: "JWT",
-    //   params: [5120, 2604, 4, 50, 128],
-    //   recompile: RECOMPILE,
-    // });
-    // console.log("JWT Circuit #constraints:", await jwtCircuit.getConstraintCount());
-    // showCircuit = await circomkit.WitnessTester(`Show`, {
-    //   file: "show",
-    //   template: "Show",
-    //   params: [128],
-    //   recompile: RECOMPILE,
-    // });
-    // console.log("Show Circuit #constraints:", await showCircuit.getConstraintCount());
+    const RECOMPILE = true;
+    jwtCircuit = await circomkit.WitnessTester(`JWT`, {
+      file: "jwt",
+      template: "JWT",
+      params: [1920, 1900, 4, 50, 128],
+      recompile: RECOMPILE,
+    });
+    console.log("JWT Circuit #constraints:", await jwtCircuit.getConstraintCount());
+    showCircuit = await circomkit.WitnessTester(`Show`, {
+      file: "show",
+      template: "Show",
+      params: [128],
+      recompile: RECOMPILE,
+    });
+    console.log("Show Circuit #constraints:", await showCircuit.getConstraintCount());
   });
 
   describe("Complete End-to-End Flow", () => {
     it("should complete full flow: JWT circuit extracts device key → Show circuit verifies device signature", async () => {
       const mockData = await generateMockData({
-        circuitParams: [8192, 2604, 4, 50, 128],
+        circuitParams: [1920, 1900, 4, 50, 128],
         decodeFlags: [0, 1],
         issuer: "did:key:test-issuer",
         subject: "did:key:test-subject",
       });
 
       fs.writeFileSync("inputs/jwt/default.json", JSON.stringify(mockData.circuitInputs, null, 2));
-      // const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
-      // await jwtCircuit.expectConstraintPass(jwtWitness);
+      const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
+      await jwtCircuit.expectConstraintPass(jwtWitness);
 
       // const jwtOutputs = await jwtCircuit.readWitnessSignals(jwtWitness, ["KeyBindingX", "KeyBindingY"]);
       // Get circuit outputs
@@ -95,46 +95,46 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
 
       fs.writeFileSync("inputs/show/default.json", JSON.stringify(showInputs, null, 2));
 
-      // assert.strictEqual(showInputs.deviceKeyX, expectedKeyX);
-      // assert.strictEqual(showInputs.deviceKeyY, expectedKeyY);
+      assert.strictEqual(showInputs.deviceKeyX, expectedKeyX);
+      assert.strictEqual(showInputs.deviceKeyY, expectedKeyY);
 
-      // const showWitness = await showCircuit.calculateWitness(showInputs);
-      // await showCircuit.expectConstraintPass(showWitness);
+      const showWitness = await showCircuit.calculateWitness(showInputs);
+      await showCircuit.expectConstraintPass(showWitness);
     });
 
-    // it("should fail Show circuit when device signature doesn't match extracted key", async () => {
-    //   // Phase 1: Prepare - Extract device binding key
-    //   const mockData = await generateMockData({
-    //     circuitParams: [2048, 2000, 4, 50, 128],
-    //   });
+    it("should fail Show circuit when device signature doesn't match extracted key", async () => {
+      // Phase 1: Prepare - Extract device binding key
+      const mockData = await generateMockData({
+        circuitParams: [2048, 2000, 4, 50, 128],
+      });
 
-    //   let claim = mockData.claims[mockData.circuitInputs.ageClaimIndex - 2];
+      let claim = mockData.claims[mockData.circuitInputs.ageClaimIndex - 2];
 
-    //   const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
-    //   await jwtCircuit.expectConstraintPass(jwtWitness);
+      const jwtWitness = await jwtCircuit.calculateWitness(mockData.circuitInputs);
+      await jwtCircuit.expectConstraintPass(jwtWitness);
 
-    //   // Phase 2: Show - Try to use wrong device signature
-    //   const verifierNonce = "verifier-challenge-12345";
+      // Phase 2: Show - Try to use wrong device signature
+      const verifierNonce = "verifier-challenge-12345";
 
-    //   // Create a different device key (wrong key)
-    //   const wrongPrivateKey = p256.utils.randomSecretKey();
-    //   const wrongSignature = signDeviceNonce(verifierNonce, wrongPrivateKey);
+      // Create a different device key (wrong key)
+      const wrongPrivateKey = p256.utils.randomSecretKey();
+      const wrongSignature = signDeviceNonce(verifierNonce, wrongPrivateKey);
 
-    //   // Try to verify with wrong signature (should fail)
-    //   const showParams = generateShowCircuitParams([256]);
+      // Try to verify with wrong signature (should fail)
+      const showParams = generateShowCircuitParams([256]);
 
-    //   // This should throw an error because signature doesn't match
-    //   assert.throws(
-    //     () => {
-    //       generateShowInputs(showParams, verifierNonce, wrongSignature, mockData.deviceKey, claim, {
-    //         year: currentDate.year,
-    //         month: currentDate.month,
-    //         day: currentDate.day,
-    //       });
-    //     },
-    //     /Device signature verification failed/,
-    //     "Should fail when device signature doesn't match device binding key"
-    //   );
-    // });
+      // This should throw an error because signature doesn't match
+      assert.throws(
+        () => {
+          generateShowInputs(showParams, verifierNonce, wrongSignature, mockData.deviceKey, claim, {
+            year: currentDate.year,
+            month: currentDate.month,
+            day: currentDate.day,
+          });
+        },
+        /Device signature verification failed/,
+        "Should fail when device signature doesn't match device binding key"
+      );
+    });
   });
 });
