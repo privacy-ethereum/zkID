@@ -19,11 +19,13 @@
 //! Every proof emitted in this sequence (including the reblinded variants) should verify successfully.
 
 use ecdsa_spartan2::{
-    generate_shared_blinds, prove_circuit, reblind, run_circuit, setup::PREPARE_INSTANCE,
-    setup::PREPARE_PROOF, setup::PREPARE_PROVING_KEY, setup::PREPARE_VERIFYING_KEY,
-    setup::PREPARE_WITNESS, setup::SHARED_BLINDS, setup::SHOW_INSTANCE, setup::SHOW_PROOF,
-    setup::SHOW_PROVING_KEY, setup::SHOW_VERIFYING_KEY, setup::SHOW_WITNESS, setup_circuit_keys,
-    verify_circuit, PrepareCircuit, ShowCircuit, E,
+    generate_shared_blinds, load_instance, load_proof, load_shared_blinds, load_witness,
+    prove_circuit, prove_circuit_with_pk, reblind, reblind_with_loaded_data, run_circuit,
+    save_keys, setup::PREPARE_INSTANCE, setup::PREPARE_PROOF, setup::PREPARE_PROVING_KEY,
+    setup::PREPARE_VERIFYING_KEY, setup::PREPARE_WITNESS, setup::SHARED_BLINDS,
+    setup::SHOW_INSTANCE, setup::SHOW_PROOF, setup::SHOW_PROVING_KEY, setup::SHOW_VERIFYING_KEY,
+    setup::SHOW_WITNESS, setup_circuit_keys, setup_circuit_keys_no_save, verify_circuit,
+    verify_circuit_with_loaded_data, PrepareCircuit, ShowCircuit, E,
 };
 use std::{env::args, fs, path::PathBuf, process, time::Instant};
 use tracing::info;
@@ -212,19 +214,36 @@ fn run_complete_pipeline(input_path: Option<PathBuf>) -> BenchmarkResults {
 
     // Step 1: Setup Prepare Circuit
     info!("Step 1/9: Setting up Prepare circuit...");
-    let t0 = Instant::now();
     let prepare_circuit = PrepareCircuit::new(input_path.clone());
-    setup_circuit_keys(prepare_circuit, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY);
+    let t0 = Instant::now();
+    let (prepare_pk, prepare_vk) = setup_circuit_keys_no_save(prepare_circuit);
     let prepare_setup_ms = t0.elapsed().as_millis();
     println!("✓ Prepare setup completed: {} ms\n", prepare_setup_ms);
 
+    // Save Prepare keys after timing
+    if let Err(e) = save_keys(
+        PREPARE_PROVING_KEY,
+        PREPARE_VERIFYING_KEY,
+        &prepare_pk,
+        &prepare_vk,
+    ) {
+        eprintln!("Failed to save Prepare keys: {}", e);
+        std::process::exit(1);
+    }
+
     // Step 2: Setup Show Circuit
     info!("Step 2/9: Setting up Show circuit...");
-    let t0 = Instant::now();
     let show_circuit = ShowCircuit::new(input_path.clone());
-    setup_circuit_keys(show_circuit, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY);
+    let t0 = Instant::now();
+    let (show_pk, show_vk) = setup_circuit_keys_no_save(show_circuit);
     let show_setup_ms = t0.elapsed().as_millis();
     println!("✓ Show setup completed: {} ms\n", show_setup_ms);
+
+    // Save Show keys after timing
+    if let Err(e) = save_keys(SHOW_PROVING_KEY, SHOW_VERIFYING_KEY, &show_pk, &show_vk) {
+        eprintln!("Failed to save Show keys: {}", e);
+        std::process::exit(1);
+    }
 
     // Step 3: Generate Shared Blinds
     info!("Step 3/9: Generating shared blinds...");
@@ -233,13 +252,15 @@ fn run_complete_pipeline(input_path: Option<PathBuf>) -> BenchmarkResults {
     let generate_blinds_ms = t0.elapsed().as_millis();
     println!("✓ Shared blinds generated: {} ms\n", generate_blinds_ms);
 
+    // Note: We already have prepare_pk and show_pk from setup, no need to reload from files
+
     // Step 4: Prove Prepare Circuit
     info!("Step 4/9: Proving Prepare circuit...");
     let t0 = Instant::now();
     let prepare_circuit = PrepareCircuit::new(input_path.clone());
-    prove_circuit(
+    prove_circuit_with_pk(
         prepare_circuit,
-        PREPARE_PROVING_KEY,
+        &prepare_pk,
         PREPARE_INSTANCE,
         PREPARE_WITNESS,
         PREPARE_PROOF,
@@ -249,14 +270,21 @@ fn run_complete_pipeline(input_path: Option<PathBuf>) -> BenchmarkResults {
 
     // Step 5: Reblind Prepare
     info!("Step 5/9: Reblinding Prepare proof...");
+    // Load data before timing (file I/O should not be part of reblind benchmark)
+    let prepare_instance = load_instance(PREPARE_INSTANCE).expect("load prepare instance failed");
+    let prepare_witness = load_witness(PREPARE_WITNESS).expect("load prepare witness failed");
+    let shared_blinds = load_shared_blinds::<E>(SHARED_BLINDS).expect("load shared_blinds failed");
+
     let t0 = Instant::now();
-    reblind(
+    reblind_with_loaded_data(
         PrepareCircuit::default(),
-        PREPARE_PROVING_KEY,
+        &prepare_pk,
+        prepare_instance,
+        prepare_witness,
+        &shared_blinds,
         PREPARE_INSTANCE,
         PREPARE_WITNESS,
         PREPARE_PROOF,
-        SHARED_BLINDS,
     );
     let reblind_prepare_ms = t0.elapsed().as_millis();
     println!("✓ Prepare proof reblinded: {} ms\n", reblind_prepare_ms);
@@ -265,9 +293,9 @@ fn run_complete_pipeline(input_path: Option<PathBuf>) -> BenchmarkResults {
     info!("Step 6/9: Proving Show circuit...");
     let t0 = Instant::now();
     let show_circuit = ShowCircuit::new(input_path.clone());
-    prove_circuit(
+    prove_circuit_with_pk(
         show_circuit,
-        SHOW_PROVING_KEY,
+        &show_pk,
         SHOW_INSTANCE,
         SHOW_WITNESS,
         SHOW_PROOF,
@@ -277,29 +305,44 @@ fn run_complete_pipeline(input_path: Option<PathBuf>) -> BenchmarkResults {
 
     // Step 7: Reblind Show
     info!("Step 7/9: Reblinding Show proof...");
+    // Load data before timing (file I/O should not be part of reblind benchmark)
+    let show_instance = load_instance(SHOW_INSTANCE).expect("load show instance failed");
+    let show_witness = load_witness(SHOW_WITNESS).expect("load show witness failed");
+    // Reuse shared_blinds from Prepare step (already loaded)
+
     let t0 = Instant::now();
-    reblind(
+    reblind_with_loaded_data(
         ShowCircuit::default(),
-        SHOW_PROVING_KEY,
+        &show_pk,
+        show_instance,
+        show_witness,
+        &shared_blinds,
         SHOW_INSTANCE,
         SHOW_WITNESS,
         SHOW_PROOF,
-        SHARED_BLINDS,
     );
     let reblind_show_ms = t0.elapsed().as_millis();
     println!("✓ Show proof reblinded: {} ms\n", reblind_show_ms);
 
     // Step 8: Verify Prepare
     info!("Step 8/9: Verifying Prepare proof...");
+    // Load proof and verifying key before timing (file I/O should not be part of verify benchmark)
+    let prepare_proof = load_proof(PREPARE_PROOF).expect("load prepare proof failed");
+    // Reuse prepare_vk from setup step (already in memory)
+
     let t0 = Instant::now();
-    verify_circuit(PREPARE_PROOF, PREPARE_VERIFYING_KEY);
+    verify_circuit_with_loaded_data(&prepare_proof, &prepare_vk);
     let verify_prepare_ms = t0.elapsed().as_millis();
     println!("✓ Prepare proof verified: {} ms\n", verify_prepare_ms);
 
     // Step 9: Verify Show
     info!("Step 9/9: Verifying Show proof...");
+    // Load proof and verifying key before timing (file I/O should not be part of verify benchmark)
+    let show_proof = load_proof(SHOW_PROOF).expect("load show proof failed");
+    // Reuse show_vk from setup step (already in memory)
+
     let t0 = Instant::now();
-    verify_circuit(SHOW_PROOF, SHOW_VERIFYING_KEY);
+    verify_circuit_with_loaded_data(&show_proof, &show_vk);
     let verify_show_ms = t0.elapsed().as_millis();
     println!("✓ Show proof verified: {} ms\n", verify_show_ms);
 
