@@ -3,27 +3,27 @@
 ║     STARTING COMPLETE BENCHMARK PIPELINE       ║
 ╚════════════════════════════════════════════════╝
 
-✓ Prepare setup completed: 11463 ms
+✓ Prepare setup completed: 10979 ms
 
-✓ Show setup completed: 46 ms
+✓ Show setup completed: 35 ms
 
 ✓ Shared blinds generated: 0 ms
 
-✓ Prepare proof generated: 6918 ms
+✓ Prepare proof generated: 6166 ms
 
-v: (0xaeb073b2b624ce2e0f05e50f54b5581bf58c464f768e44e313d646eba8056e28, 0xafea3130de47558e734132f7e07870abfee8f2a5d144a4a529c3580f191b418a)
+v: (0x147518b40a59b3f7ebb2f87f9b80edf6f1f035d30c1cfb7d85cc5f8bd28676f4, 0xc7f3963f94f719034eb6812d6dd199a702220fb7b3fb8ffeb3c716830ba4c20a)
 new instance: Some(())
-✓ Prepare proof reblinded: 2343 ms
+✓ Prepare proof reblinded: 1460 ms
 
-✓ Show proof generated: 81 ms
+✓ Show proof generated: 70 ms
 
-v: (0xaeb073b2b624ce2e0f05e50f54b5581bf58c464f768e44e313d646eba8056e28, 0xafea3130de47558e734132f7e07870abfee8f2a5d144a4a529c3580f191b418a)
+v: (0x67f6c2ab54af3ccc1c0d0ce6c3f2a2774775b4ef4008a645ed51b0c8c4491990, 0x22b30d97c70d7f87d880f2c4d14522592b139920d21c71b2fac1eadce4eea254)
 new instance: Some(())
-✓ Show proof reblinded: 36 ms
+✓ Show proof reblinded: 24 ms
 
-✓ Prepare proof verified: 4241 ms
+✓ Prepare proof verified: 140 ms
 
-✓ Show proof verified: 31 ms
+✓ Show proof verified: 9 ms
 
 
 ╔════════════════════════════════════════════════╗
@@ -31,20 +31,20 @@ new instance: Some(())
 ╠════════════════════════════════════════════════╣
 ║ TIMING MEASUREMENTS                            ║
 ╠════════════════════════════════════════════════╣
-║ Prepare Setup:               11463 ms      ║
-║ Show Setup:                     46 ms      ║
+║ Prepare Setup:               10979 ms      ║
+║ Show Setup:                     35 ms      ║
 ║ Generate Blinds:                 0 ms      ║
-║ Prove Prepare:                6918 ms      ║
-║ Reblind Prepare:              2343 ms      ║
-║ Prove Show:                     81 ms      ║
-║ Reblind Show:                   36 ms      ║
-║ Verify Prepare:               4241 ms      ║
-║ Verify Show:                    31 ms      ║
+║ Prove Prepare:                6166 ms      ║
+║ Reblind Prepare:              1460 ms      ║
+║ Prove Show:                     70 ms      ║
+║ Reblind Show:                   24 ms      ║
+║ Verify Prepare:                140 ms      ║
+║ Verify Show:                     9 ms      ║
 ╠════════════════════════════════════════════════╣
 ║ SIZE MEASUREMENTS                              ║
 ╠════════════════════════════════════════════════╣
-║ Prepare Proving Key:       902.98 MB       ║
-║ Prepare Verifying Key:     902.98 MB       ║
+║ Prepare Proving Key:       964.70 MB       ║
+║ Prepare Verifying Key:     964.70 MB       ║
 ║ Show Proving Key:            3.45 MB       ║
 ║ Show Verifying Key:          3.45 MB       ║
 ║ Prepare Proof:             175.77 KB       ║
