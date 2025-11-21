@@ -38,6 +38,8 @@ The following tables show performance and size measurements for different JWT pa
 
 All timing measurements are in milliseconds (ms).
 
+**Test Device:** MacBook Pro, M4, 14-core GPU, 24GB RAM
+
 #### Prepare Circuit Timing
 
 | Payload Size | Setup (ms) | Prove (ms) | Reblind (ms) | Verify (ms) |
