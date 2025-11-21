@@ -77,8 +77,24 @@ pub fn prove_circuit<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(
     witness_path: &str,
     proof_path: &str,
 ) {
+    let t0 = Instant::now();
     let pk = load_proving_key(pk_path).expect("load proving key failed");
+    let load_pk_ms = t0.elapsed().as_millis();
 
+    info!("ZK-Spartan load proving key: {} ms", load_pk_ms);
+
+    prove_circuit_with_pk(circuit, &pk, instance_path, witness_path, proof_path);
+}
+
+/// Only run the proving part of the circuit using ZK-Spartan with a pre-loaded proving key
+/// This is useful for benchmarking to exclude file I/O from timing measurements
+pub fn prove_circuit_with_pk<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(
+    circuit: C,
+    pk: &<R1CSSNARK<E> as R1CSSNARKTrait<E>>::ProverKey,
+    instance_path: &str,
+    witness_path: &str,
+    proof_path: &str,
+) {
     let t0 = Instant::now();
     let mut prep_snark =
         R1CSSNARK::<E>::prep_prove(&pk, circuit.clone(), false).expect("prep_prove failed");
@@ -149,13 +165,34 @@ pub fn reblind<C: SpartanCircuit<E>>(
     shared_blinds_path: &str,
 ) {
     let pk = load_proving_key(pk_path).expect("load proving key failed");
-
     let instance = load_instance(instance_path).expect("load instance failed");
     let witness = load_witness(witness_path).expect("load witness failed");
-
     let randomness =
         load_shared_blinds::<E>(shared_blinds_path).expect("load shared_blinds failed");
 
+    reblind_with_loaded_data(
+        circuit,
+        &pk,
+        instance,
+        witness,
+        &randomness,
+        instance_path,
+        witness_path,
+        proof_path,
+    );
+}
+
+/// Reblind with pre-loaded data - useful for benchmarking to exclude file I/O
+pub fn reblind_with_loaded_data<C: SpartanCircuit<E>>(
+    circuit: C,
+    pk: &<R1CSSNARK<E> as R1CSSNARKTrait<E>>::ProverKey,
+    instance: spartan2::r1cs::SplitR1CSInstance<E>,
+    witness: spartan2::r1cs::R1CSWitness<E>,
+    randomness: &[<E as Engine>::Scalar],
+    instance_path: &str,
+    witness_path: &str,
+    proof_path: &str,
+) {
     assert_eq!(randomness.len(), instance.num_shared_rows());
 
     // Reblind instance and witness
@@ -217,6 +254,14 @@ pub fn verify_circuit(proof_path: &str, vk_path: &str) {
     let proof = load_proof(proof_path).expect("load proof failed");
     let vk = load_verifying_key(vk_path).expect("load verifying key failed");
 
+    verify_circuit_with_loaded_data(&proof, &vk);
+}
+
+/// Verify circuit with pre-loaded data - useful for benchmarking to exclude file I/O
+pub fn verify_circuit_with_loaded_data(
+    proof: &R1CSSNARK<E>,
+    vk: &<R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey,
+) {
     let t0 = Instant::now();
     proof.verify(&vk).expect("verify errored");
     let verify_ms = t0.elapsed().as_millis();

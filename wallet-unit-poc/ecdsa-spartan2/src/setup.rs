@@ -220,3 +220,14 @@ pub fn setup_circuit_keys<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(
     info!("Proving key: {}", pk_path);
     info!("Verifying key: {}", vk_path);
 }
+
+/// Setup circuit keys without saving to file - useful for benchmarking
+/// Returns the proving and verifying keys
+pub fn setup_circuit_keys_no_save<C: SpartanCircuit<E> + Clone + std::fmt::Debug>(
+    circuit: C,
+) -> (
+    <R1CSSNARK<E> as R1CSSNARKTrait<E>>::ProverKey,
+    <R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey,
+) {
+    R1CSSNARK::<E>::setup(circuit.clone()).expect("setup failed")
+}

@@ -27,7 +27,7 @@ template CheckAre64BitLimbs(numLimbs) {
 
 // Hashes multiple bytes to one field element using a Poseidon hash
 // We hash the length `len` of the input as well to prevent collisions
-// Currently does not work with greater than 64*31=1984 bytes
+// Extended to support large inputs via hierarchical hashing
 //
 // Warning: `numBytes` cannot be 0.
 //
@@ -54,7 +54,7 @@ template HashBytesToFieldWithLen(numBytes) {
 }
 
 // Hashes multiple bytes to one field element using a Poseidon hash
-// Currently does not work with greater than 64*31=1984 bytes
+// Extended to support large inputs via hierarchical hashing
 //
 // Warning: `numBytes` cannot be 0.
 template HashBytesToField(numBytes) {
@@ -70,7 +70,7 @@ template HashBytesToField(numBytes) {
     hash <== HashElemsToField(num_elems)(input_packed);
 }
 
-// Hashes multiple field elements to one using Poseidon. Works with up to 64 input elements
+// Hashes multiple field elements to one using Poseidon. Extended to support up to 256 input elements
 // For more than 16 elements, multiple Poseidon hashes are used before being combined in a final
 // hash. This is because the template we use supports only 16 input elements at most
 template HashElemsToField(numElems) {
@@ -130,7 +130,37 @@ template HashElemsToField(numElems) {
         signal h3 <== Poseidon(16)(inputs_three);
         signal h4 <== Poseidon(numElems-48)(inputs_four);
         hash <== Poseidon(4)([h1, h2, h3, h4]);  
+    } else if (numElems <= 256) {
+        // For 65-256 elements: hierarchical hashing
+        // Process in chunks of 16, hash each chunk, then hash the results
+        var numChunks = (numElems + 15) \ 16; // Ceiling division
+        signal chunkHashes[numChunks];
+        
+        component chunkHashers[numChunks];
+        for (var chunk = 0; chunk < numChunks - 1; chunk++) {
+            chunkHashers[chunk] = Poseidon(16);
+            for (var i = 0; i < 16; i++) {
+                chunkHashers[chunk].inputs[i] <== in[chunk * 16 + i];
+            }
+            chunkHashes[chunk] <== chunkHashers[chunk].out;
+        }
+        
+        // Last chunk may have fewer elements
+        var lastChunkSize = numElems - (numChunks - 1) * 16;
+        chunkHashers[numChunks - 1] = Poseidon(lastChunkSize);
+        for (var i = 0; i < lastChunkSize; i++) {
+            chunkHashers[numChunks - 1].inputs[i] <== in[(numChunks - 1) * 16 + i];
+        }
+        chunkHashes[numChunks - 1] <== chunkHashers[numChunks - 1].out;
+        
+        // Now hash the chunk hashes (numChunks will be <= 16 for numElems <= 256)
+        component finalHasher = Poseidon(numChunks);
+        for (var i = 0; i < numChunks; i++) {
+            finalHasher.inputs[i] <== chunkHashes[i];
+        }
+        hash <== finalHasher.out;
     } else {
+        // For > 256 elements, fail
         1 === 0;
     }
 

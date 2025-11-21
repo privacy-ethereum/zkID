@@ -19,12 +19,14 @@ pub mod utils;
 // Re-export commonly used types and functions
 pub use circuits::{prepare_circuit::PrepareCircuit, show_circuit::ShowCircuit};
 pub use prover::{
-    generate_prepare_witness, generate_shared_blinds, prove_circuit, reblind, run_circuit,
-    verify_circuit,
+    generate_prepare_witness, generate_shared_blinds, prove_circuit, prove_circuit_with_pk,
+    reblind, reblind_with_loaded_data, run_circuit, verify_circuit,
+    verify_circuit_with_loaded_data,
 };
 pub use setup::{
-    load_proving_key, save_keys, setup_circuit_keys, PREPARE_PROVING_KEY, PREPARE_VERIFYING_KEY,
-    SHOW_PROVING_KEY, SHOW_VERIFYING_KEY,
+    load_instance, load_proof, load_proving_key, load_shared_blinds, load_verifying_key,
+    load_witness, save_keys, setup_circuit_keys, setup_circuit_keys_no_save, PREPARE_PROVING_KEY,
+    PREPARE_VERIFYING_KEY, SHOW_PROVING_KEY, SHOW_VERIFYING_KEY,
 };
 pub use utils::{
     bigint_to_scalar, calculate_jwt_output_indices, convert_bigint_to_scalar, parse_jwt_inputs,
