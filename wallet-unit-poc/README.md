@@ -116,31 +116,24 @@ For the reproduction of mobile benchmarks, please check this repo: https://githu
 
 #### Prepare Circuit (Mobile)
 
-| Device        | Proving Time | Reblind Time | Verifier Time | Key Setup |
-|---------------|--------------|--------------|----------------|-----------|
-| iPhone 17     | 3460 ms      | 1401 ms      | 1858 ms        | 4602 ms   |
-| Pixel 10 Pro  | 8398 ms      | 3113 ms       | 2972 ms        | 12994 ms  |
+- Payload Size: 1920 Bytes
+- Peak Memory Usage for Proving: 2.27 GiB
 
-<!-- Peak Memory Usage for Proving: **2.27 GiB** -->
+|    Device    | Setup (ms) | Prove (ms) | Reblind (ms) | Verify (ms) |
+|:------------:|:----------:|:----------:|:------------:|:-----------:|
+|  iPhone 17   |    3499    |    2987    |     856      |     151     |
+| Pixel 10 Pro |    9233    |    7318    |     1750     |     318     |
 
-#### Show Circuit (Mobile)
+### Show Circuit Timing
 
-|    Device     | Prover Time (Includes Reblind) | Verifier Time | Key Setup |
-|:-------------:|:-------------------------------:|:-------------:|:---------:|
-|   iPhone 17    |              158 ms             |     36 ms     |   60 ms   |
-| Pixel 10 Pro  |              609 ms             |    120 ms     |  210 ms   |
+The Show circuit has constant performance regardless of JWT payload size.
+- Peak Memory Usage for Proving: 1.96 GiB
 
-<table>
-  <tr>
-    <th>iPhone 17</th>
-    <th>Pixel 10 Pro</th>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/fd1a26aa-6838-46ff-81e5-4b3ee68d4268" width="250">
-    </td>
-    <td align="center">
-      <img src="https://github.com/user-attachments/assets/29b8434b-6eb2-43c7-88f2-e8dd9427f778" width="250">
-    </td>
-  </tr>
-</table>
+|    Device    | Setup (ms) | Prove (ms) | Reblind (ms) | Verify (ms) |
+|:------------:|:----------:|:----------:|:------------:|:-----------:|
+|  iPhone 17   |     47     |     99     |      30      |     13      |
+| Pixel 10 Pro |    122     |    340     |     125      |     61      |
+
+| iPhone 17 | Pixel 10 Pro |
+|-----------|--------------|
+| <img src="https://github.com/user-attachments/assets/45cabf07-66e8-446a-add6-bf036b2f40fa" width="300"> | <img src="https://github.com/user-attachments/assets/2d9499d4-e06e-4dc2-9a12-41fe9033245b" width="300"> |
