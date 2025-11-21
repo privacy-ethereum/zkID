@@ -34,7 +34,7 @@ cargo run --release -- show verify
 
 The following tables show performance and size measurements for different JWT payload sizes (1KB - 8KB).
 
-### Timing Measurements
+### Timing Measurements (Laptop)
 
 All timing measurements are in milliseconds (ms).
 
@@ -64,6 +64,35 @@ The Show circuit has constant performance regardless of JWT payload size.
 | Prove   | ~77       |
 | Reblind | ~25       |
 | Verify  | ~9        |
+
+### Timing Measurements (Mobile)
+
+All timing measurements are in milliseconds (ms).
+
+**Test Device:** 
+- iOS: iPhone 17, A19 chip, 8GB RAM
+- Android: Pixel 10 Pro, Tensor G5, 16GB of RAM
+
+#### Prepare Circuit Timing
+
+- Payload Size: 1920 Bytes
+- Peak Memory Usage for Proving: 2.27 GiB
+
+|    Device    | Setup (ms) | Prove (ms) | Reblind (ms) | Verify (ms) |
+|:------------:|:----------:|:----------:|:------------:|:-----------:|
+|  iPhone 17   |    3499    |    2987    |     856      |     151     |
+| Pixel 10 Pro |    9233    |    7318    |     1750     |     318     |
+
+
+#### Show Circuit Timing
+
+The Show circuit has constant performance regardless of JWT payload size.
+- Peak Memory Usage for Proving: 1.96 GiB
+
+|    Device    | Setup (ms) | Prove (ms) | Reblind (ms) | Verify (ms) |
+|:------------:|:----------:|:----------:|:------------:|:-----------:|
+|  iPhone 17   |     47     |     99     |      30      |     13      |
+| Pixel 10 Pro |    122     |    340     |     125      |     61      |
 
 ### Size Measurements
 
