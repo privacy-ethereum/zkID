@@ -1,0 +1,26 @@
+%ChatGPT except the footnote and the box
+
+\noindent\textbf{Anonymous Credentials from Existing Digital Identity.} We focus on constructing anonymous credentials for 
+\emph{existing} digital identity systems without requiring changes to the current issuance flow whilst 
+enabling selectively disclosed presentations in an unlinkable manner. 
+
+A central target of this work is the \emph{EUDI ARF}, which specifies how digital identities and credentials are issued, stored, and presented within the EUDI ARF.
+While our terminology in this section follows the generic issuer–holder–verifier model, Section~\ref{subsec:aligneudi} restates the same roles using the Wallet User, Relying Party, and EAA vocabulary of the EUDI ARF.
+Our construction is designed to integrate with this framework in a modular  manner, allowing anonymous credentials to be derived from standard verifiable credentials, 
+whilst complying with its security, interoperability, and regulatory requirements.\footnote{The EU Digital Identity Wallet will be launched in all member states by the end of 2026, with strong requirements for unlinkability with respect to relying parties and identity providers.
+According to the Cryptographers' Feedback on the EU Digital Identity’s ARF\footnote{\url{https://github.com/user-attachments/files/15904122/cryptographers-feedback.pdf}}, an Anonymous Credential AC scheme is a suitable cryptographic primitive to instantiate the new EU Digital Identity Wallet (EUDIW, ARF version 1.4.0~\cite{EU:EUDI24}), which is an important step towards developing interoperable digital identities in Europe for the public and private sectors.}
+
+\begin{framed}\footnotesize
+	Informally speaking, an \emph{Anonymous Credential} AC scheme allows:
+	\begin{itemize}
+		\item An \emph{Identity Provider} or \emph{Issuer} IP to (possibly blindly\footnote{i.e. the IP does not know the content that it signs, only its provenance is satisfied.}) sign a set of (eligible) attributes for a \emph{User} U;
+		\item The \emph{User} U can show, only if they hold the signed attributes (a.k.a \emph{Unforgeability}), usually through a \emph{Presentation}, to a \emph{Relying Party} RP such that:
+		\begin{itemize}
+			\item The RP can verify that the set of attributes (signed by IP) that the User U holds satisfy some condition of their interest (a.k.a Correctness);
+			\item The RP cannot learn any \emph{additional}\footnote{We stress that the RP may have obtained some privacy sensitive information prior to this presentation.} information beyond the fact that the condition is satisfied or information that can be inferred from the satisfaction of the condition (a.k.a Zero-Knowledge or Anonymity);
+			\item The immediate previous requirement also implies that the RP cannot link the various presentations by the same User U (a.k.a. Unlinkability);
+		\end{itemize}
+		\item The IP can revoke all or a part of the signed attributes that it has issued to the User U, from upon which, the eligible attributes of the User U are updated, and subsequent presentations have to be based on the new and updated attributes (a.k.a \emph{Revocation});
+		\item The User U cannot transfer its set of signed attributes to another User U' (a.k.a \emph{Non-transferability}).
+	\end{itemize}
+\end{framed}

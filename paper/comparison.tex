@@ -1,0 +1,125 @@
+%ChatGPT, some mods
+\medskip
+\noindent\textbf{Related Work and Our Proposal.} There exists several prominent approaches to constructing anonymous credentials 
+from existing digital identity systems, including the BBS$+$ proposal~\cite{SCN:AuSusMu06,EPRINT:CamDriLeh16}, Microsoft’s \emph{Crescent}~\cite{cryptoeprint:2024/2013}, and Google’s \emph{Longfellow}~\cite{cryptoeprint:2024/2010}. 
+Although each of these schemes enables some form of unlinkable selective disclosure, they exhibit limitations in practicality or generality that our design aims to overcome.
+
+The BBS$+$ approach requires modifications to the issuer’s existing credential-issuance flow, 
+thereby reducing compatibility with established digital identity infrastructures. The Crescent system 
+relies on a trusted setup, which introduces transparency concerns and operational overhead for 
+ecosystem deployment. The Longfellow construction, while efficient, is tailored specifically to 
+ECDSA-based identity systems and thus lacks general applicability across heterogeneous credential formats.
+
+Our proposal offers an \emph{open} and \emph{fully transparent} design that imposes 
+no changes on the issuer workflow, supports modular ``plug-and-play’’ integration with diverse 
+credential systems, and requires no trusted setup. Furthermore, our proof-of-concept implementation 
+demonstrates best-in-class proving performance, including efficient execution on mobile devices, 
+which is essential for real-world usability in frameworks such as the EUDI Wallet.
+
+%Below is by YT
+A summary of the existing solutions and our proposal with respect to the AC Framework is presented in Table~\ref{tab:rw-snapshot}. We additionally adapt a comparison for a 1920-byte credential from Vega~\cite{kaviani2025vega}, a concurrent work that follows the similar prepare-and-prove paradigm.\footnote{We have not yet attempted to compare our work with Vega in this version, we will conduct a more detailed analysis of Vega in the next version.}
+For OpenAC, the four latency columns follow the same convention as Vega: \emph{Setup} covers the proof system setup for the Prepare and Show circuits; \emph{Precomp.} is the one-time offline Prepare work; \emph{Prove} is the online Show work for a single presentation; and \emph{Verify} is the verifier’s work across both phases.
+The proof size column reports the sum of the Prepare and Show proof sizes, and the PK/VK columns give the total proving and verifying key sizes for the two circuits.
+
+We consider a client–server setting with a mobile prover and a server-side verifier.
+The verifying key, which is dominated by the Prepare circuit, is large but kept in memory on the verifier side and reused across many proof verifications, while the prover runs under tighter latency and resource constraints.
+For consistency with Vega, Table~\ref{tab:openac-main} reports measurements on commodity desktop hardware; mobile measurements and a more detailed benchmarking discussion, including a breakdown from the wallet’s perspective, appear in Section~\ref{sec:benchmarks}.
+
+\begin{table}[h]
+\centering
+\label{tab:rw-snapshot}
+\caption{Comparison of related approaches.}
+\footnotesize
+\begin{tabularx}{\linewidth}{
+  @{}
+  >{\RaggedRight\arraybackslash}p{0.17\linewidth}  
+  >{\RaggedRight\arraybackslash}p{0.14\linewidth}  
+  >{\RaggedRight\arraybackslash}p{0.16\linewidth}  
+  >{\RaggedRight\arraybackslash}p{0.21\linewidth}  
+  >{\RaggedRight\arraybackslash}p{0.19\linewidth}  
+  @{}
+}
+\toprule
+\textbf{Feature} & \textbf{BBS/BBS+} & \textbf{Longfellow} & \textbf{Crescent} & \textbf{OpenAC} \\
+\midrule
+Issuer modification & Required & None & None & None \\
+\addlinespace[0.3em]
+Offline phase       & None & None & Lightweight, reusable Prepare & Lightweight, reusable Prepare \\
+\addlinespace[0.3em]
+Setup               & Pairing-based (no trusted setup) & Transparent & Large, per-circuit trusted setup & Transparent \\
+\addlinespace[0.3em]
+Proof mechanism     & Pairing-based signatures + ZK proofs & Sum-check + Ligero; custom ECDSA/SHA-256 circuits & Groth16 + Pedersen vector commitments; re-randomizable artifacts & Sum-check; Hyrax-style vector commitments \\
+\addlinespace[0.3em]
+Device binding      & Optional & Included & Optional & Integrated (in-circuit) \\
+\addlinespace[0.3em]
+Reusability         & No & No & Yes & Yes \\
+\bottomrule
+\end{tabularx}
+
+\end{table}
+
+% \begin{table}[h!]
+% \centering
+% \renewcommand{\arraystretch}{1.2}
+% \setlength{\tabcolsep}{6pt}
+
+% \begin{tabular}{l|cccc|ccc|>{\centering\arraybackslash}p{1.3cm}} 
+% \hline
+% \multirow{2}{*}{\textbf{Scheme}} &
+% \multicolumn{4}{c|}{\textbf{Latency (ms)}} &
+% \multicolumn{3}{c|}{\textbf{Size (kB)}} &
+% \multirow{2}{*}{\textbf{\shortstack{Trans.\\Setup}}} \\  
+% & \textit{Setup} & \textit{Precompute} & \textit{Prove} & \textit{Verify} &
+%   \textit{Proof} & \textit{pk} & \textit{vk} \\
+% \hline
+% Longfellow & 7235 & ---    & 680 & 324 & 325 & 202     & 202   & \checkmark \\
+% Crescent   & 172\,437 & 14\,725 & 237 & 118 & 16 & 710\,565 & 1 & $\times$ \\
+% Vega\textsubscript{SC} & 3689 & 238 & 247 & 55 & 99 & 6562  & 6561 & \checkmark \\
+% Vega\textsubscript{MC} & 193  & 109 & 212 & 51 & 150 & 436   & 436  & \checkmark \\
+% OpenAC  &  5230   & 3016    &     &     &     &      &      & \checkmark \\
+% \hline
+% \end{tabular}
+
+% \caption{Performance comparison for a 1920-byte MSO (latency in ms, sizes in kB), adapted from Vega~\cite{kaviani2025vega}}
+% \label{tab:rw-perfcomp}
+% \end{table}
+
+
+\begin{table}[t]
+\centering
+\caption{Performance comparison for a 1920-byte MSO, adapted from Vega~\cite{kaviani2025vega}.}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{l|cccc|ccc|c} 
+\hline
+\multirow{2}{*}{\textbf{Scheme}} &
+\multicolumn{4}{c|}{\textbf{Latency (ms)}} &
+\multicolumn{3}{c|}{\textbf{Size (kB)}} &
+\multirow{2}{*}{\textbf{\shortstack{Trans.\\Setup}}} \\ 
+& \textit{Setup} & \textit{Precomp.} & \textit{Prove} & \textit{Verify} &
+  \textit{Proof} & \textit{pk} & \textit{vk} \\
+\hline
+Longfellow      & 7\,235   & ---    & 680 & 324 & 325 & 202     & 202   & \checkmark \\
+Crescent        & 172\,437 & 14\,725 & 237 & 118 & 16  & 710\,565 & 1   & $\times$ \\
+Vega\textsubscript{SC} & 3\,689   & 238    & 247 & 55  & 99  & 6\,562  & 6\,561 & \checkmark \\
+Vega\textsubscript{MC} & 193     & 109    & 212 & 51  & 150 & 436     & 436   & \checkmark \\
+\hline
+OpenAC & 
+4193 &    % Setup (Prepare + Show setup) 4157 + 36
+3442 &    % Precomp (Prepare Prove + Reblind Prepare) 2727 + 715
+102 &     % Prove (Show Prove + Reblind Show) 77 + 25
+83 &    % Verify (Prepare Verify + Show Verify) 74 + 9
+149.7 &   % Proof size (Prepare proof + Show proof) 109.29 + 40.41
+433664 &  % Proving key size: Prepare Proving Key + Show Proving Key 420.05MB + 3.45MB
+433664 &  % Verifying key size: Prepare Verifing Key + Show Verifying Key
+\checkmark \\
+\hline
+\end{tabular}
+\vspace*{0.3cm}
+\begin{minipage}[t]{0.8\textwidth}
+    The Longfellow, Crescent, and Vega benchmarks are done in Azure Standard\_F16as\_v6 VM with 16 vCPUs and 64 GB RAM while we consider a commodity hardware (MacBook Pro, M4, 14-core GPU, 24GB RAM).
+\end{minipage}
+\label{tab:openac-main}
+\end{table}
+

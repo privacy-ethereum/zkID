@@ -5,7 +5,7 @@
 
 
 %%%% 1. DOCUMENTCLASS %%%%
-\documentclass{iacrtrans}
+\documentclass{article}
 %%%% NOTES:
 % - Change "journal=tosc" to "journal=tches" if needed
 % - Change "submission" to "final" for final version
@@ -13,6 +13,7 @@
 
 
 %%%% 2. PACKAGES %%%%
+\usepackage{authblk}
 \usepackage{lipsum} % Example package -- can be removed
 \usepackage{booktabs}
 \usepackage{mdframed}
@@ -22,13 +23,25 @@
 \usepackage{hyperref}
 \usepackage{longtable}
 \usepackage{pdflscape}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{ragged2e}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\setlength{\tabcolsep}{6pt}   
+\renewcommand{\arraystretch}{1.12} 
 
 \usepackage{framed}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.multipart, fit}
+\usepackage{multirow}   % for \multirow in the header
+\usepackage{array}      % for p{...} column types and <{\centering}
+
 
 \setcounter{MaxMatrixCols}{30}
 
 
 %%% COMMANDS
+\newcommand{\kwnote}[1]{\textsf{\color{red}{[{Keewoo: #1}]}}}
 \newcommand{\jbel}[1]{{\color{blue}{}jbel: #1}}
 \newcommand{\ndhy}[2]{{\color{blue}{}ndhy: #2}}
 \newcommand{\rand}{\overset{{\scriptscriptstyle\$}}{\leftarrow}}
@@ -46,11 +59,13 @@
 % - \inst{} can be omitted if there is a single institute,
 %   or exactly one institute per author
 
-\author{The zkID Team}
-\institute{ Ethereum Foundation}
+\author{The zkID Team @ PSE \\\href{mailto:pse-zkid@ethereum.org}{pse-zkid@ethereum.org}}
+\affil{Ethereum Foundation}
+% \institute{Ethereum Foundation}
 
 %%%% 4. TITLE %%%%
-\title{Technical Overview: zkID for the EUDI Wallet}
+% \title{Technical Overview: zkID for the EUDI Wallet}
+\title{OpenAC: Open Design for Transparent and Lightweight Anonymous Credentials}
 %%%% NOTES:
 % - If the title is too long, or includes special macro, please
 %   provide a "running title" as optional argument: \title[Short]{Long}
@@ -62,13 +77,15 @@
 
 
 %%%% 5. KEYWORDS %%%%
-\keywords{Anonymous credential \and programmable zkp}
+% \nokeywords
+% \keywords{Anonymous credentials \and Transparent \and Modular \and Lightweight \and zk-SNARKs \and Digital ID}
 
 
 %%%% 6. ABSTRACT %%%%
-%\begin{abstract}
+\begin{abstract}
+\input{abstract}
 %  Main deliveries: 1. Technical report on zk component for the digital id wallet 2. A comparison with current works 3. Applying to EUDI.
-%\end{abstract}
+\end{abstract}
 
 
 %%%% 7. PAPER CONTENT %%%%
@@ -116,17 +133,20 @@
 %         \end{itemize}
 %     \end{itemize} 
 % \end{itemize}
+\clearpage
+\tableofcontents
 
-
+\clearpage
 \section{Introduction}
 \label{sec:introduction}
 %\input{intro}
 \input{intro2}
 
-\section{Application to EUDI}
+\section{Technical Overview and Applicability to EUDI ARF}
 \label{sec:appeudi}
 
-\input{eudi_application}
+\input{paper/actal_eudi}
+
 % \jbel{Links to read (we can basically copy paste a lot from these):
 % \begin{itemize}
 % \item EUDI ARF (full) \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/latest/}{here}
@@ -141,15 +161,10 @@
 %     \item \textbf{Our pros and cons are already shown in other sections, so just mentioned them when we need them in this section}
 % \end{itemize}
 
-\section{Security}
-\label{sec:security}
-
-\input{security}
-
-\section{Preliminaries - WIP}
-\label{sec:preliminaries}
+% \section{Preliminaries}
+% \label{sec:preliminaries}
 % \ndhy{This section is a work in progress. It will be completed in the next few days.}
-\input{preliminaries}
+% \input{preliminaries}
 
 % Give a detailed answer and analysis for:
 % \begin{itemize}
@@ -168,13 +183,23 @@
 % 	\item If it is not quantum resistant, how do we upgrade it to quantum resistant? -- it is quantum resistant
 % \end{itemize}
 
-\section{Our zkID}
-\label{sec:contribution}
+\section{Technical Details}\label{sec:contribution}
+In this section, we provide technical details of our OpenAC design.
+In Section~\ref{ssec:preprocessing}, we discuss splitting the credential relation into two parts, \emph{Prepare} and \emph{Show}, and explain how these two relations are linked in the final construction. 
+In Section~\ref{subsec:adding-zk}, since our instantiation relies on \emph{Spartan} for arithmetization and Spartan does not natively provide zero-knowledge, we describe how to add zero-knowledgeness to the Spartan arithmetization layer and analyze the security of this extension.
+Finally, in Section~\ref{ssec:security}, we conclude with a high-level sketch of the security analysis for the full construction.
+
+
 % \textit{main deliveries: 1. describe zkID; 2. the detailed construction}
 \input{zkID_construction.tex}
 
-\section{Experiments}
-\label{sec:experiments}
+% \section{Security}
+% \label{sec:security}
+
+% \input{security}
+
+\section{Cost Analysis and Benchmarks}
+\label{sec:benchmarks}
 \input{experiments.tex}
 % \begin{enumerate}
 %     \item What are the exact communication, computation, and storage costs of \begin{itemize}
@@ -191,18 +216,69 @@
 
 % Notably, we also show the detailed comparison between our zkID and solutions from GG and Microsoft.
 
+\section{Related Work}
+\input{paper/BBSp}
+
+\medskip
+
+\input{paper/crescent}
+
+\medskip
+
+\input{paper/longfellow}
+
+\medskip
+
+% \input{paper/vega}
+
 \section{Conclusion}
 \label{sec:conclusion}
+% \kwnote{Update the text with the new name: OpenAC or something else.}
+% The zkID construction is an efficient instantiation of the anonymous credentials primitive, and supports the high-level requirements of the EU Digital Identity Wallet. It has been instantiated using multiple proof systems, each with different security assumptions and performance characteristics. This work presented a detailed mapping of these requirements to the generic zkID construction, as well as a best-in-class implementation that minimizes latency during credential presentation, while avoiding a trusted setup. Since our design avoids re-doing the costly computations live for each presentation, it is particularly suited for use-cases in which multi-credential linking is necessary.
+
+% The zkID construction is but one component of a larger digital identity infrastructure. Related, but orthogonal, future directions for research include:
+% \begin{itemize}
+%     \item credibly neutral infrastructure for hosting issuer, verifier, and data registries;
+%     \item more expressive semantics for verifier requests;
+%     \item support for more features such as revocation, plausible deniability, and guardianship;
+%     \item compatible credential data models.
+% \end{itemize}
+
+The OpenAC construction provides an efficient instantiation of anonymous credentials that aligns with 
+the high-level requirements of the EU Digital Identity Wallet. It has been realized using multiple 
+proof systems, each with distinct security assumptions and performance trade-offs. This work presents 
+a detailed mapping between these requirements and the generic zkID construction, together with a 
+best-in-class implementation that minimizes online latency during credential presentation while 
+avoiding any trusted setup. Because the design amortizes expensive computation and avoids re-running 
+issuer-verification logic for each presentation, it is especially well-suited for scenarios requiring 
+multi-credential linking.
+
+The OpenAC construction forms a single component within a broader digital-identity ecosystem. Several 
+related, but orthogonal, research directions remain open:
+\begin{itemize}
+    \item credibly neutral infrastructure for operating issuer, verifier, and data registries;
+    \item richer and more expressive semantics for verifier request policies;
+    \item support for additional features such as revocation, plausible deniability, and guardianship;
+    \item interoperable and compatible credential data models.
+\end{itemize}
+
+
 
 \clearpage
 \section*{Contributors and Acknowledgement}
 \begin{description}
-	\item[Ying Tong] description
-	\item[Hy Ngo]
-	\item[Janabel]
+	\item[Ying Tong] took primary responsibility for the design and construction of the proposed scheme.
+    \item[Liam Eagen] authored the zero-knowledge modifications to Spartan, and contributed to the proof reblinding construction.
+    \item[Vikas Rushi] led the design, implementation, and benchmarking of the component.
+    \item[Moven Tsai] contributed to the mobile benchmarking and the witness generation optimisation efforts.
+	\item[Hy Ngo \& Janabel Xia] contributed to the analysis of EUDI requirements, the preparation of the associated appendix, and the writing and revisions of the manuscript.
 \end{description}
 
-We thanks X Y Z (Nam Zoey and everyone who said something or helped with something) for ...
+We thank Nam and Zoey for extensive revisions to the manuscript and for support that facilitated the completion of this work.
+We also thank Keewoo for their detailed comments across multiple rounds of internal review.
+We further thank Oskar, Winderica, Miha, and Vivian for feedback that strengthened the technical content of the paper.
+
+AI tools are extensively used for the non-technical part of the document as well as for the correction of grammar and typos.
 
 \clearpage
 %%%% 8. BILBIOGRAPHY %%%%
@@ -214,12 +290,12 @@ We thanks X Y Z (Nam Zoey and everyone who said something or helped with somethi
 %   If possible, take them from DBLP.
 
 \clearpage
+\begin{landscape}
 \section{Appendix: EUDI Annex 2 Requirements}
 \label{sec:annex}
-
-This section is devoted to a review of the EUDI ARF's Annex 2, which covers high-level requirements for the EUDI Wallet. 
-The full Annex can be found \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/1.4.0/annexes/annex-2/annex-2-high-level-requirements/#a231-topic-1-accessing-public-and-private-online-services-with-eudi-wallet}{here}.
-
 \input{annex2}
+\end{landscape}
+% This section is devoted to a review of the EUDI ARF's Annex 2, which covers high-level requirements for the EUDI Wallet. 
+% The full Annex can be found \href{https://eu-digital-identity-wallet.github.io/eudi-doc-architecture-and-reference-framework/1.4.0/annexes/annex-2/annex-2om-high-level-requirements/#a231-topic-1-accessing-public-and-private-online-services-with-eudi-wallet}{here}.
 
 \end{document}

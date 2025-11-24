@@ -1,0 +1,22 @@
+\noindent\textbf{A Generic AC Framework.} In a generic AC framework, the \emph{Issuer} is an entity that uses a fixed public-key 
+algorithm (e.g., RSA or ECDSA) and verifiable credential format (such as SD-JWT or mDL) to assert claims about one or more subjects. Since issuer elements are 
+typically difficult to modify once deployed, the proposed change are to the holder’s 
+wallet and to the relying party (verifier).
+
+The wallet operates in two phases. 
+During an offline \emph{Prepare} phase, run once per credential, the wallet:
+ \begin{enumerate}
+    \item Verifies the Issuer’s signature using standard libraries
+    \item Parses and normalizes credential attributes (e.g., converting a 
+date of birth to an integer age)
+    \item Commits to the attributes using a binding and hiding commitment scheme. 
+\end{enumerate}
+During the online \emph{Show} phase, which is run for each presentation, the wallet:
+\begin{enumerate}
+\item Selects the attributes or predicates required by the \emph{Relying Party}
+\item Prove them in zero knowledge against the stored commitments
+\item Adds a fresh device signature over the session challenge to ensure device binding.
+\end{enumerate}
+
+Noticeably, a key requirement of our framework is \emph{modularity}: issuer-signature verification, attribute commitment, predicate proofs, and device binding are defined as separate modules with clear interfaces.
+This separation allows the underlying proof system to be replaced for quantum-proofing without modifying other components. 
