@@ -1,0 +1,19 @@
+\noindent\textbf{Microsoft's Crescent}~\cite{cryptoeprint:2024/2013} targets environments in which issuers keep their existing credential formats (e.g., JWT, 
+mDL) and continue using their current signing keys, requiring no issuer-side changes. Its workflow 
+splits into a heavy one-time \emph{Prepare} phase and a lightweight per-session \emph{Show} phase. 
+During Prepare, the wallet verifies the issuer’s signature, parses attributes, and constructs two 
+reusable artifacts: (i) a Groth16 proof attesting correct verification and parsing, and (ii) a 
+Pedersen vector commitment enabling selective disclosure. Both artifacts can be re-randomized to 
+ensure unlinkability.
+
+In the Show phase, the wallet re-randomizes these artifacts and includes only the proofs required by 
+the verifier’s policy, such as age checks or linking two credentials to the same holder. Device 
+binding can be added by having the secure element sign the verifier’s challenge. In reference-system 
+terms, Crescent achieves a two-phase model with reusable offline work and modular predicates while 
+leaving issuers untouched.
+
+The trade-offs are substantial: the Prepare phase is expensive (tens of seconds for JWTs and minutes 
+for mDLs), the system relies on pairing-based Groth16 proofs with a large trusted setup 
+($\approx$661\,MB--1.1\,GB~\cite[\S4]{cryptoeprint:2024/2013}), and the security guarantees are 
+classical only. The Show phase is fast—typically 22--41\,ms with $\approx$1\,KB proofs, or around 
+315\,ms when device binding is included~\cite[\S4]{cryptoeprint:2024/2013}.

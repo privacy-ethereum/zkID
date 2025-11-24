@@ -1,21 +1,161 @@
-\subsection{Mobile Benchmarks}
-(iPhone 17, with precomputed witness generation)
+\subsection{Cost analysis}
 
-\begin{tabular}{|c|c|}
-Device                    & Proving Time \\
+The following section computes the Prover and Verifier costs of Spartan instantiated with Hyrax Pedersen commitments on R1CS instances $(x = \big(\mathbb{F}, A, B, C, io, n, m),\, \vec{w})$, 
+where $io$ denotes the vector of public inputs/outputs, $n = |\vec{w}| + io + 1$ is the dimension of our matrices, 
+and $m$ is the number of nonzero entries in our matrices $A,B,C$. We let $Z = (\vec{w}, io, 1)$. 
+It is often reasonable to assume that our R1CS matrices are sparse, i.e., $m = O(n)$. However, we present the costs below independent of this assumption.
+
+\begin{itemize}
+    \item \textbf{Prover time}: (1) $O(m)$ to generate the sumcheck transcript, (2) $O(m)$ to evaluate MLEs of $A,B,C$, (3) $O(n)$ to commit to the MLE of $Z$ (computing $\sqrt{n}$ MSMs of size $\sqrt{n}$) and opening the MLE of $Z$, for a total cost of $O(m+n)$.
+    \item \textbf{Proof length}: (1) $O(\log n) \cdot |\mathbb{F}|$ length of the sumcheck transcript, (2) $O(\sqrt{n}) \cdot |\mathbb{G}|$ length of the commitment to MLE of $Z$, (3) $O(\log n) \cdot |\mathbb{G}|$ length of argument opening the MLE of $Z$, for a total length of $O(\sqrt{n})$ group or field elements.
+    \item \textbf{Verifier time}: (1) $O(\log n)$ to verify sumcheck transcript, (2) $O(m)$ to evaluate the multi-linear extensions of $A,B,C$ (with sparse commitment scheme and memory checking), (3) $O(\sqrt{n})$ to open the MLE of $Z$, for a total of $O(m + \sqrt{n})$.
+\end{itemize}
+
+With the zero-knowledge modifications to Spartan, we can see the asymptotic costs remain the same, as follows:
+
+\begin{itemize}
+    \item \textbf{Proof length}: the sumcheck and openings are the same length but just padded, we additionally add $O(\log n)$ size $|\mathbb{G}|$ commitments and an $O(\log\log n)$ sumcheck-relation IPA proof, which still gives a proof length of $O(\sqrt n)$ group or field elements.
+    \item \textbf{Verifier time}: the verifier still needs $O(m)$ to evaluate MLEs of $A,B,C$, $O(\sqrt{n})$ to open the MLE of $Z$, and $O(\log n)$ for the sumcheck-relation IPA verification, which still gives $O(m + \sqrt{n})$ runtime.
+\end{itemize}
+
+\subsection{Experimental Evaluation}
+\paragraph{Setup.}
+
+Experiments were performed using our wallet proof-of-concept implementation (\texttt{wallet-unit-poc}, branch \texttt{mobile-benchmarks})\footnote{\url{https://github.com/privacy-ethereum/zkID/tree/main/wallet-unit-poc\#benchmarks}}, with Spartan+Hyrax as the proving backend. 
+For our target deployment setting, we benchmarked on two mobile devices:
+(i) an iPhone 17 with 8\,GB~RAM (iOS~18), and 
+(ii) a Pixel 10 Pro.
+This matches the intended model of mobile provers and a server-side verifiers that preloads the verifying key and serve many concurrent users. In addition, desktop benchmarks across varying payload sizes (Tables~\ref{tab:payload-bench} and~\ref{tab:payload-sizes}) are obtained on a MacBook Pro (M4, 14-core GPU, 24\,GB RAM).
+
+The mobile benchmarks for the \texttt{show} and \texttt{prepare} circuits are summarised in Tables~\ref{tab:show-bench} and~\ref{tab:prepare-bench}, respectively. The proof sizes reported in Tables~\ref{tab:show-bench} and~\ref{tab:prepare-bench} are determined by the circuit and payload size and match the desktop values for a 1920-byte credential in Table~\ref{tab:payload-sizes}.
+We then report scaling behavior across payload sizes in Tables~\ref{tab:payload-bench} and~\ref{tab:payload-sizes}, obtained from the same reference implementation.
+
+\paragraph{Benchmarked operations}
+We evaluated two wallet operations:
+\begin{itemize}
+    \item the \texttt{prepare} circuit: parses and verifies a signed SD-JWT within the circuit and executes the sum-check protocol over the induced constraint system, without outer commitments.  
+    This isolates the cost of in-circuit parsing and constraint satisfaction.
+    \item the \texttt{show} circuit: proves possession of an ECDSA signature on a fresh verifier nonce under the device key.  
+    The circuit embeds one ECDSA verification and enforces key-ownership binding to the handset.
+\end{itemize}
+
+From the holder’s perspective, these two circuits correspond to two wallet operations.
+When a new credential is added to the wallet, the Prepare circuit is run offline: the issuer’s signature is checked, the verifiable credential is parsed, and a reusable precomputed state is produced and stored.
+This is what we refer to as \emph{precompute} in Table~\ref{tab:openac-main}.
+In the desktop benchmarks, this cost is given by the sum of the Prepare \emph{Prove} and \emph{Reblind} times in the 1920-byte row of Table~\ref{tab:payload-bench}; on mobile, it corresponds to the \emph{Proving} and \emph{Reblind} times reported in Table~\ref{tab:prepare-bench}.
+
+Each subsequent presentation corresponds to a \emph{prove} step.
+The wallet takes a previously prepared credential, applies a \emph{reblind} operation to re-randomise the precomputed state, and then runs the Show circuit to produce a fresh proof for the verifier’s current policy and nonce.
+In Table~\ref{tab:openac-main}, the Prove column aggregates the Show \emph{Prove} and \emph{Reblind} times from the same 1920-byte row of Table~\ref{tab:payload-bench}; on mobile, this quantity is reported as the \emph{Prover time (incl.\ reblind)} in Table~\ref{tab:show-bench}.
+
+\begin{table}[htbp!]
+\centering
+\caption{\texttt{show} circuit benchmarks}
+\label{tab:show-bench}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Device} &
+\textbf{Proving time} &
+\textbf{Reblind time} &
+\textbf{Verifier time} &
+\textbf{Key setup} &
+\textbf{Proof size (kB)}\\
+\midrule
+iPhone~17    & 99~ms  & 30~ms & 13~ms  & 47~ms  & 40.41\\
+Pixel 10 Pro & 340~ms & 125~ms & 61~ms & 122~ms & 40.41\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{table}[htbp!]
+\centering
+\caption{\texttt{prepare} circuit benchmarks}
+\label{tab:prepare-bench}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Device} &
+\textbf{Proving time} &
+\textbf{Reblind time} &
+\textbf{Verifier time} &
+\textbf{Key setup} &
+\textbf{Proof size (kB)}\\
+\midrule
+iPhone~17    & 2987~ms & 856~ms & 151~ms & 3499~ms  & 109.29 \\
+Pixel 10 Pro & 7318~ms & 1750~ms & 318~ms & 9233~ms & 109.29 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h!]
+\centering
+\caption{Desktop execution times and key sizes for Prepare and Show circuits across payload sizes.}
+\label{tab:payload-bench}
+\scriptsize
+\begin{tabular}{c|rrrr|rrrr|rr|rr}
 \hline
-iPhone 17 simulator       & ~2.2s        \\
-iPhone 16 (old device)    & ~2.14s       \\
-Memory peak (JWT circuits)& 1.97 GiB     
+\textbf{Payload} &
+\multicolumn{4}{c|}{\textbf{Prepare Circuit (ms)}} &
+\multicolumn{4}{c|}{\textbf{Show Circuit (ms)}} &
+\multicolumn{2}{c|}{\textbf{PK Size (MB)}} &
+\multicolumn{2}{c}{\textbf{VK Size (MB)}} \\
+\textbf{(Bytes)} &
+Setup & Prove & Reblind & Verify &
+Setup & Prove & Reblind & Verify &
+Prepare & Show &
+Prepare & Show \\
+\hline
+1024 & 2559  & 1683 & 382  & 35  & 36 & 77 & 25 & 9 & 252.76  & 3.45 & 252.76  & 3.45 \\
+1920 & 4157  & 2727 & 715 & 74   & 36 & 77 & 25 & 9 & 420.05  & 3.45 & 420.05  & 3.45 \\
+2048 & 4384  & 2934 & 753 & 83   & 36 & 77 & 25 & 9 & 433.76  & 3.45 & 433.76  & 3.45 \\
+3072 & 6466  & 4242 & 1357 & 119 & 36 & 77 & 25 & 9 & 636.35  & 3.45 & 636.35  & 3.45 \\
+4096 & 8529  & 5282 & 1374 & 131 & 36 & 77 & 25 & 9 & 836.79  & 3.45 & 836.79  & 3.45 \\
+5120 & 10979 & 6166 & 1460 & 140 & 36 & 77 & 25 & 9 & 964.70  & 3.45 & 964.70  & 3.45 \\
+6144 & 12993 & 8407 & 2821 & 280 & 36 & 77 & 25 & 9 & 1222.26 & 3.45 & 1222.26 & 3.45 \\
+7168 & 15151 & 8856 & 2732 & 230 & 36 & 77 & 25 & 9 & 1382.31 & 3.45 & 1382.31 & 3.45 \\
+8192 & 16559 & 9614 & 2683 & 246 & 36 & 77 & 25 & 9 & 1542.35 & 3.45 & 1542.35 & 3.45 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h!]
+\centering
+\caption{Desktop proof and witness size scaling across payloads.}
+\label{tab:payload-sizes}
+\scriptsize
+\begin{tabular}{c|rr|rr}
+\hline
+\textbf{Payload} &
+\multicolumn{2}{c|}{\textbf{Proof Size (kB)}} &
+\multicolumn{2}{c}{\textbf{Witness Size (MB)}} \\
+\textbf{(Bytes)} &
+Prepare & Show &
+Prepare & Show \\
+\hline
+1024 & 75.80  & 40.41 & 32.03  & 0.50 \\
+1920 & 109.29 & 40.41 & 64.06  & 0.50 \\
+2048 & 109.29 & 40.41 & 64.06  & 0.50 \\
+3072 & 175.77 & 40.41 & 128.13 & 0.50 \\
+4096 & 175.77 & 40.41 & 128.13 & 0.50 \\
+5120 & 175.77 & 40.41 & 128.13 & 0.50 \\
+6144 & 308.26 & 40.41 & 256.25 & 0.50 \\
+7168 & 308.26 & 40.41 & 256.25 & 0.50 \\
+8192 & 308.26 & 40.41 & 256.25 & 0.50 \\
+\hline
 \end{tabular}
 
-\subsection{PC Benchmarks}
-(MacBook Pro, 24 GB RAM, 14-core GPU, M4)
+\end{table}
 
-\begin{tabular}{|c|c|}
-Operation                                         & Time        \\
-\hline
-Complete JWT prove (include witness generation)   & 2.7 seconds \\
-Complete ECDSA prove (include witness generation) & 69ms        
-\end{tabular}
+We report the performance characteristics of the credential circuits evaluated across varying payload sizes, ranging from 1\,kB to 8\,kB.
+For each payload size, we measure the execution times for setup, proving, reblinding, and verification. We additionally record the proving key (PK) size, verifying key (VK) size, proof size, and witness size. All results are reported using wall-clock timings obtained from the reference implementation.
+
+Overall, the Prepare circuit shows a nonlinear increase in cost as the payload size grows. Setup time is the dominant contributor, rising from roughly 2.6s at 1\,kB to about 16.6s at 8\,kB. Prove and Verify steps scale proportionally, while Reblind remains moderately cheaper but still increases with payload size.
+
+The Show circuit exhibits near constant key sizes across all payload sizes. Setup takes 36$ms$, proving 77$ms$, verification 9$ms$, and reblinding 25$ms$. Key sizes are significantly smaller than those of the Prepare circuit.
+
+Proof sizes for the Prepare circuit grow with payload size (from 75\,kB to 308\,kB), while the Show circuit maintains a constant proof size of 40.41\,kB. Witness sizes for Prepare increase linearly with payload, whereas the Show circuit uses a fixed witness of 512.52\,kB.
+
+% \subsection{Execution Time Benchmarks}
+
+
 

@@ -1,0 +1,18 @@
+\noindent\textbf{Google's longfellow.}~\cite{cryptoeprint:2024/2010} This approach targets ecosystems where issuers already sign credentials using ECDSA on standard 
+curves (e.g., P\textendash256) and hash data with SHA\textendash256. The core difficulty is that proving 
+ECDSA verification in zero knowledge is expensive for conventional proof systems: the arithmetic of 
+P\textendash256 and the bitwise structure of SHA\textendash256 do not align with the fast polynomial 
+techniques (such as NTT-based optimizations) used in many modern ZK libraries.
+
+To address this, the authors design custom circuits for both ECDSA and SHA\textendash256 and employ a 
+layered protocol built on the sum-check technique with a lightweight Reed--Solomon encoding to keep 
+proof sizes manageable. A consistency check ensures that the same hidden signing key is used in both 
+the signature and hashing logic. During presentation, the wallet generates a fresh proof and the 
+device signs the verifier’s challenge, providing device binding.
+
+In the reference-system perspective, issuer compatibility is fully preserved, selective disclosure is 
+supported, and device binding is incorporated. The drawback is the absence of a reusable offline 
+phase, meaning each presentation requires generating a full proof. Reported performance is 
+approximately 60\,ms to prove a single ECDSA signature and around 1.2\,s for a complete mDL 
+presentation on mobile devices~\cite[\S5.3,\S6.2]{cryptoeprint:2024/2010}, with larger proofs and 
+higher verification overhead than succinct SNARK-based systems with trusted setup.

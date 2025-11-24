@@ -1,0 +1,96 @@
+According to the Cryptographers' Feedback on the EU Digital Identity’s ARF\footnote{\url{https://github.com/user-attachments/files/15904122/cryptographers-feedback.pdf}}, an Anonymous Credential AC scheme, is a suitable cryptographic primitive to instantiate the new EU Digital Identity Wallet (EUDIW, ARF version 1.4.0~\cite{EU:EUDI24}), which is an important step towards developing interoperable digital identities in Europe for the public and private sectors.
+
+\begin{framed}\footnotesize
+	Informally speaking, an \emph{Anonymous Credential} AC scheme allows:
+	\begin{itemize}
+		\item An I\emph{dentity Provider} or \emph{Issuer} IP to (possibly blindly\footnote{i.e. the IP does not know the content that it signs, only its provenance is satisfied.}) sign a set of (eligible) attributes for a \emph{User} U;
+		\item The \emph{User} U can show, only if they hold the signed attributes (a.k.a \emph{Unforgebality}), usually through a \emph{Presentation}, to a \emph{Relying Party} RP such that:
+		\begin{itemize}
+			\item The RP can verify that the set of attributes (signed by IP) that the User U holds satisfy some condition of their interest (a.k.a Correctness);
+			\item The RP cannot learn any \emph{additional}\footnote{We stress that the RP may have obtained some privacy sensitive information prior to this presentation.} information beyond the fact that the condition is satisfied or information that can be inferred from the satisfaction of the condition (a.k.a Zero-Knowledge or Anonymity);
+			\item The immediate previous requirement also implies that the RP cannot link the various presentations by the same User U (a.k.a. Unlinkability);
+		\end{itemize}
+		\item The IP can revoke all or a part of the signed attributes that it has issued to the User U, from upon which, the eligible attributes of the User U are updated, and subsequent presentations have to be based on the new and updated attributes (a.k.a \emph{Revocation});
+		\item The User U cannot transfer its set of signed attributes to another User U' (a.k.a \emph{Non-transferability}).
+	\end{itemize}
+\end{framed}
+
+
+In the aforementioned feedback document, BBS~\cite{C:BonBoySha04, C:CamLys04} and BBS+~\cite{SCN:AuSusMu06,EPRINT:CamDriLeh16}
+%\footnote{For BBS, thanks to prior work by the W3C, the Decentralized Identity Foundation, IETF/IRTF, ISO, and other standardization bodies, as well as the availability of open-source software libraries, the EC can develop a standard and reference implementation with only a modest effort. The feedback additionally recommend that the EUDI be designed following the principle of crypto-agility, meaning that its underlying technologies can be upgraded quickly in the future if the need arises.} 
+were promoted as the main candidate, besides that, there have been two independent works from Google~\cite{cryptoeprint:2024/2010} and Microsoft~\cite{cryptoeprint:2024/2013} that attempted to offer candidate solutions. In this document, we attempt to offer a new candidate, called \textbf{zkID}.
+
+In comparison, these approaches show the current trade-off: systems either reuse existing issuer infrastructure but pay high per-presentation costs, or they achieve fast online proofs at the price of large setups and pairing-based assumptions. 
+\begin{quote}
+	\emph{Our construction, zkID, aims to combine issuer compatibility with reusable offline work, while remaining transparent and modular.}
+\end{quote}
+
+
+\subsection{Our zkID}
+Our construction is designed for deployment in the current credential ecosystem: issuers sign with widely used public-key schemes (e.g., RSA or ECDSA) and publish credentials in standardized formats (e.g., JWT or mDL).
+The goal is to add unlinkability and selective disclosure for relying parties without requiring issuers to change their keys or formats. The construction separates work into two phases.
+In the Prepare phase (performed once per credential), the wallet verifies the issuer’s signature using standard libraries, parses and normalizes the attributes, and commits to them using a binding and hiding commitment.
+In the Show phase (performed per presentation), the wallet proves only the predicates requested by the verifier against the stored commitments and ensures device binding by producing a live signature over the verifier’s challenge with the holder’s device key. The verifier checks the proof and the device signature, and enforces that the Prepare and Show instances refer to the same committed attributes by equality of commitments. 
+Each function, issuer's signature verification, commitment, predicate proving, and device binding, has an explicit interface. This modular decomposition lets the proving backend be replaced without altering issuer workflows or credential formats.
+We next outline the setting for comparing anonymous-credential systems.
+
+\subsection{Comparison to other AC proposals}\label{subsec:comparison}
+\paragraph{Setting the AC Framework.}
+Let us first outline a reference architecture that represents what an anonymous-credential system would ideally look like if it is to integrate smoothly with current infrastructures. 
+In this model, the \emph{Issuer} is treated as a fixed component that continues to use its existing public-key algorithms (such as RSA or ECDSA) and standard credential formats (e.g., JWT or mDL), since it's typically difficult to change once deployed. All additional logic is placed in the user’s wallet and the verifier.
+
+The wallet is expected to operate in two stages: an offline \emph{Prepare} step, which verifies the Issuer’s signature once using standard libraries, parses and normalizes credential attributes (for example, turning a date of birth into an integer age), and commits to those attributes using a binding and hiding commitment scheme (a cryptographic way to lock values so they can later be revealed or proven in restricted form); and an online \emph{Show} step, which runs per presentation, where the wallet selects only the attributes or predicates required by a \emph{Relying Party}’s policy, proves them in zero knowledge against the stored commitments, and includes a fresh device signature over the session challenge to ensure the proof is tied to the holder’s device.
+
+A further requirement is \emph{modularity}: each major function, issuer signature verification, attribute commitment, predicate proofs, and device binding, should be defined as a separate module with a clear interface. This separation makes it possible to swap the underlying proof engine (for example, using a SNARK today or a post-quantum proof system in the future) without requiring changes to parts of the system that are costly or impractical to modify. The purpose of this modular view is to act as a comparison framework: it outlines how a deployment-friendly anonymous-credential stack could be structured, making it easier to compare proposals by the modules they cover, the constraints they address, and the trade-offs they make. A summary of them with respect to the AC Framework is presented in Table~\ref{tab:rw-snapshot}.
+
+\paragraph{BBS-based anonymous credentials.~\cite{baum2024cryptographers}}
+BBS-based anonymous credentials are recommended in public feedback for the EUDI wallet as a way to meet the program’s requirement that presentations must not be tracked, linked, or correlated~\cite{baum2024cryptographers}.
+This work treats a credential as a constant-size signature on a vector of attributes in pairing-friendly groups, as introduced by Boneh–Boyen–Shacham and proven secure for BBS+ by Au–Susilo–Mu~\cite{C:BonBoySha04,SCN:AuSusMu06}.
+A holder then produces zero-knowledge proofs that reveal only the required attributes or predicates; each presentation is freshly generated so separate verifications cannot be linked.
+This matches our reference system view on the presentation side-privacy enforced at the holder with per-session, non-repeating outputs.
+Where these designs differ from our constraints is issuance. To use BBS/BBS+, issuers sign credentials with a pairing-based scheme rather than the RSA or ECDSA schemes used today~\cite{C:BonBoySha04,SCN:AuSusMu06}. To remain compatible with standardized curves such as P-256 while keeping public verifiability, a pairing-free, server-aided variant (often termed BBS\#) allows the holder to prefetch small auxiliary data through an oblivious interaction with an issuer-side helper and later perform non-interactive presentations; the helper data scales linearly with the number of planned presentations~\cite{cryptoeprint:2025/513}.
+In both variants, device binding and revocation checks can be encoded as attributes or verified within the proof so that transcripts and status queries avoid stable identifiers.
+
+
+\paragraph{Anonymous Credentials from ECDSA.~\cite{cryptoeprint:2024/2010}}
+This work considers environments where credential issuers already sign with ECDSA on standardized curves (such as P-256) and hash data with SHA-256.
+The main challenge is that proving correctness of an ECDSA signature in zero knowledge is costly with standard proof systems, because the arithmetic used in P-256 and the bit-level operations in SHA-256 do not align well with the fast polynomial techniques (such as number-theoretic transforms, a method that speeds up polynomial multiplication over special fields) that many modern ZK libraries rely on.
+To handle this, the authors introduce custom circuits for ECDSA and SHA-256, and use a layered protocol based on the sum-check technique with a lightweight encoding (Reed–Solomon code) to control proof size.
+An additional “consistency check” ensures that the same hidden signing key is used across both the signature and the hash logic.
+At presentation, the wallet produces a proof for the verifier and the device also signs a fresh challenge (this is the device-binding step: a live signature that ties the proof to the holder’s device).
+In terms of the reference system view, issuer compatibility is preserved, selective disclosure is supported, and device binding is included; however, there is no reusable offline phase, so the full proof is generated at every presentation. The reported costs are about 60\,ms to prove one ECDSA signature and about 1.2\,s for a complete mDL presentation on mobile devices~\cite[\S5.3,\S6.2]{cryptoeprint:2024/2010}, with larger proof sizes and higher verifier effort than systems based on succinct setup-dependent SNARKs.
+
+\paragraph{Crescent Credentials.~\cite{cryptoeprint:2024/2013}}
+This work considers environments where issuers continue using existing credential formats such as JWT or mDL and their current signing keys, so no issuer-side changes are required.
+Its workflow is split into a heavy one-time Prepare phase and a lightweight per-presentation Show phase.
+In Prepare, the wallet verifies the issuer’s signature, parses the credential into attributes, and creates two reusable artifacts, that is, cryptographic objects the wallet reuses across presentations: (i) a Groth16 proof that these checks were done correctly, and (ii) a Pedersen vector commitment over the attributes, enabling selective disclosure.
+Both artifacts support re-randomization for unlinkability.
+In the Show phase, the wallet re-randomizes the prepared artifacts and attaches only the proofs required by the verifier’s policy, such as proving an age threshold or linking two credentials to the same holder. Device binding can be added at this step by letting the secure element sign the verifier’s challenge.
+In terms of the reference system view, Crescent realizes the two-phase design with reusable offline work and modular predicates, while leaving issuers unchanged. The trade-offs are significant: the Prepare phase is heavy (tens of seconds for JWTs and minutes for mDLs), the scheme depends on pairing-based Groth16 proofs with a large trusted setup ($\approx$ 661 MB-1.1 GB~\cite[\S4]{cryptoeprint:2024/2013}), and the security model is classical only, without post-quantum protection. The Show step, however, runs with low latency-typically 22-41\,ms with $\approx$1 KB proofs, or about 315\,ms with device binding~\cite[\S4]{cryptoeprint:2024/2013}.
+
+\begin{table}[t]
+\centering
+\caption{Comparison of related approaches.}
+\label{tab:rw-snapshot}
+\footnotesize
+\begin{tabularx}{\linewidth}{l >{\RaggedRight\arraybackslash}X >{\RaggedRight\arraybackslash}X >{\RaggedRight\arraybackslash}X >{\RaggedRight\arraybackslash}X}
+\toprule
+\textbf{Feature} & \textbf{BBS/BBS+} & \textbf{AC from ECDSA} & \textbf{Crescent} & \textbf{zkID (ours)} \\
+\midrule
+Issuer modification & Required & None & None & None \\
+Offline phase       & None & None & Heavy Prepare; light Show & Lightweight, reusable Prepare \\
+Setup               & Pairing-based (no trusted setup) & Transparent & Large, per-circuit trusted setup & Transparent \\
+Proof mechanism     & Pairing-based signatures with ZK proofs & Sum-check with Ligero; custom ECDSA/SHA-256 circuits & Groth16 with Pedersen vector commitments; re-randomizable artifacts & Transparent sum-check; Hyrax-style vector commitments \\
+Device binding      & Optional & Included & Optional & Integrated (in-circuit) \\
+Reusability         & No & No & Yes & Yes \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Organization}
+The remainder of this document is organized as follows:
+Section~\ref{sec:appeudi} applies zkID in the EUDI setting,
+Section~\ref{sec:contribution} gives a high-level construction of zkID,
+Section~\ref{sec:benchmarks} reports benchmark results,
+and Section~\ref{sec:conclusion} concludes.
+The technical details are deferred to the appendices: the preliminaries in Appendix~\ref{sec:preliminaries}, the full construction in Appendix~\ref{app:zkid-construction}, the security discussion in Appendix~\ref{sec:security} and the EUDI Annex 2 assessment in Appendix~\ref{sec:annex}.

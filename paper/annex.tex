@@ -8,14 +8,14 @@
 % For full details, check the eudi_application.tex file. I personally think you can kindof just copy-paste the whole thing into here, above the tables.
 
 
-In this Appendix, we address all of the Topics presented in Annex 2 of the EUDI Architecture Reference Framework. 
-The first part of this section is addressed to a general audience; it translates the vocabulary used in the EUDI ARF to cryptographic terms that those reading this paper might be familiar with.
+In this Appendix, we address the Topics presented in Annex 2 of the EUDI Architecture Reference Framework. 
+The first part of this section is addressed to a general audience; it translates the vocabulary used in the EUDI ARF to cryptographic terms.
 
-We then present some additional directions for our proof-of-concept that introduces potential solutions to some of the Topics (requirements) in the EUDI ARF.
-Finally, we lay out an exhaustive table addressing each of the Topics of the ARF, indicating:
-(i) whether or not our paper addresses and satisfies the specifications (see ``Within Scope'' column),
-(ii) any potential privacy concerns that may arise from satisfying the specification of the Topic
-(iii) a brief high-level proposals for any privacy concerns that do arise.
+We then present additional directions for our proof-of-concept with potential solutions to Topics (requirements) in the EUDI ARF.
+Our table addresses each of the Topics of the ARF, indicating:
+(i) whether our paper addresses and satisfies the framework (see ``Within Scope'' column),
+(ii) potential privacy concerns related to the specification of the Topic
+(iii) a high-level proposal for any privacy concerns acknowledged
 
 \subsection{EUDI ARF Terminology Translation}
 
@@ -27,7 +27,7 @@ Finally, we lay out an exhaustive table addressing each of the Topics of the ARF
 
 [see comments in tex file]
 
-The following table conists of Topics that we either directly tackle in our proof-of-concept, or are actively working on. 
+The following table contains topics that we either directly tackle in our proof-of-concept or are actively working on. 
 
 \footnotesize
 \begin{longtable}{|c|p{0.2\textwidth}|p{0.15\textwidth}|p{0.07\textwidth}|p{0.2\textwidth}|p{0.07\textwidth}|p{0.2\textwidth}|}
@@ -51,7 +51,7 @@ The following table conists of Topics that we either directly tackle in our proo
 11 & Pseudonyms issued by a pseudonym provider. Allows relying party to recognize users across presentations & & Yes & To eliminate need for an external pseudonym provider + allow for multiple pseudonyms controlled by the user: we propose computing/outputting a deterministic nullifier hash H(public\_key, random\_salt) (where the wallet stores the random\_salt) in-circuit, to use as the pseudonym & Yes & If pseudonym provider is issuer, this is really bad (can track full identity whenever issuer-assigned pseudonym used). If pseudonym provider is an external party, perhaps need some kind of id disclosure to get a pseudonym → similar to issuer tracking \\
 \hline
 
-17 & Ensuring users with multiple accounts/credential signins are actually the same person — requesting linking IDs & & Yes & Credentials should be re-randomized always & Yes & "Request the identified EUDI Wallet User to identify with another eID means which is accepted by the Relying Party so to link the data received from the EUDI Wallet with the account to which the User proved to have access to" → further supports need for efficient re-randomization \\
+17 & Ensuring users with multiple accounts/credential signins are actually the same person, requesting linking IDs & & Yes & Credentials should be re-randomized always & Yes & "Request the identified EUDI Wallet User to identify with another eID means which is accepted by the Relying Party so to link the data received from the EUDI Wallet with the account to which the User proved to have access to" → further supports need for efficient re-randomization \\
 \hline
 
 18 & User presenting info/proofs across multiple credentials. Shall request proof-of-association of PKs each credential is issued to from the WCSA/WCSD & Here is a potential \href{https://eprint.iacr.org/2024/1444.pdf}{Schnorr-style ZKP for association between PKs}. Main idea: proof of knowledge of dlog relationship btw the two & Yes & Proof-of-association should not have PKs in plaintext to the verifier (otherwise provides linkability). Need wallet user to do process proof received directly from WSCA. We propose an in-circuit verification of the ZKP received from WSCA (as a recursive proof) + matching of PKs to the ones in the credential & Yes & <<<< \\
@@ -60,10 +60,10 @@ The following table conists of Topics that we either directly tackle in our proo
 29 & Should allow for issuance of eIDs that let someone represent someone else. Not speced out yet, ad-hoc & Unclear & Potential future work & We propose including both entities' PKs in the credential where transaction log would show up in represented person's as well. Maybe phone home to person being represented is OK? & Maybe & <<<< \\
 \hline
 
-35 & Protocol for PID issuance & Yes & Yes & See privacy concerns around wallet user providing WTE for PID/attestation issuer to verify before credential issuance & Yes & In the cases that the issuer is just another verifier or EUDI wallet instance (user), who is not creating a credential with any new sensitive/private information — want WTE verification to be private for unlinkability \\
+35 & Protocol for PID issuance & Yes & Yes & See privacy concerns around wallet user providing WTE for PID/attestation issuer to verify before credential issuance & Yes & In the cases that the issuer is just another verifier or EUDI wallet instance (user), who is not creating a credential with any new sensitive/private information, want WTE verification to be private for unlinkability \\
 \hline
 
-38 & Need to ensure use of Wallet Instance Attestations (WIA) to relying parties does not allow tracking. Wallets must revoke/suspend when PID issuer asks & & Yes & & Yes & If WIAs are a separate list and just a static watermark, then can do merkle inclusion proof for unlinkability. We recommend against publishing list of public keys as a WIA mechanism — since this causes device-binding to function as doxxing (can check signatures against each of the potential public keys) \\
+38 & Need to ensure use of Wallet Instance Attestations (WIA) to relying parties does not allow tracking. Wallets must revoke/suspend when PID issuer asks & & Yes & & Yes & If WIAs are a separate list and just a static watermark, then can do merkle inclusion proof for unlinkability. We recommend against publishing list of public keys as a WIA mechanism, since this causes device-binding to function as doxxing (can check signatures against each of the potential public keys) \\
 \hline
 
 
@@ -205,7 +205,7 @@ Finally, the following topics had no high-level requirements (as of July 2025), 
 36 & Risk Analysis of the EUDI Wallet Usage \\
 \hline
 
-37 & QES — Remote Signing — Technical Requirements \\
+37 & QES, Remote Signing, Technical Requirements \\
 \hline
 
 39 & Wallet to wallet technical Topic \\

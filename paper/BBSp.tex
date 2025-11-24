@@ -1,0 +1,17 @@
+\noindent\textbf{BBS-based anonymous credentials}~\cite{baum2024cryptographers} have been recommended in public feedback for the EUDI Wallet as a 
+means to ensure that presentations cannot be tracked, linked, or correlated~\cite{baum2024cryptographers}. 
+These systems treat a credential as a constant-size signature on an attribute vector in pairing-friendly 
+groups, following Boneh--Boyen--Shacham and the BBS$+$ security proofs of Au--Susilo--Mu%
+~\cite{C:BonBoySha04,SCN:AuSusMu06}. Holders generate zero-knowledge proofs that selectively disclose 
+only required attributes or predicates, with each presentation freshly randomized to prevent linkability. 
+This aligns with our reference model in which presentation-side privacy is enforced via per-session, 
+non-repeating outputs.
+
+However, issuance differs from our constraints. Using BBS/BBS$+$ requires issuers to adopt a 
+pairing-based signing scheme instead of the RSA or ECDSA mechanisms prevalent in existing ID systems. 
+To retain compatibility with standardized curves such as P-256, a pairing-free server-aided variant 
+(BBS\#) enables holders to obtain small auxiliary data through an oblivious interaction with an 
+issuer-side helper and later produce non-interactive presentations; the helper data grows linearly 
+with the number of planned presentations~\cite{cryptoeprint:2025/513}. Device binding and revocation 
+can be encoded as attributes or verified inside the proof, ensuring transcripts and status queries 
+do not introduce stable identifiers.

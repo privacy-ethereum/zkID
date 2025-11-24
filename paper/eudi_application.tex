@@ -34,38 +34,157 @@
 
 % Finally, our team is also actively working on zkSNARK standards, and we believe the long-term solution is not to avoid unstandardized cryptography, but to argue the need for such cryptography in these applications and push forward the corresponding standards. 
 
-Within the EUDI Architecture and Reference Framework~\cite{EU:EUDI23}, the practical question is how to introduce zero-knowledge capabilities without disrupting established roles, formats, and certification paths. 
-This section states how the construction fits that setting and what trade-offs it entails. 
-Subsections are structured according to \href{https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/main/docs/discussion-topics/g-zero-knowledge-proof.md}{Topic G} in the EUDI ARF discusssion thread.
+% Within the EUDI Architecture and Reference Framework~\cite{EU:EUDI23}, the practical question is how to introduce zero-knowledge capabilities without disrupting established roles, formats, and certification paths. 
+% This section states how the construction fits that setting and what trade-offs it entails. 
+% Subsections are structured according to \href{https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/main/docs/discussion-topics/g-zero-knowledge-proof.md}{Topic G} in the EUDI ARF discusssion thread.
 
 
-Throughout this discussion, we continue to refer to EUDI's Wallet User as the ``Prover'', the Relying Party as the ``Verifier'', and the EUDI Attestation Authority (EAA) that acts as a PID/Attestation Prover as the ``Issuer''.
+% Throughout this discussion, we continue to refer to EUDI's Wallet User as the ``Prover'', the Relying Party as the ``Verifier'', and the EUDI Attestation Authority (EAA) that acts as a PID/Attestation Prover as the ``Issuer''.
 
+
+% \paragraph{Issuance.}
+% The construction is designed to wrap existing credential encodings rather than replace them. 
+% It accommodates SD-JWT and ISO/IEC 18013-5 mDL so that wallets and relying parties retain current disclosure grammars and parsing logic. 
+% Issuers remain oblivious to the use of zkSNARKs; no changes to issuance pipelines or device secure elements are required, and Issuers also maintain exclusive control of their private keys. 
+% The proof layer is circuit-defined and therefore highly programmable, which allows our scheme to easily adapt to future Issuer-side migrations (for example, a change of signature scheme) by simply updating the Prover circuit and public parameters, rather than introducing new format-specific protocols. 
+% The approach interoperates with current public-key infrastructure based on ECDSA or RSA and does not prescribe a switch of algorithm or hardware.
+
+% \paragraph{Efficiency.}
+% Proving is split into two relations. A fixed relation captures Issuer-signature verification, credential parsing, and commitment preparation; it runs infrequently and is amortized per credential. 
+% A live, presentation-specific relation captures the disclosures and predicates for a single session; it runs per presentation. 
+% This separation aims to keep Prover time and memory costs within typical web and mobile budgets, and to bound latency where most critical: at the time of Prover-Verifier interaction. 
+% The proof system and commitment layer are modular, so improvements in either component can be adopted without redesigning the higher-level flow. 
+% In contrast to other designs, proofs of Issuer-signature verification and parsing are pre-computed offline to reduce work during live Prover-Verifier interaction.
+
+% \paragraph{Discussion.}
+% The present instantiation follows the Spartan line and relies on sumcheck and Hyrax-style Pedersen commitments under the Discrete Log assumption, rather than pairing-based assumptions; there is no universal trusted setup. 
+% We avoid pairing-friendly curves and the operational burden of a trusted setup ceremony across many Provers, Issuers, Verifiers, and other independent bodies. 
+% The construction is not currently post-quantum secure, but the modular structure leaves a path to replacing the commitment scheme layer with lattice-based alternatives as they mature. 
+% Some components have not yet been standardized; we note this is a shared condition across competing approaches that we call out explicitly.
+% Regarding standardizations: sumcheck is a highly well-known protocol with information-theoretic security independent of cryptographic assumptions; 
+% Pedersen commitments have been used since 1991 \cite{C:Pedersen91} and rely only on the discrete-log assumption, which standardized ECDSA signatures already rely on. 
+% \vspace*{\baselineskip}
+
+A central question within the EUDI Architecture and Reference Framework~\cite{EU:EUDI23}, is how to 
+introduce zero-knowledge capabilities without disrupting established roles, credential formats, or 
+verification flows. This section explains how the OpenAC construction fits that setting and outlines the 
+associated trade-offs. The subsections follow 
+\href{https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/blob/main/docs/discussion-topics/g-zero-knowledge-proof.md}{Topic~G} 
+in the EUDI~ARF discussion thread.
+
+Throughout, we refer to the Wallet User as the \emph{Prover} (Holder), the Relying Party as the 
+\emph{Verifier}, and the EUDI Attestation Authority (EAA), which issues PID and attestations as the \emph{Issuer} in the W3C VC model.
 
 \paragraph{Issuance.}
-The construction is designed to wrap existing credential encodings rather than replace them. 
-It accommodates SD-JWT and ISO/IEC 18013-5 mDL so that wallets and relying parties retain current disclosure grammars and parsing logic. 
-Issuers remain oblivious to the use of zkSNARKs; no changes to issuance pipelines or device secure elements are required, and Issuers also maintain exclusive control of their private keys. 
-The proof layer is circuit-defined and therefore highly programmable, which allows our scheme to easily adapt to future Issuer-side migrations (for example, a change of signature scheme) by simply updating the Prover circuit and public parameters, rather than introducing new format-specific protocols. 
-The approach interoperates with current public-key infrastructure based on ECDSA or RSA and does not prescribe a switch of algorithm or hardware.
+The construction is designed to wrap, rather than replace, existing credential encodings. It supports 
+SD-JWT and ISO mDL as credential formats, allowing wallets and Verifiers to retain current disclosure grammars 
+and parsing logic. Issuers remain unaware of the use of zkSNARKs; no changes to issuance pipelines or 
+secure elements are required, and Issuers retain exclusive control over their private keys. The proof 
+layer is circuit-defined and therefore highly programmable, enabling adaptation to future Issuer-side 
+changes (e.g., a change of signature scheme) by updating the Prover circuit and public parameters, 
+without introducing format-specific protocols. The approach interoperates with existing PKI based on 
+ECDSA or RSA and does not mandate algorithm or hardware changes.
 
 \paragraph{Efficiency.}
-Proving is split into two relations. A fixed relation captures Issuer-signature verification, credential parsing, and commitment preparation; it runs infrequently and is amortized per credential. 
-A live, presentation-specific relation captures the disclosures and predicates for a single session; it runs per presentation. 
-This separation aims to keep Prover time and memory costs within typical web and mobile budgets, and to bound latency where most critical: at the time of Prover-Verifier interaction. 
-The proof system and commitment layer are modular, so improvements in either component can be adopted without redesigning the higher-level flow. 
-In contrast to other designs, proofs of Issuer-signature verification and parsing are pre-computed offline to reduce work during live Prover-Verifier interaction.
+Proving is divided into two relations. A fixed relation handles Issuer-signature verification, 
+credential parsing, and commitment preparation; it runs infrequently and is amortized per credential. 
+A live, presentation-specific relation handles disclosures and predicates for a given session, and is 
+run per presentation. This separation aims to keep Prover time and memory within common web and mobile 
+budgets,\footnote{Based on the a recent survey (\url{https://hackmd.io/@clientsideproving/AvgMobileHardware}), we model a baseline \emph{iPhone} as having a
+6\!-core CPU at 3.33\,GHz and 5.7\,GB of usable RAM.  
+Similarly, from the available \emph{Android} data, we derive a baseline Android device with a
+7\!-core CPU at 2.16\,GHz and 3.82\,GB of usable RAM (computed by averaging the core counts and
+taking the minimum RAM values across the reported models).} while minimizing latency during Prover--Verifier interaction. The proof system and commitment 
+layer are modular, allowing upgrades to either without redesigning higher-level flows. In contrast to 
+other approaches, verification of Issuer signatures and parsing are pre-computed offline to reduce 
+online proving overhead.
 
-\paragraph{Discussion.}
-The present instantiation follows the Spartan line and relies on sumcheck and Hyrax-style Pedersen commitments under the Discrete Log assumption, rather than pairing-based assumptions; there is no universal trusted setup. 
-We avoid pairing-friendly curves and the operational burden of a trusted setup ceremony across many Provers, Issuers, Verifiers, and other independent bodies. 
-The construction is not currently post-quantum secure, but the modular structure leaves a path to replacing the commitment scheme layer with lattice-based alternatives as they mature. 
-Some components have not yet been standardized; we note this is a shared condition across competing approaches that we call out explicitly.
-Regarding standardizations: sumcheck is a highly well-known protocol with information-theoretic security independent of cryptographic assumptions; 
-Pedersen commitments have been used since 1991 \cite{C:Pedersen91} and rely only on the discrete-log assumption, which standardized ECDSA signatures already rely on. 
+\paragraph{Considerations for Post Quantum Resistance and Standardization.}
+The current instantiation follows the Spartan family and relies on sumcheck and Hyrax-style Pedersen 
+commitments under the discrete-logarithm assumption, avoiding pairing-based assumptions and any 
+universal trusted setup. It thus avoids the operational burden of coordinating a trusted setup across 
+many independent Provers, Issuers, and Verifiers. Although not yet post-quantum secure, the modular 
+structure leaves a clear path toward replacing the commitment layer with lattice-based alternatives as 
+they mature. Some components lack formal standardization; this is shared across competing designs and 
+is noted explicitly. Concerning standardization: sumcheck is a classical, information-theoretic 
+protocol, and Pedersen commitments---introduced in~\cite{C:Pedersen91}---rely only on the 
+discrete-logarithm assumption, which already underpins standardized ECDSA signatures.
 
-\paragraph{Summary for EUDI.}
-The design aligns with Annex 2 format expectations (see Section \ref{sec:annex}), requires no changes to Issuers, supports current PKI deployments, and separates fixed from presentation-specific work to keep live presentation costs low. 
-It avoids pairing-based assumptions and a universal setup, and leaves a path to future cryptographic upgrades without disrupting wallet or Issuer operations.
+\subsubsection{Mapping of Requirements}
+% The design aligns with Annex 2 format expectations, requires no changes to Issuers, supports current PKI deployments, and separates fixed from presentation-specific work to keep live presentation costs low. 
+% It avoids pairing-based assumptions and a universal setup, and leaves a path to future cryptographic upgrades without disrupting wallet or Issuer operations.
 
+The design is consistent with the format expectations of Annex~2, introduces no changes for Issuers, 
+supports existing PKI deployments, and cleanly separates fixed from presentation-specific work to 
+minimize live presentation costs. It avoids pairing-based assumptions and any universal setup, while 
+preserving a clear path for future cryptographic upgrades without disrupting wallet or Issuer 
+operations.
+
+
+% \noindent The EUDI Annex~2 covers over fifty topics spanning cryptographic guarantees, privacy, trust infrastructure, wallet lifecycle management, and product-level usability. We cluster the requirements into four classes depending on their relationship to the OpenAC protocol:
+
+% \begin{enumerate}[label=\textbf{Group \Alph*:}, align=left]
+%   \item \textbf{Directly satisfied by OpenAC.} \\
+%   Requirements that are already implemented by the OpenAC protocol as described in Sections~\S5--\S5.3, without additional assumptions or infrastructure. These are shown in Table~A.
+
+%   \item \textbf{Satisfied with minor extensions.} \\
+%   Requirements that can be met by trivial modifications or configuration changes to OpenAC’s proving circuits, predicates, or interface (for instance, adding a new predicate or exposing one more public input). No new trust anchor or cryptographic primitive is required. These appear in Table~B.
+
+%   \item \textbf{Depend on external systems or operational flows.} \\
+%   Requirements that require the presence of registries, PKI governance, revocation lists, wallet attestation management, or other policy frameworks external to the proving layer. OpenAC integrates with these systems but does not replace them. These are summarized in Table~C.
+
+%   \item \textbf{Product / UX / policy-facing requirements.} \\
+%   Requirements that concern wallet behaviour, user experience, accessibility, or legal presentation. These fall outside the scope of cryptographic protocol design but are compatible with OpenAC’s guarantees. These are listed in Table~D.
+% \end{enumerate}
+
+% \medskip
+% \noindent
+% Each table records:
+% \begin{itemize}
+%   \item the corresponding Annex~2 topic and its HLRs;
+%   \item a short informal description of the requirement;
+%   \item and the relevant subsection(s) in this document where we discuss how OpenAC meets or relates to the requirement.
+% \end{itemize}
+
+% \medskip
+% \noindent
+% The detailed landscape tables provide the detailed mapping for each group can be found in Section ~\ref{sec:annex}. 
+
+\noindent The EUDI Annex~2 spans more than fifty topics covering cryptographic guarantees, privacy, 
+trust infrastructure, wallet lifecycle, and product-level usability. We group these requirements into 
+four classes according to their relationship with the OpenAC protocol:
+
+\begin{enumerate}[label=\textbf{Group \Alph*:}, align=left]
+  \item \textbf{Directly satisfied by OpenAC.} \\
+  Requirements already fulfilled by the OpenAC protocol as described in Sections~\S5--\S5.3, without 
+  additional assumptions or infrastructure. These appear in Table~\ref{tab:groupA}.
+
+  \item \textbf{Satisfied with minor extensions.} \\
+  Requirements that can be met through small circuit adjustments, additional predicates, or simple 
+  interface configuration. No new trust anchor or cryptographic primitive is needed. These are listed 
+  in Table~\ref{tab:groupB}.
+
+  \item \textbf{Rely on external systems or operational flows.} \\
+  Requirements that depend on registries, PKI governance, revocation mechanisms, wallet attestation 
+  management, or other policy-layer components outside the proving system. OpenAC interoperates with 
+  these systems but does not replace them. These are summarized in Table~\ref{tab:groupC}.
+
+  \item \textbf{Product, UX, and policy-facing requirements.} \\
+  Requirements concerning wallet behaviour, user experience, accessibility, and legal presentation. 
+  These lie outside cryptographic protocol design but remain fully compatible with OpenAC. These appear 
+  in Table~\ref{tab:groupD}.
+\end{enumerate}
+
+\medskip
+\noindent
+Each table records:
+\begin{itemize}
+  \item the relevant Annex~2 topic and its HLRs;
+  \item a brief informal description of the requirement;
+  \item and the subsection(s) in this document where OpenAC’s relation to the requirement is discussed.
+\end{itemize}
+
+\medskip
+\noindent
+The complete landscape tables for all groups are provided in Section~\ref{sec:annex}. %\kwnote{Should be updated if we want a separate file for annex}
 

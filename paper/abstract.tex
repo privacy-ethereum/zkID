@@ -1,0 +1,14 @@
+% We present a technical overview of the zero-knowledge identity (zkID) construction as  an instantiation of the anonymous credential primitive, along with a detailed mapping to EUDI Wallet requirements. We also present a design and reference implementation which achieves best-in-class proving times of 79ms on consumer mobile devices, without the need for a trusted setup. Our design minimizes latency during proof presentation, and will have a significant advantage in multi-credential linking.
+%
+% ChatGPT for prompt
+% write an abstract for an open design of a transparent and lightweight anonymous credential, mentioning that it is for the problem of digital id presentation but the trivial selectively disclosed method yields linkability which is not desirable, another point is that the existing systems have their own drawbacks, either requiring a trusted setup, or changes to existing issuer flow of the id system, or very specific for a type of id, our proposal is more modular, we also cater a section for application for EUDI framework, with a detailed mapping of its requirements into our construction
+% and
+% also add that we provide a PoC implementation, and that according to our benchmark, we achieve best in class proving time, and we cater for proving in a mobile device, which will be of higher usability
+%
+Digital identity systems require mechanisms for verifiable, privacy-preserving presentations of user attestations. The trivial approach of utilizing selective disclosure by presenting individually signed attestationsintroduces persistent linkability that compromises user anonymity. Existing anonymous credential systems  come with practical drawbacks. Some depend on trusted setups, others require substantial modifications to an issuer’s established issuance flow.
+
+We propose an open, transparent, and lightweight anonymous credential design that addresses these limitations with the use of zero-knowledge proofs. Our construction is modular, requires no trusted setup and integrates with existing workflows without the need for substantial changes to existing cryptographic mechanisms, procedure overhauls, or hardware devices. It delivers unlinkability while maintaining broad applicability across heterogeneous digital-identity ecosystems and current verifiable credential standards.
+
+To demonstrate practicality, we provide a proof-of-concept implementation and benchmarks on mobile devices. Our results show best-in-class proving times, with a focus on efficient client-side proving, an essential requirement for usability in digital identity wallets.
+
+OpenAC was purposely constructed to be compatible with the European Digital Identity Architecture and Reference Framework (EUDI ARF). In the appendix, we map EUDI ARF’s functional, privacy, and interoperability requirements, illustrating how OpenAC satisfies regulatory constraints while preserving strong user privacy.

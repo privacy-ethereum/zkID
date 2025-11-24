@@ -122,9 +122,9 @@
 % It is possible that Verifier's can effectively de-anonymize a Prover by linking their anonymous activity across presentations and analyzing corresponding metadata, e.g. time of presentation.
 
 \paragraph{Notation}
-For $n \in \mathbb{N}$ we write $[n]=\{1,\ldots,n\}$. Bold letters denote vectors, e.g., $\mathbf{m}=(m_1,\ldots,m_n)$. Concatenation is written $\|$. The security parameter is $\lambda$; $\mathsf{negl}(\lambda)$ denotes a negligible function. For a (possibly randomized) algorithm $\mathsf{Alg}$, we write $y \leftarrow \mathsf{Alg}(x)$ for its output on input $x$.
+For $n \in \mathbb{N}$, we write $[n]=\{1,\ldots,n\}$. Bold letters denote vectors, e.g., $\mathbf{m}=(m_1,\ldots,m_n)$. Concatenation is written $\|$. The security parameter is $\lambda$; $\mathsf{negl}(\lambda)$ denotes a negligible function. For a (possibly randomized) algorithm $\mathsf{Alg}$, we write $y \leftarrow \mathsf{Alg}(x)$ for its output on input $x$. 
 
-There are three roles:
+We follow the generic W3C VC roles:
 \begin{itemize}
   \item The \emph{issuer} $I$ signs credentials with a long-term key pair $(SK_I,PK_I)$ (e.g., ECDSA P--256 or RSA).
   \item The \emph{prover} $P$ is the holder’s wallet, which stores credentials and generates proofs. 
@@ -150,6 +150,43 @@ The issuer’s signature is
   \sigma_I = \mathsf{Sign}_{SK_I}(h_1,\ldots,h_n),
 \]
 verified under $PK_I$.
+
+\paragraph{zk-SNARKs.}
+We summarise the zk-SNARK terminology used in this paper.
+A zk-SNARK is a non-interactive proof system between a prover and a verifier in which the prover, holding some private data (the \emph{witness}) and public data (the \emph{public input}), produces a short proof that the public input and witness satisfy a given relation, and the verifier decides whether to accept the proof using only the public input~\cite{EC:Groth16}.
+In our setting, the zk-SNARK prover is always in the holder wallet $P$ and the zk-SNARK verifier is always the relying party $V$.
+
+Many zk-SNARK and succinct argument constructions are specified with a setup algorithm that outputs public parameters, typically split into a proving key (used by the prover) and a verifying key (used by the verifier)~\cite{EC:GGPR13,USENIX:BCTV14,EC:Groth16,C:Setty20}.
+In pairing-based systems such as Groth16 and related schemes~\cite{EC:GGPR13,USENIX:BCTV14,EC:Groth16}, this setup is usually described in terms of a structured reference string generated using secret randomness; if this randomness were ever revealed, an adversary could in principle construct convincing proofs for false statements.
+We refer to this as a \emph{trusted setup}.
+In contrast, transparent argument systems such as Spartan derive their public parameters from public randomness or a fixed public description and do not rely on a trapdoor in the setup~\cite{C:Setty20}.
+
+We use standard notions of \emph{correctness}, \emph{soundness}, and \emph{zero-knowledge}~\cite{Goldreich01}.
+Correctness means that an honest prover, given a true statement and an appropriate witness, produces proofs that an honest verifier accepts.
+Soundness means that no efficient prover can make an honest verifier accept a false statement, except with negligible probability.
+Zero-knowledge means that the Verifier learns nothing beyond the validity of the statement; informally, there exists an efficient simulator that can produce indistinguishable proofs without using the witness.
+When we refer to a \emph{lightweight} prover, we mean that, although zk-SNARK provers are typically the dominant cost compared to verification~\cite{EC:Groth16}, our prover fits within the latency and memory constraints of the target mobile devices, as shown in Section~\ref{sec:benchmarks}.
+In the remainder of the paper, the terms \emph{witness}, \emph{public input}, \emph{proving key}, and \emph{verifying key} are used in this sense.
+
+\paragraph{Credential Circuit $C$} 
+We describe a high-level circuit $C$ that captures the knowledge the Prover must demonstrate to the Verifier. We present the wrapper for SD-JWT credentials; the same approach applies to other credential formats as well. Following standard terminology, we use “message hashes” for digests and “messages” for disclosures. We denote the Issuer by $I$, the Prover by $P$, and the Verifier by $V$.
+
+Let $w = S$ be the SD-JWT credential consisting of messages $\{m_i\}_{i=1}^N$, salts $\{s_i\}_{i=1}^N$, hashes $\{h_i\}_{i=1}^N$, and the Issuer signature $\sigma_I = \sigma(h_1,\dots,h_N; SK_I)$. Without loss of generality, assume the Prover’s public key $PK_P$ is contained in $m_1$ and indexable as $m_1[1]$. The public instance is
+\[
+x = \big(PK_I, \{f_i\}_{i=1}^K, \{p_i\}_{i=1}^K, \sigma_{\text{nonce}}\big),
+\]
+which includes the Issuer’s public key, the functions $f_i$ over messages (whose outputs are compared against predicates $p_i$), and the nonce signature used for device binding. The $f_i$ may encode either disclosures or predicates; for example, $f_i(m_1,\dots,m_N)=m_1$ outputs the disclosure of $m_1$.
+
+\begin{mdframed}[style=zkprotocolwithheader, frametitle=Underlying ZK Circuit $C$ for Verifiable Credential]
+We define $C(x = (PK_I, \{f_i\}_{i=1}^K, \{p_i\}_{i=1}^K, \sigma_{\text{nonce}}),\, w = S)$ as follows:
+\begin{enumerate}
+\item Assert $\text{parse}_{\text{SD-JWT}}(S) = (\{m_i\}, \{s_i\}, \{h_i\}, \sigma_I)$, i.e., correctly parse the SD-JWT into messages, salts, hashes, and the Issuer’s signature.
+\item Assert $h_i = \text{SHA256}(m_i, s_i)$ for all $i \in [N]$.
+\item Assert $p_i = f_i(m_1, \dots, m_N)$ for all $i \in [K]$.
+\item Assert $\text{ECDSA.verify}(\sigma_I, PK_I) = 1$.
+\item Assert $\text{ECDSA.verify}(\sigma_{\text{nonce}}, m_1[1]) = 1$, i.e., the live nonce signature matches the public key to which the credential was issued.
+\end{enumerate}
+\end{mdframed}
 
 \paragraph{Commitments and Proof Interface}
 To support selective disclosure without revealing raw attributes, the wallet commits to $\mathbf{m}$ using Pedersen vector commitments. 

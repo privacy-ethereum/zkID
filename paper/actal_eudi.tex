@@ -1,0 +1,45 @@
+% \noindent\textbf{OpenACTAL.} We work with SD--JWT credentials; extensions to other formats are straightforward. The construction adds a zero-knowledge layer around the issued credential and is instantiated with Spartan as the proof system and Hyrax-style Pedersen vector commitments; standard zero-knowledge blinding is applied.
+
+% Let $S$ be the issued credential with messages $(m_1,\dots,m_N)$, per-message salts $(s_1,\dots,s_N)$, hashes $(h_1,\dots,h_N)$, and issuer signature $\sigma_I$ under public key $PK_I$. The wallet public key $PK_W$ is included among the messages. A presentation policy is modeled as predicates $f_1,\dots,f_K$ over $(m_i)$. Proving is split into two relations with a fixed interface:
+% \begin{itemize}[leftmargin=1.2em]
+%   \item Prepare: Once per credential, prove the correct parsing of $S$, that $h_i=\mathrm{SHA256}(m_i,s_i)$ for all $i$, that $\mathrm{Verify}(\sigma_I,PK_I)=1$, and compute a Hyrax commitment $C_m$ to the \emph{message vector} $(m_i)$. This relation is independent of the presentation policy; its proof can be re-randomized and reused.
+%   \item Show: For a given policy, prove that each requested predicate $f_j(m_1,\dots,m_N)$ holds and that a live signature on the verifier’s challenge verifies under the wallet public key bound in $S$. Publish a commitment $C'_m$ to the same message vector.
+% \end{itemize}
+% The link is enforced by checking $C_m=C'_m$ (Hyrax commitment equality), so no auxiliary link primitive is required. Because equality is checked in one group, both relations use the same curve.
+
+% Issuance produces $S$ and binds it to $PK_W$. At presentation, the verifier sends a fresh challenge $\mathsf{nonce}_V$; the wallet signs $\mathsf{nonce}_V$ with the corresponding secret key and returns $(\pi_{\texttt{prepare}},\pi_{\texttt{show}})$. The verifier validates both proofs and accepts only if $C_m=C'_m$.
+
+% Let $S$ be an issued credential containing messages $(m_1,\dots,m_N)$, per-message salts 
+% $(s_1,\dots,s_N)$, hashes $(h_1,\dots,h_N)$, and an issuer signature $\sigma_I$ under public key 
+% $PK_I$. The wallet public key $PK_W$ is included among the messages. A presentation policy is 
+% modeled as predicates $f_1,\dots,f_K$ over the message vector. Proving is divided into two relations 
+% with a fixed interface:
+% \begin{itemize}[leftmargin=1.2em]
+%   \item \textbf{Prepare:} Once per credential, prove that $S$ is parsed correctly, that 
+%   $h_i=\mathrm{SHA256}(m_i,s_i)$ for all $i$, and that $\mathrm{Verify}(\sigma_I,PK_I)=1$. Compute a 
+%   Hyrax commitment $C_m$ to the message vector $(m_i)$. This relation is policy-independent; its 
+%   proof can be re-randomized and reused.
+%   \item \textbf{Show:} For a given policy, prove that each requested predicate 
+%   $f_j(m_1,\dots,m_N)$ holds and that a live signature on the verifier’s challenge verifies under 
+%   the wallet public key bound in $S$. Publish a commitment $C'_m$ to the same message vector.
+% \end{itemize}
+
+% The two phases are linked by checking $C_m = C'_m$ (Hyrax commitment equality), eliminating the need 
+% for auxiliary link primitives. Because equality is checked in a single group, both relations operate 
+% on the same curve.
+
+% Issuance produces $S$ and binds it to $PK_W$. During presentation, the verifier sends a fresh 
+% challenge $\mathsf{nonce}_V$; the wallet signs $\mathsf{nonce}_V$ with the corresponding secret key 
+% and returns $(\pi_{\texttt{prepare}},\pi_{\texttt{show}})$. The verifier validates both proofs and 
+% accepts only if $C_m = C'_m$.
+\subsection{Technical Overview}
+\label{subsec:preliminaries}
+\input{paper/preliminaries}
+
+\subsubsection{Overview of Security and Further Considerations}
+\label{subsec:overviewsecurity}
+\input{paper/security}
+
+\subsection{Alignment with the EUDI ARF}
+\label{subsec:aligneudi}
+\input{paper/eudi_application}

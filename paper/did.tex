@@ -1,0 +1,166 @@
+%ChatGPT
+
+\noindent\textbf{Digital Identity.} A digital identity system typically consists of three roles: an \emph{issuer}, a \emph{holder}, and a 
+\emph{verifier}. In the W3C Verifiable Credential Data Model, the issuer is a trusted authority responsible for  asserting \href{https://www.w3.org/TR/vc-data-model-1.1/\#dfn-claims}{claims} about one or more \href{https://www.w3.org/TR/vc-data-model-1.1/\#dfn-subjects}{subjects}, and creating a \href{https://www.w3.org/TR/vc-data-model-1.1/\#dfn-verifiable-credentials}{verifiable credential} from these \href{https://www.w3.org/TR/vc-data-model-1.1/\#dfn-claims}{claims}. The claims are digitally 
+signed with the issuer’s private key. The signed credential is delivered securely to the user and stored in the wallet instance.
+
+The holder retains these signed verifiable credentials and, during a presentation request, provides consent based on the verifier’s requirements. The holder sends the verifiable presentation (or proofs derived from them) to the verifier. The verifier, using the issuer’s public 
+key, checks the digital signature to confirm authenticity and integrity of the received presentation, 
+and may additionally verify validity period, or revocation status. This issuer-holder-
+verifier pattern defines the standard operational model.
+
+Such a system is illustrated in Fig.~\ref{fig:did_sys}.
+% \begin{figure}[!h]
+%     \centering
+%     \resizebox{15cm}{!}{
+%         \begin{tikzpicture}[
+%           entity/.style = {draw, thick, rounded corners, minimum width=3.2cm, minimum height=1.2cm, align=center, fill=white},
+%           edge/.style   = {->, >=Stealth, thick},
+%           dashededge/.style = {->, >=Stealth, thick, dashed},
+%           smalltext/.style = {font=\small, align=center}
+%           ]
+        
+%           % Entities
+%           \node[entity] (issuer) {Issuer\\(e.g., government, bank)};
+%           \node[entity, right=4.8cm of issuer] (holder) {Holder / User\\(stores credential)};
+%           \node[entity, right=4.8cm of holder] (verifier) {Verifier\\(relying party)};
+        
+%           % Issuance arrow: Issuer -> Holder
+%           \draw[edge] (issuer.east) to[bend left=12] node[midway, above, smalltext] {Signed attribute set\\(credential)} (holder.west);
+        
+%           % Presentation arrow: Holder -> Verifier
+%           \draw[edge] (holder.east) to[bend left=12] node[midway, above, smalltext] {Select attributes or proof\\presented to verifier} (verifier.west);
+        
+%           % Verification arrow: Verifier checks signature using issuer public key
+%           \draw[edge] (verifier.west) to[bend left=25] node[midway, below, smalltext] {Verify signature \\(using issuer pk)} (issuer.east);
+        
+%           % Local storage box around holder to indicate secure storage (e.g., mobile wallet)
+%           \node[draw=black, rounded corners, inner sep=6pt, fit=(holder), label=below:Secure storage (wallet)] {};
+        
+%           % Optional: Revocation / freshness check
+%           \node[entity, below=3.0cm of holder] (revocation) {Revocation / Status Service};
+%           \draw[dashededge] (verifier.south) to[bend left=12] node[midway, right, smalltext] {Check revocation \\/ freshness} (revocation.north);
+%           \draw[dashededge] (revocation.north) to[bend left=12] node[midway, right, smalltext] {Respond\\ status} (verifier.south);
+        
+%           % Notes
+%           \node[align=left, font=\footnotesize, below=0.6cm of revocation] {
+%             \textbf{Notes:}\\
+%             \begin{minipage}{20cm}
+%               \vspace{1mm}
+%               \begin{itemize}\itemsep1pt
+%                 \item The issuer signs a set of user attributes and delivers the credential to the holder.
+%                 \item The holder stores the signed attributes and selectively presents either the raw attributes or a derived proof to the verifier.
+%                 \item The verifier validates authenticity by checking the issuer's signature and may consult a revocation/status service.
+%               \end{itemize}
+%             \end{minipage}
+%           };
+        
+%         \end{tikzpicture}
+%     }
+%     \caption{Digital identity system}
+%     \label{fig:did_sys}
+% \end{figure}
+\begin{figure}[!h]
+  \centering
+  \resizebox{0.9\linewidth}{!}{%
+  \begin{tikzpicture}[
+    entity/.style = {
+      draw, thick, rounded corners,
+      minimum height=1.1cm,
+      align=center,
+      inner sep=4pt,
+      fill=white
+    },
+    edge/.style      = {->, >=stealth, thick, rounded corners=8pt},
+    smalltext/.style = {font=\small, align=center}
+  ]
+
+    \node[entity, text width=3.8cm] (issuer)
+      {Issuer\\\footnotesize(issues VCs)};
+    \node[entity, right=4.8cm of issuer, text width=4.2cm] (holder)
+      {Holder / User\\\footnotesize(stores VCs, creates VPs)};
+    \node[entity, right=4.8cm of holder, text width=3.8cm] (verifier)
+      {Verifier\\\footnotesize(verifies VPs)};
+
+    \node[draw=black, rounded corners, inner sep=6pt,
+          fit=(holder),
+          label=above:Secure storage (wallet)] {};
+
+    \node[entity, below=3.0cm of holder, text width=8.0cm] (registry)
+      {Verifiable Data Registry\\
+       \footnotesize(identifiers, schemas)};
+
+    \draw[edge]
+      (issuer.east) --
+      node[pos=0.5, above, smalltext] {Issue credential (VC)}
+      (holder.west);
+
+    \draw[edge]
+      (holder.east) --
+      node[pos=0.5, above, smalltext] {Presentation (VP)}
+      (verifier.west);
+
+    \draw[edge]
+      (issuer.south) |- 
+      node[pos=0.25, left, smalltext]
+        {Publish schemas}
+      (registry.west);
+
+    \draw[edge]
+      (holder.south) --
+      node[midway, right, smalltext]
+        {Register identifiers\\and use schemas}
+      (registry.north);
+
+    \draw[edge]
+      (verifier.south) |- 
+      node[pos=0.25, right, smalltext]
+        {Query\\identifiers \& schemas}
+      (registry.east);
+
+    % Notes
+    \node[align=left, font=\footnotesize, below=0.6cm of registry] {
+      \textbf{Notes:}\\
+      \begin{minipage}{20cm}
+        \vspace{1mm}
+        \begin{itemize}\itemsep1pt
+          \item The issuer issues a verifiable credential (VC) containing a set of user attributes and delivers it to the holder.
+          \item The holder stores VCs in a secure wallet and selectively discloses attributes or derived proofs as a verifiable presentation (VP) to the verifier.
+          \item The verifier validates authenticity by checking the issuer's signature using the issuer's public key (resolved via the verifiable data registry) and consults the registry to resolve identifiers and schemas.
+        \end{itemize}
+      \end{minipage}
+    };
+
+  \end{tikzpicture}%
+  }
+  \caption{Digital identity system}
+  \label{fig:did_sys}
+\end{figure}
+
+
+Examples of such digital identity frameworks and credential formats that can be potentially compatible with OpenAC include:
+\begin{itemize}
+  \item \textbf{eIDAS / EUDI Architecture and Reference Framework} -European digital identity systems in which 
+  qualified trust service providers or public authorities issue digitally signed identity 
+  attributes that citizens can present via the EUDI Wallet.
+
+  \item \textbf{Mobile Driver’s Licenses (mDL, ISO~18013-5)} - Government agencies issue a 
+  digitally signed set of driving-related attributes (e.g., name, age, license class), which 
+  users present to relying parties such as law enforcement or age-restricted service providers.
+
+  \item \textbf{Verifiable Credentials (W3C VCDM)} -A general-purpose model where an issuer 
+  signs JSON-LD or SD-JWT-based claims about a subject; holders store these credentials and 
+  present them to verifiers who validate the issuer’s signature.
+
+  % \item \textbf{Bank-Issued Digital Identity Schemes} --- Financial institutions validate 
+  % customer identity information (e.g., KYC data) and issue signed digital credentials that can 
+  % be reused for onboarding in other financial or commercial services.
+
+  % \item \textbf{University or Organizational ID Systems} --- Institutions issue digitally 
+  % signed attestations (e.g., enrollment status, roles, or qualifications) that students or 
+  % employees can present to external verifiers for access to services or discounts.
+
+  % \item \textbf{National Digital ID Cards (e.g., Estonia eID)} --- Government-issued smartcards 
+  % or mobile IDs contain signed identity attributes that citizens present for authentication and 
+  % authorization in public and private sector services.
+\end{itemize}
