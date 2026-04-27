@@ -1,5 +1,6 @@
 // Result screen for both terminal `result` and `error` phases.
 
+import { clearAllAssets } from "../asset-store";
 import { escapeText } from "../dom-utils";
 import { formatDuration, truncateMiddle } from "../format";
 import { $state, dispatch } from "../store";
@@ -54,6 +55,9 @@ export function mountResult(root: HTMLElement): () => void {
       </div>
       ${parsedBlock}
       <div class="button-row">
+        <button class="secondary-button" data-testid="result-clear-cache" type="button">
+          Clear cached assets
+        </button>
         <button class="secondary-button" data-testid="result-home" type="button">
           Home
         </button>
@@ -68,6 +72,7 @@ export function mountResult(root: HTMLElement): () => void {
 
   const homeBtn = root.querySelector<HTMLButtonElement>('[data-testid="result-home"]')!;
   const againBtn = root.querySelector<HTMLButtonElement>('[data-testid="result-prove-again"]')!;
+  const clearBtn = root.querySelector<HTMLButtonElement>('[data-testid="result-clear-cache"]')!;
 
   // `result` retries from setup (PIN must be re-verified); `error` resets home.
   const onAgain = () => {
@@ -76,12 +81,35 @@ export function mountResult(root: HTMLElement): () => void {
   };
   const onHome = () => dispatch({ type: "reset" });
 
+  // Reload so the worker's in-memory PK / witness cache drops with disk.
+  const onClear = async () => {
+    if (clearBtn.disabled) return;
+    clearBtn.disabled = true;
+    homeBtn.disabled = true;
+    againBtn.disabled = true;
+    const priorLabel = clearBtn.textContent;
+    clearBtn.textContent = "Clearing…";
+    try {
+      await clearAllAssets();
+      window.location.reload();
+    } catch (err) {
+      console.error("clearAllAssets failed:", err);
+      clearBtn.textContent = priorLabel;
+      clearBtn.disabled = false;
+      homeBtn.disabled = false;
+      againBtn.disabled = false;
+    }
+  };
+  const onClearClick = () => void onClear();
+
   againBtn.addEventListener("click", onAgain);
   homeBtn.addEventListener("click", onHome);
+  clearBtn.addEventListener("click", onClearClick);
 
   return () => {
     againBtn.removeEventListener("click", onAgain);
     homeBtn.removeEventListener("click", onHome);
+    clearBtn.removeEventListener("click", onClearClick);
   };
 }
 

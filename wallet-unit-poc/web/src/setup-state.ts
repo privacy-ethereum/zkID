@@ -55,13 +55,24 @@ export type PinState =
       attemptsRemaining: number;
     };
 
+export type ManifestErrorCode =
+  | "rate_limited"
+  | "unreachable"
+  | "malformed"
+  | "missing_asset";
+
 /** Worker warmup status. Drives the Assets panel and contributes to
  *  `$setupReady`. */
 export type WarmupState =
   | { status: "idle" }
   | { status: "running"; sublabel: string; bytesDone?: number; bytesTotal?: number }
   | { status: "ready" }
-  | { status: "error"; message: string };
+  | {
+      status: "error";
+      message: string;
+      kind?: "warmup" | "manifest";
+      manifestCode?: ManifestErrorCode;
+    };
 
 /** Revocation-tree load status. Triggered by HiPKI reaching `card_ready`
  *  (because the issuer is only known after the card is parsed) and gates

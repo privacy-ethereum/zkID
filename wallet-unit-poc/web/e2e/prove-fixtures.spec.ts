@@ -26,7 +26,9 @@ test("Start → setup screen exposes the click-driven HiPKI flow", async ({ page
   });
 });
 
-test("full flow reaches result and holds proof on review gate", async ({ page }) => {
+// @real: needs real proving keys for load_pk + witness gen + prove. Mock-mode
+// fixtures stop at warmup-asset-download; full-flow lives in prove-real.spec.ts.
+test("@real full flow reaches result and holds proof on review gate", async ({ page }) => {
   await installMockServices(page);
   await page.goto("/");
   await page.getByTestId("start-button").click();
@@ -70,9 +72,16 @@ test("full flow reaches result and holds proof on review gate", async ({ page })
     timeout: 60_000,
   });
   await expect(page.getByTestId("result-prove-again")).toBeVisible();
+
+  // Clear cached assets returns the user to landing.
+  await expect(page.getByTestId("result-clear-cache")).toBeVisible();
+  await page.getByTestId("result-clear-cache").click();
+  await expect(page.getByTestId("start-button")).toBeVisible({
+    timeout: 30_000,
+  });
 });
 
-test("retry from review routes through setup for PIN re-verify (no submit)", async ({ page }) => {
+test("@real retry from review routes through setup for PIN re-verify (no submit)", async ({ page }) => {
   await installMockServices(page);
   await page.goto("/");
   await page.getByTestId("start-button").click();

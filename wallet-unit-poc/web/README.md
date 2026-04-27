@@ -64,7 +64,7 @@ later runs reuse the cache.
 
 | Module                   | Responsibility                                                                 |
 | ------------------------ | ------------------------------------------------------------------------------ |
-| `src/manifest.ts`        | `CircuitKind` union + per-circuit URLs + SHA-256s fetched from `manifest.json` |
+| `src/manifest.ts`        | `CircuitKind` union + per-circuit URLs + SHA-256 digests fetched from the GitHub Release API |
 | `src/asset-store.ts`     | Storage abstraction: OPFS primary, IndexedDB fallback                          |
 | `src/asset-download.ts`  | Streaming fetch → `DecompressionStream('gzip')` → `SubtleCrypto.digest` verify |
 | `src/witness.ts`         | CJS→ESM shim for circom's `witness_calculator.js` (with strict-mode patch)     |
@@ -102,7 +102,8 @@ the CPU/wasm-bound ones. The Worker has **two modes**:
 
 - **`warmup`** runs once during setup (kicked by `main.ts` on entry to the
   setup phase). It initializes the wasm module, starts the rayon thread
-  pool, hydrates the circuit manifest, downloads every proving key +
+  pool, hydrates per-asset SHA-256 digests from the GitHub Release API,
+  downloads every proving key +
   witness wasm, and calls `load_pk` to park each PK in the per-kind static
   Mutex slot. Witness-wasm bytes are cached on the Worker so the prove
   mode can skip another OPFS round-trip.
@@ -125,7 +126,10 @@ On click, the Worker resolves these URLs (all gzipped on the server):
 - `/keys/device_sig_rs2048_proving.key.gz`
 - `/keys/cert_chain_rs2048.wasm.gz` (circom witness-gen)
 - `/keys/device_sig_rs2048.wasm.gz`
-- `/keys/manifest.json` (optional; adds SHA-256 verification when present)
+
+SHA-256 digests for the above are read from the GitHub Release API
+(`https://api.github.com/repos/zkmopro/zkID/releases/tags/latest`) and verified
+against the **gzipped** bytes during streaming download.
 
 Revocation-tree assets (downloaded after the user reads their card, because the
 per-issuer snapshot is only known at that point):
@@ -135,7 +139,9 @@ per-issuer snapshot is only known at that point):
 - `/smt-snapshot/g2-tree-snapshot.bin.gz` (~73 MB gzipped; only fetched when
   the card was issued by MOICA-G2)
 - `/smt-snapshot/g3-tree-snapshot.bin.gz` (~21 MB gzipped; MOICA-G3 only)
-- `/smt-snapshot/snapshot-manifest.json` (optional; adds SHA-256 verification)
+
+SMT-side digests come from
+`https://api.github.com/repos/moven0831/moica-revocation-smt/releases/tags/snapshot-latest`.
 
 In dev, `/keys/*` is proxied to `https://github.com/zkmopro/zkID/releases/download/latest/<asset>`
 and `/smt-snapshot/*` is proxied to
@@ -274,10 +280,10 @@ The 8-thread cap is not arbitrary: wasm32 has a 4 GB linear-memory ceiling and
 Cached assets live in:
 
 - **OPFS**: DevTools → Application → Storage → Origin Private File System.
-  Each asset is stored at its cache key (e.g. `cert_chain_rs2048_pk`); meta
-  lives at `.meta/<key>.json`.
-- **IndexedDB fallback**: database `zkid-web-assets`, object stores `assets`
-  and `meta`.
+  Each asset is stored at a cache key that embeds the upstream SHA-256
+  (e.g. `cert_chain_rs2048_pk_<sha>`); a key-hit doubles as proof of prior
+  verification, so cached reads skip rehashing.
+- **IndexedDB fallback**: database `zkid-assets`, object store `assets`.
 
 To force a re-download, delete the corresponding entry (or run
 `navigator.storage.getDirectory().then(d => d.remove(...))` in the console).
@@ -310,9 +316,11 @@ Install browsers before first run: `pnpm exec playwright install --with-deps chr
 
 - No resumable downloads. A failed fetch discards partial bytes; retry
   re-downloads from scratch. See `src/asset-download.ts` header comment.
-- No `.partial` rename on writer commit — a crash mid-write can leave a
-  truncated cache entry. The SHA-256 check on the next read catches this
-  *only if* `manifest.json` was hydrated.
+- No `.partial` rename on writer commit — a crash between `pipeTo` close
+  and the post-download SHA-256 check leaves bytes under a hash-suffixed
+  cache key that the next run will trust via the key-hit fast path. The
+  **Clear cached assets** button on the result screen is the operator
+  escape hatch until atomic rename lands.
 - `link_verify` runs server-side only; the WASM crate's `link_verify` export
   exists for the drift test but is not called from the production pipeline.
 - The HiPKI popup bridge is single-shot per operation: every probe needs a

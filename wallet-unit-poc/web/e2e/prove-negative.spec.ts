@@ -39,7 +39,7 @@ test("wrong PIN decrements the attempt counter and locks at zero", async ({
   await expect(page.getByTestId("pin-verify")).toBeDisabled();
 });
 
-test("verifier 500 surfaces on submit and leaves Prove-again reachable", async ({
+test("@real verifier 500 surfaces on submit and leaves Prove-again reachable", async ({
   page,
 }) => {
   await installMockServices(page, { linkVerifyStatus: 500 });

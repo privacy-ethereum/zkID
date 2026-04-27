@@ -43,13 +43,54 @@ function coopPerPath(): PluginOption {
   };
 }
 
+// sirv (preview's static handler) auto-applies Content-Encoding: gzip to *.gz,
+// which trips the worker's own DecompressionStream pipeline. Strip the request
+// Accept-Encoding and the response Content-Encoding for /keys/* and
+// /smt-snapshot/* so preview matches prod (where assets are passed through
+// verbatim by the deployer's CDN).
+function stripAssetEncodingMiddleware(): Connect.NextHandleFunction {
+  return (req, res, next) => {
+    const url = req.url ?? "";
+    if (url.startsWith("/keys/") || url.startsWith("/smt-snapshot/")) {
+      delete (req.headers as Record<string, unknown>)["accept-encoding"];
+      const origWriteHead = res.writeHead.bind(res);
+      type WriteHeadArgs =
+        | [statusCode: number, headers?: object]
+        | [statusCode: number, statusMessage?: string, headers?: object];
+      res.writeHead = (...args: WriteHeadArgs) => {
+        const last = args[args.length - 1];
+        if (last && typeof last === "object" && !Array.isArray(last)) {
+          for (const k of Object.keys(last)) {
+            if (k.toLowerCase() === "content-encoding") {
+              delete (last as Record<string, unknown>)[k];
+            }
+          }
+        }
+        res.removeHeader("content-encoding");
+        return origWriteHead(...(args as Parameters<typeof origWriteHead>));
+      };
+      res.removeHeader("content-encoding");
+    }
+    next();
+  };
+}
+
+function stripAssetEncoding(): PluginOption {
+  return {
+    name: "zkid-preview-strip-asset-encoding",
+    configurePreviewServer(server: PreviewServer) {
+      server.middlewares.use(stripAssetEncodingMiddleware());
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const SMT_SNAPSHOT_TARGET =
     env.VITE_SMT_SNAPSHOT_PROXY_TARGET ?? SMT_SNAPSHOT_RELEASE_BASE;
 
   return {
-    plugins: [coopPerPath()],
+    plugins: [coopPerPath(), stripAssetEncoding()],
     build: {
       target: "es2020",
       rollupOptions: {
@@ -86,5 +127,7 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // preview is static-only; an inherited proxy would shadow the dist files.
+    preview: { proxy: {} },
   };
 });

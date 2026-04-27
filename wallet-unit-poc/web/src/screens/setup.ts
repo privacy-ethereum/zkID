@@ -232,11 +232,28 @@ export function mountSetup(root: HTMLElement): () => void {
         assetsRetry.disabled = false;
         break;
       case "error":
-        assetsBody.textContent = `Error: ${state.message}`;
+        assetsBody.textContent = warmupErrorCopy(state);
         assetsRetry.hidden = false;
         assetsRetry.textContent = "Retry";
         assetsRetry.disabled = false;
         break;
+    }
+  }
+
+  function warmupErrorCopy(
+    state: Extract<WarmupState, { status: "error" }>,
+  ): string {
+    if (state.kind !== "manifest") return `Error: ${state.message}`;
+    switch (state.manifestCode) {
+      case "rate_limited":
+        return "GitHub Release API rate limit reached. Try again in a few minutes (or sign into GitHub on this network).";
+      case "missing_asset":
+        return `Release is missing a required asset hash. Contact support. (${state.message})`;
+      case "malformed":
+        return `Release manifest is malformed. Contact support. (${state.message})`;
+      case "unreachable":
+      default:
+        return "Cannot reach release manifest. Check connection and retry.";
     }
   }
 

@@ -3,6 +3,15 @@
 // intercepted by `page.route()`), while verifier HTTP stays on `page.route()`.
 // SMT is stubbed via `__SMT_TEST_ENGINE__`/`__SMT_TEST_PROOF__` so tests skip
 // real Go WASM bootstrap. Fixtures come from Rust testdata for parity.
+//
+// Asset warmup: api.github.com release endpoints + /keys/*.gz are mocked
+// with deterministic fixture bytes whose SHA-256 matches the published
+// digest. Tests that only exercise the warmup-up-to-asset-download stage
+// run offline. Heavier tests that need real proving-key bytes (load_pk,
+// witness gen, prove) live in `prove-real.spec.ts` under `@real`.
+
+import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
 
 import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
@@ -90,6 +99,8 @@ export async function installMockServices(
     },
   });
 
+  await installReleaseAssetMocks(page);
+
   // Verifier -----------------------------------------------------------
   await page.route("**/challenge", async (route, req) => {
     if (req.method() !== "POST") return route.fallback();
@@ -166,6 +177,79 @@ export async function installMockServices(
       status: 410,
       contentType: "text/plain",
       body: "remote SMT proof endpoint is gone — browser uses __SMT_TEST_ENGINE__",
+    });
+  });
+}
+
+const KEYS_RELEASE_API =
+  "https://api.github.com/repos/zkmopro/zkID/releases/tags/latest";
+const SMT_RELEASE_API =
+  "https://api.github.com/repos/moven0831/moica-revocation-smt/releases/tags/snapshot-latest";
+
+const KEYS_FIXTURE_FILES = [
+  "cert_chain_rs2048_proving.key.gz",
+  "cert_chain_rs2048.wasm.gz",
+  "cert_chain_rs4096_proving.key.gz",
+  "cert_chain_rs4096.wasm.gz",
+  "device_sig_rs2048_proving.key.gz",
+  "device_sig_rs2048.wasm.gz",
+];
+
+const SMT_FIXTURE_FILES = [
+  "g2-tree-snapshot.bin.gz",
+  "g3-tree-snapshot.bin.gz",
+  "smt.wasm",
+  "wasm_exec.js",
+];
+
+function fixtureBytes(name: string): Buffer {
+  // Deterministic per-file body so each digest is unique.
+  const raw = Buffer.from(`zkid-e2e-fixture:${name}`, "utf8");
+  return name.endsWith(".gz") ? gzipSync(raw) : raw;
+}
+
+function sha256Hex(bytes: Buffer): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+async function installReleaseAssetMocks(page: Page): Promise<void> {
+  const keysAssets = KEYS_FIXTURE_FILES.map((name) => ({
+    name,
+    digest: `sha256:${sha256Hex(fixtureBytes(name))}`,
+  }));
+  const smtAssets = SMT_FIXTURE_FILES.map((name) => ({
+    name,
+    digest: `sha256:${sha256Hex(fixtureBytes(name))}`,
+  }));
+
+  await page.route(`${KEYS_RELEASE_API}*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ assets: keysAssets }),
+    });
+  });
+  await page.route(`${SMT_RELEASE_API}*`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ assets: smtAssets }),
+    });
+  });
+
+  await page.route("**/keys/*", async (route, req) => {
+    const url = new URL(req.url());
+    const name = url.pathname.split("/").pop() ?? "";
+    if (!KEYS_FIXTURE_FILES.includes(name)) {
+      await route.fulfill({ status: 404, body: `unknown key fixture ${name}` });
+      return;
+    }
+    const body = fixtureBytes(name);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/octet-stream",
+      headers: { "content-length": String(body.byteLength) },
+      body,
     });
   });
 }

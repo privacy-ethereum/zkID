@@ -10,10 +10,16 @@
 // blocking select{} alive). The Worker also isolates the wasm instance
 // from the main-thread event loop so a slow ingest can't freeze the UI.
 
-import { parsePositiveInt } from "./abort-utils";
 import { ensureAsset } from "./asset-download";
 import type { DownloadProgress } from "./asset-download";
-import { SMT_SNAPSHOTS, SMT_WASM, SMT_WASM_EXEC } from "./manifest";
+import {
+  basename,
+  requireDigest,
+  SMT_SNAPSHOTS,
+  SMT_WASM,
+  SMT_WASM_EXEC,
+  type DigestMap,
+} from "./manifest";
 import type { SmtIssuer, SmtProofResponse } from "./smt-client";
 import {
   iterateNodeChunks,
@@ -57,22 +63,24 @@ let wasmStarted = false;
 
 export async function loadSmtEngine(
   issuer: SmtIssuer,
+  digests: DigestMap,
   onProgress: (p: SmtLoadProgress) => void,
   signal?: AbortSignal,
 ): Promise<SmtEngine> {
   checkAborted(signal);
 
   if (!wasmStarted) {
-    await ensureWasmExecLoaded(onProgress, signal);
-    await startSmtWasm(onProgress, signal);
+    await ensureWasmExecLoaded(digests, onProgress, signal);
+    await startSmtWasm(digests, onProgress, signal);
     wasmStarted = true;
   }
 
   const snapshot = SMT_SNAPSHOTS[issuer];
+  const snapshotSha = requireDigest(digests, basename(snapshot.snapshotUrl));
   const bytes = await ensureAsset(
     snapshot.snapshotUrl,
-    `smt_snapshot_${issuer}`,
-    snapshot.expectedSnapshot,
+    `smt_snapshot_${issuer}_${snapshotSha}`,
+    snapshotSha,
     (p: DownloadProgress) =>
       onProgress({
         phase: "snapshot",
@@ -205,28 +213,26 @@ interface WasmApi {
   smtCreateProof: (keyHex: string) => unknown;
 }
 
-/** `wasm_exec.js` is shipped as a UMD-style script that assigns `globalThis.Go`
- *  on load. We can't `import()` it — it's classic script code. Instead we
- *  fetch the text and eval it into the Worker's scope. This matches what the
- *  upstream `benchmark.html` does via `<script src=...>`. */
+/** wasm_exec.js is classic UMD that assigns `globalThis.Go` on load —
+ *  `import()` doesn't work, so we fetch the text and eval it into Worker scope. */
 async function ensureWasmExecLoaded(
+  digests: DigestMap,
   onProgress: (p: SmtLoadProgress) => void,
   signal: AbortSignal | undefined,
 ): Promise<void> {
   if (wasmExecLoaded) return;
   checkAborted(signal);
 
-  const r = await fetch(SMT_WASM_EXEC.url, { method: "GET" });
-  if (!r.ok) {
-    throw new Error(
-      `fetch ${SMT_WASM_EXEC.url} returned ${r.status} ${r.statusText}`,
-    );
-  }
-  const total = parseContentLength(r.headers.get("Content-Length"));
-  onProgress({ phase: "wasm", bytesDone: 0, bytesTotal: total });
-  const src = await r.text();
-  onProgress({ phase: "wasm", bytesDone: src.length, bytesTotal: total });
-  // Evaluate in a permissive scope. The script assigns `globalThis.Go`.
+  const sha = requireDigest(digests, basename(SMT_WASM_EXEC.url));
+  const bytes = await ensureAsset(
+    SMT_WASM_EXEC.url,
+    `smt_wasm_exec_${sha}`,
+    sha,
+    (p: DownloadProgress) =>
+      onProgress({ phase: "wasm", bytesDone: p.bytesDone, bytesTotal: p.bytesTotal }),
+    { encoding: "identity" },
+  );
+  const src = new TextDecoder().decode(bytes);
   new Function(src)();
   if (typeof (globalThis as { Go?: unknown }).Go !== "function") {
     throw new Error("wasm_exec.js did not define globalThis.Go");
@@ -235,29 +241,30 @@ async function ensureWasmExecLoaded(
 }
 
 async function startSmtWasm(
+  digests: DigestMap,
   onProgress: (p: SmtLoadProgress) => void,
   signal: AbortSignal | undefined,
 ): Promise<void> {
   checkAborted(signal);
 
-  const response = await fetch(SMT_WASM.url, { method: "GET" });
-  if (!response.ok) {
-    throw new Error(
-      `fetch ${SMT_WASM.url} returned ${response.status} ${response.statusText}`,
-    );
-  }
-  const total = parseContentLength(response.headers.get("Content-Length"));
-  onProgress({ phase: "wasm", bytesDone: 0, bytesTotal: total });
-
-  // Non-streaming `instantiate`: the upstream release serves smt.wasm as
-  // `application/octet-stream` (GitHub Release default), which
-  // `instantiateStreaming` rejects with "Incorrect response MIME type.
-  // Expected 'application/wasm'". Buffering the full 3.5 MB up front costs
-  // nothing meaningful and sidesteps the MIME check entirely.
-  const wasmBytes = await response.arrayBuffer();
+  const sha = requireDigest(digests, basename(SMT_WASM.url));
+  const wasmBytes = await ensureAsset(
+    SMT_WASM.url,
+    `smt_wasm_${sha}`,
+    sha,
+    (p: DownloadProgress) =>
+      onProgress({ phase: "wasm", bytesDone: p.bytesDone, bytesTotal: p.bytesTotal }),
+    { encoding: "identity" },
+  );
+  const total = wasmBytes.byteLength;
+  // GitHub Release serves smt.wasm as application/octet-stream, which
+  // instantiateStreaming rejects with a MIME-type error. Buffer + instantiate.
   const GoCtor = (globalThis as unknown as { Go: new () => GoRuntime }).Go;
   const go = new GoCtor();
-  const result = await WebAssembly.instantiate(wasmBytes, go.importObject);
+  const result = await WebAssembly.instantiate(
+    wasmBytes.slice().buffer,
+    go.importObject,
+  );
   onProgress({ phase: "wasm", bytesDone: total, bytesTotal: total });
 
   // Go's `main()` blocks on `select{}`. Kick it off without awaiting — the
@@ -302,10 +309,6 @@ function wasmApi(): WasmApi {
  *  refused the call and we need to surface it. */
 function throwOnError(v: unknown): void {
   if (v instanceof Error) throw v;
-}
-
-function parseContentLength(header: string | null): number {
-  return parsePositiveInt(header, 0);
 }
 
 function checkAborted(signal: AbortSignal | undefined): void {

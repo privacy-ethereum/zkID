@@ -10,9 +10,13 @@ import init, {
 import { ensureAsset } from "./asset-download";
 import { assetStore } from "./asset-store";
 import {
+  basename,
   CIRCUITS,
-  hydrateManifest,
+  fetchReleaseDigests,
+  ManifestError,
+  requireDigest,
   type CircuitKind as Kind,
+  type DigestMap,
 } from "./manifest";
 import {
   convertSmtProofToCircuitInputs,
@@ -89,7 +93,16 @@ export type Progress =
       deviceProveMs: number;
       threads: number;
     }
-  | { step: "error"; where: string; message: string; retryable: boolean };
+  | {
+      step: "error";
+      where: string;
+      message: string;
+      retryable: boolean;
+      /** Set when `where === "manifest"` so the UI can paint a network-style copy. */
+      kind?: "manifest";
+      /** Discriminates manifest failures: 403/429 vs network vs malformed body. */
+      manifestCode?: "rate_limited" | "unreachable" | "malformed" | "missing_asset";
+    };
 
 const KIND_ENUM: Record<Kind, CircuitKind> = {
   cert_chain_rs2048: CircuitKind.CertChainRs2048,
@@ -108,6 +121,10 @@ let warming = false;
 let proving = false;
 let warmed = false;
 let smtLoading = false;
+
+// SMT load happens after warmup (issuer is known only post-card-read), so the
+// digest map captured at warmup needs to survive across messages.
+let smtDigests: DigestMap | null = null;
 
 // Keep witness-wasm in memory after warmup.
 const witnessCache: Partial<Record<Kind, Uint8Array>> = {};
@@ -218,13 +235,37 @@ function errorMessage(err: unknown): string {
   }
 }
 
+async function mapWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) return;
+        await fn(items[i]);
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
 function postError(where: string, err: unknown): void {
-  post({
+  const msg: Extract<Progress, { step: "error" }> = {
     step: "error",
     where,
     message: errorMessage(err),
     retryable: true,
-  });
+  };
+  if (where === "manifest" || err instanceof ManifestError) {
+    msg.kind = "manifest";
+    if (err instanceof ManifestError) msg.manifestCode = err.code;
+  }
+  post(msg);
 }
 
 let activeThreads = 1;
@@ -233,6 +274,9 @@ async function runWarmup(): Promise<void> {
   try {
     post({ step: "warmup", status: "in_progress", phase: "init" });
     await init();
+    await assetStore.purgePartials().catch((err) =>
+      console.warn("purgePartials failed:", err),
+    );
     if (cancelled) return;
 
     const threads = clampThreads();
@@ -242,56 +286,74 @@ async function runWarmup(): Promise<void> {
     if (cancelled) return;
 
     post({ step: "warmup", status: "in_progress", phase: "manifest" });
-    await hydrateManifest();
+    let digests;
+    try {
+      digests = await fetchReleaseDigests();
+    } catch (err) {
+      postError("manifest", err);
+      return;
+    }
+    smtDigests = digests.smt;
     if (cancelled) return;
 
-    // Preload all PK + witness assets so proving starts without extra waits.
     const kinds: Kind[] = [
       "cert_chain_rs2048",
       "cert_chain_rs4096",
       "device_sig_rs2048",
     ];
-    for (const kind of kinds) {
+
+    type Role = "pk" | "wgen";
+    interface Job {
+      kind: Kind;
+      role: Role;
+      url: string;
+      key: string;
+      sha: string;
+    }
+    const jobs: Job[] = kinds.flatMap((kind) => {
       const m = CIRCUITS[kind];
-      await ensureAsset(m.pkUrl, `${kind}_pk`, m.expected.pk, (p) =>
+      const pkSha = requireDigest(digests.keys, basename(m.pkUrl));
+      const wgenSha = requireDigest(digests.keys, basename(m.witnessWasmUrl));
+      return [
+        { kind, role: "pk" as const, url: m.pkUrl, key: `${kind}_pk_${pkSha}`, sha: pkSha },
+        {
+          kind,
+          role: "wgen" as const,
+          url: m.witnessWasmUrl,
+          key: `${kind}_wgen_${wgenSha}`,
+          sha: wgenSha,
+        },
+      ];
+    });
+
+    const pkBytes: Partial<Record<Kind, Uint8Array>> = {};
+    const ROLE_LABEL: Record<Role, string> = { pk: "pk", wgen: "witness-wasm" };
+    // 2 caps IDB-fallback heap (each writer buffers full decompressed bytes;
+    // RS4096 PK ≈ 500 MB).
+    const WARMUP_CONCURRENCY = 2;
+    await mapWithConcurrency(jobs, WARMUP_CONCURRENCY, async (job) => {
+      if (cancelled) return;
+      const bytes = await ensureAsset(job.url, job.key, job.sha, (p) =>
         post({
           step: "warmup",
           status: "in_progress",
           phase: "download",
-          asset: `${KIND_LABEL[kind]} pk`,
+          asset: `${KIND_LABEL[job.kind]} ${ROLE_LABEL[job.role]}`,
           bytesDone: p.bytesDone,
           bytesTotal: p.bytesTotal,
-          kind,
+          kind: job.kind,
         }),
       );
-      if (cancelled) return;
-      await ensureAsset(
-        m.witnessWasmUrl,
-        `${kind}_wgen`,
-        m.expected.witnessWasm,
-        (p) =>
-          post({
-            step: "warmup",
-            status: "in_progress",
-            phase: "download",
-            asset: `${KIND_LABEL[kind]} witness-wasm`,
-            bytesDone: p.bytesDone,
-            bytesTotal: p.bytesTotal,
-            kind,
-          }),
-      );
-      if (cancelled) return;
-    }
+      if (job.role === "pk") pkBytes[job.kind] = bytes;
+      else witnessCache[job.kind] = bytes;
+    });
+    if (cancelled) return;
 
-    // Load PKs and cache witness-wasm bytes.
     for (const kind of kinds) {
       post({ step: "warmup", status: "in_progress", phase: "load", kind });
-      const pk = await assetStore.get(`${kind}_pk`);
-      if (!pk) throw new Error(`missing cached PK for ${kind}`);
+      const pk = pkBytes[kind];
+      if (!pk) throw new Error(`missing PK for ${kind}`);
       load_pk(KIND_ENUM[kind], pk);
-      const wgen = await assetStore.get(`${kind}_wgen`);
-      if (!wgen) throw new Error(`missing cached witness-wasm for ${kind}`);
-      witnessCache[kind] = wgen;
       if (cancelled) return;
     }
 
@@ -305,15 +367,24 @@ async function runWarmup(): Promise<void> {
 
 async function runLoadSmt(issuer: SmtIssuer): Promise<void> {
   try {
-    const engine = await loadSmtEngine(issuer, (p) => {
-      post({
-        step: "smt_load",
-        phase: p.phase,
-        issuer,
-        bytesDone: p.bytesDone,
-        bytesTotal: p.bytesTotal,
-      });
-    });
+    if (!smtDigests) {
+      throw new Error(
+        "SMT load requested before manifest hydration; warmup must complete first",
+      );
+    }
+    const engine = await loadSmtEngine(
+      issuer,
+      smtDigests,
+      (p) => {
+        post({
+          step: "smt_load",
+          phase: p.phase,
+          issuer,
+          bytesDone: p.bytesDone,
+          bytesTotal: p.bytesTotal,
+        });
+      },
+    );
     smtEngines[issuer] = engine;
     post({
       step: "smt_ready",

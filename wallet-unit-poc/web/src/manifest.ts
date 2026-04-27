@@ -1,6 +1,8 @@
-// Asset manifest for proving keys, witness wasm, and SMT snapshots.
-// Hashes are filled from runtime manifests; empty hash means "skip verification".
-// Assets are expected to be served same-origin via /keys and /smt-snapshot.
+// Asset URLs for proving keys, witness wasm, and SMT snapshots, plus a
+// hydrator that pulls per-asset SHA-256 digests from the GitHub Release
+// API. We verify those digests against the **compressed** bytes during
+// download — gzip determinism transitively pins the decompressed payload,
+// so a separate manifest.json isn't needed.
 
 import type { SmtIssuer } from "./smt-client";
 
@@ -12,19 +14,15 @@ export type CircuitKind =
 export interface CircuitManifest {
   kind: CircuitKind;
   numPublic: number;
-  // /keys/<asset>.gz in dev (proxy), absolute URL in prod.
+  /** /keys/<asset>.gz in dev (proxy), absolute URL in prod. */
   pkUrl: string;
   witnessWasmUrl: string;
-  // SHA-256 of decompressed bytes; populated by hydrateManifest().
-  expected: { pk: string; witnessWasm: string };
 }
 
 export interface SmtAssetManifest {
   issuer: SmtIssuer;
   /** /smt-snapshot/<issuer>-tree-snapshot.bin.gz in dev. */
   snapshotUrl: string;
-  /** SHA-256 of decompressed snapshot bytes; set by hydrateManifest(). */
-  expectedSnapshot: string;
 }
 
 export const CIRCUITS: Record<CircuitKind, CircuitManifest> = {
@@ -33,139 +31,147 @@ export const CIRCUITS: Record<CircuitKind, CircuitManifest> = {
     numPublic: 20,
     pkUrl: "/keys/cert_chain_rs2048_proving.key.gz",
     witnessWasmUrl: "/keys/cert_chain_rs2048.wasm.gz",
-    expected: { pk: "", witnessWasm: "" },
   },
   cert_chain_rs4096: {
     kind: "cert_chain_rs4096",
     numPublic: 37,
     pkUrl: "/keys/cert_chain_rs4096_proving.key.gz",
     witnessWasmUrl: "/keys/cert_chain_rs4096.wasm.gz",
-    expected: { pk: "", witnessWasm: "" },
   },
   device_sig_rs2048: {
     kind: "device_sig_rs2048",
     numPublic: 2,
     pkUrl: "/keys/device_sig_rs2048_proving.key.gz",
     witnessWasmUrl: "/keys/device_sig_rs2048.wasm.gz",
-    expected: { pk: "", witnessWasm: "" },
   },
 };
 
 export const SMT_SNAPSHOTS: Record<SmtIssuer, SmtAssetManifest> = {
-  g2: {
-    issuer: "g2",
-    snapshotUrl: "/smt-snapshot/g2-tree-snapshot.bin.gz",
-    expectedSnapshot: "",
-  },
-  g3: {
-    issuer: "g3",
-    snapshotUrl: "/smt-snapshot/g3-tree-snapshot.bin.gz",
-    expectedSnapshot: "",
-  },
+  g2: { issuer: "g2", snapshotUrl: "/smt-snapshot/g2-tree-snapshot.bin.gz" },
+  g3: { issuer: "g3", snapshotUrl: "/smt-snapshot/g3-tree-snapshot.bin.gz" },
 };
 
-/** Go SMT engine wasm (served raw, not gzipped). */
-export const SMT_WASM = { url: "/smt-snapshot/smt.wasm", expected: "" };
-/** Go wasm_exec.js loader (text). */
-export const SMT_WASM_EXEC = { url: "/smt-snapshot/wasm_exec.js", expected: "" };
+export const SMT_WASM = { url: "/smt-snapshot/smt.wasm" };
+export const SMT_WASM_EXEC = { url: "/smt-snapshot/wasm_exec.js" };
 
-interface PublishedManifest {
-  assets: Record<string, { sha256_decompressed: string }>;
+const KEYS_RELEASE_API =
+  "https://api.github.com/repos/zkmopro/zkID/releases/tags/latest";
+const SMT_RELEASE_API =
+  "https://api.github.com/repos/moven0831/moica-revocation-smt/releases/tags/snapshot-latest";
+
+export type DigestMap = Record<string, string>;
+
+export interface ReleaseDigests {
+  keys: DigestMap;
+  smt: DigestMap;
 }
 
-function basename(url: string): string {
+export type ManifestErrorCode =
+  | "rate_limited"
+  | "unreachable"
+  | "malformed"
+  | "missing_asset";
+
+export class ManifestError extends Error {
+  readonly code: ManifestErrorCode;
+  constructor(
+    message: string,
+    code: ManifestErrorCode,
+    options?: { cause?: unknown },
+  ) {
+    super(message, options);
+    this.name = "ManifestError";
+    this.code = code;
+  }
+}
+
+const HEX_64 = /^[0-9a-f]{64}$/;
+const SHA_PREFIX = /^sha256:([0-9a-f]{64})$/;
+
+export function basename(url: string): string {
   const q = url.indexOf("?");
   const clean = q === -1 ? url : url.slice(0, q);
   const slash = clean.lastIndexOf("/");
   return slash === -1 ? clean : clean.slice(slash + 1);
 }
 
-/** Overlay `/keys/manifest.json` hashes onto circuit entries; fail-open. */
-export async function hydrateManifest(): Promise<void> {
-  let body: PublishedManifest | null = null;
+async function fetchReleaseJson(url: string): Promise<unknown> {
+  let res: Response;
   try {
-    const r = await fetch("/keys/manifest.json", { method: "GET" });
-    if (!r.ok) {
-      console.warn(
-        `manifest.json fetch returned ${r.status} ${r.statusText}; hash verification disabled`,
-      );
-      return;
-    }
-    body = (await r.json()) as PublishedManifest;
+    res = await fetch(url, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
   } catch (err) {
-    console.warn("manifest.json fetch/parse failed; hash verification disabled:", err);
-    return;
+    throw new ManifestError(`cannot reach ${url}`, "unreachable", { cause: err });
   }
-  if (!body || typeof body !== "object" || !body.assets) {
-    console.warn("manifest.json malformed (no `assets` object); hash verification disabled");
-    return;
+  if (res.status === 403 || res.status === 429) {
+    // GitHub returns 403 with X-RateLimit-Remaining: 0 (or 429) when the
+    // unauthenticated 60/h budget is exhausted — common behind shared NAT.
+    throw new ManifestError(
+      `${url} rate-limited (${res.status} ${res.statusText})`,
+      "rate_limited",
+    );
   }
-  for (const key of Object.keys(CIRCUITS) as CircuitKind[]) {
-    const m = CIRCUITS[key];
-    const pkName = basename(m.pkUrl);
-    const wgenName = basename(m.witnessWasmUrl);
-    const pkEntry = body.assets[pkName];
-    const wgenEntry = body.assets[wgenName];
-    if (pkEntry && typeof pkEntry.sha256_decompressed === "string") {
-      m.expected.pk = pkEntry.sha256_decompressed;
-    } else {
-      console.warn(`manifest.json missing entry for ${pkName}; PK hash verification disabled for ${key}`);
-    }
-    if (wgenEntry && typeof wgenEntry.sha256_decompressed === "string") {
-      m.expected.witnessWasm = wgenEntry.sha256_decompressed;
-    } else {
-      console.warn(`manifest.json missing entry for ${wgenName}; witness-wasm hash verification disabled for ${key}`);
-    }
+  if (!res.ok) {
+    throw new ManifestError(
+      `${url} returned ${res.status} ${res.statusText}`,
+      "unreachable",
+    );
   }
-
-  await hydrateSmtManifest();
+  try {
+    return await res.json();
+  } catch (err) {
+    throw new ManifestError(`malformed JSON from ${url}`, "malformed", {
+      cause: err,
+    });
+  }
 }
 
-/** Overlay `/smt-snapshot/snapshot-manifest.json` hashes; also fail-open. */
-async function hydrateSmtManifest(): Promise<void> {
-  let body: PublishedManifest | null = null;
-  try {
-    const r = await fetch("/smt-snapshot/snapshot-manifest.json", {
-      method: "GET",
-    });
-    if (!r.ok) {
-      console.warn(
-        `snapshot-manifest.json fetch returned ${r.status} ${r.statusText}; SMT hash verification disabled`,
-      );
-      return;
-    }
-    body = (await r.json()) as PublishedManifest;
-  } catch (err) {
-    console.warn(
-      "snapshot-manifest.json fetch/parse failed; SMT hash verification disabled:",
-      err,
+function parseAssetDigests(url: string, body: unknown): DigestMap {
+  if (!body || typeof body !== "object") {
+    throw new ManifestError(
+      `response from ${url} is not an object`,
+      "malformed",
     );
-    return;
   }
-  if (!body || typeof body !== "object" || !body.assets) {
-    console.warn(
-      "snapshot-manifest.json malformed (no `assets` object); SMT hash verification disabled",
+  const assets = (body as { assets?: unknown }).assets;
+  if (!Array.isArray(assets)) {
+    throw new ManifestError(
+      `response from ${url} has no \`assets\` array`,
+      "malformed",
     );
-    return;
   }
-  for (const issuer of Object.keys(SMT_SNAPSHOTS) as SmtIssuer[]) {
-    const m = SMT_SNAPSHOTS[issuer];
-    const name = basename(m.snapshotUrl);
-    const entry = body.assets[name];
-    if (entry && typeof entry.sha256_decompressed === "string") {
-      m.expectedSnapshot = entry.sha256_decompressed;
-    } else {
-      console.warn(
-        `snapshot-manifest.json missing entry for ${name}; snapshot hash verification disabled for ${issuer}`,
-      );
-    }
+  const out: DigestMap = {};
+  for (const a of assets) {
+    if (!a || typeof a !== "object") continue;
+    const name = (a as { name?: unknown }).name;
+    const digest = (a as { digest?: unknown }).digest;
+    if (typeof name !== "string" || typeof digest !== "string") continue;
+    const m = SHA_PREFIX.exec(digest);
+    if (!m) continue;
+    out[name] = m[1];
   }
-  const wasmEntry = body.assets[basename(SMT_WASM.url)];
-  if (wasmEntry && typeof wasmEntry.sha256_decompressed === "string") {
-    SMT_WASM.expected = wasmEntry.sha256_decompressed;
+  return out;
+}
+
+export async function fetchReleaseDigests(): Promise<ReleaseDigests> {
+  const [keysBody, smtBody] = await Promise.all([
+    fetchReleaseJson(KEYS_RELEASE_API),
+    fetchReleaseJson(SMT_RELEASE_API),
+  ]);
+  return {
+    keys: parseAssetDigests(KEYS_RELEASE_API, keysBody),
+    smt: parseAssetDigests(SMT_RELEASE_API, smtBody),
+  };
+}
+
+export function requireDigest(map: DigestMap, filename: string): string {
+  const sha = map[filename];
+  if (!sha || !HEX_64.test(sha)) {
+    throw new ManifestError(
+      `no sha256 digest published for ${filename}`,
+      "missing_asset",
+    );
   }
-  const execEntry = body.assets[basename(SMT_WASM_EXEC.url)];
-  if (execEntry && typeof execEntry.sha256_decompressed === "string") {
-    SMT_WASM_EXEC.expected = execEntry.sha256_decompressed;
-  }
+  return sha;
 }
