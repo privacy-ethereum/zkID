@@ -293,3 +293,27 @@ template PoseidonBytes(N_BYTES) {
 
     out <== hasher.out;
 }
+
+/// Like PoseidonBytes but appends one extra field element before hashing.
+/// Used to bind a byte array to an application-specific domain value.
+template PoseidonBytesWithField(N_BYTES) {
+    var BYTES_PER_FIELD = 31;
+    var N_FIELDS = (N_BYTES + BYTES_PER_FIELD - 1) \ BYTES_PER_FIELD;
+
+    signal input in[N_BYTES];
+    signal input extra;
+    signal output out;
+
+    component packer = PackBytes(N_BYTES, N_BYTES);
+    for (var i = 0; i < N_BYTES; i++) {
+        packer.in[i] <== in[i];
+    }
+
+    component hasher = Poseidon(N_FIELDS + 1);
+    for (var f = 0; f < N_FIELDS; f++) {
+        hasher.inputs[f] <== packer.out[f];
+    }
+    hasher.inputs[N_FIELDS] <== extra;
+
+    out <== hasher.out;
+}

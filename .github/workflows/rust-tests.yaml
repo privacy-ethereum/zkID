@@ -93,9 +93,9 @@ jobs:
             - name: Run e2e flow — device-sig (RS2048)
               run: |
                   cd wallet-unit-poc/ecdsa-spartan2
-                  cargo run --release --features device_sig_rs2048 -- device-sig setup --input ../circom/inputs/device_sig_rs2048/input.json
-                  cargo run --release --features device_sig_rs2048 -- device-sig prove --input ../circom/inputs/device_sig_rs2048/input.json
-                  cargo run --release --features device_sig_rs2048 -- device-sig verify
+                  cargo run --release -- device-sig setup --input ../circom/inputs/device_sig_rs2048/input.json
+                  cargo run --release -- device-sig prove --input ../circom/inputs/device_sig_rs2048/input.json
+                  cargo run --release -- device-sig verify
 
             - name: Link-verify (RS2048)
               run: |

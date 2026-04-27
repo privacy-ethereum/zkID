@@ -24,7 +24,7 @@ export interface PublicSignals {
 export interface ParsedInputs {
   challenge: string;
   pk_commit: string;
-  subject_dn_hash: string;
+  nullifier: string;
   smt_root: string;
   issuer_rsa_modulus: string[];
 }

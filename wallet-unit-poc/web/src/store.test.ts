@@ -78,7 +78,7 @@ describe("transition", () => {
     const parsed = {
       challenge: "0xdead",
       pk_commit: "0x2",
-      subject_dn_hash: "0xabc",
+      nullifier: "0xabc",
       smt_root: "0xbeef",
       issuer_rsa_modulus: ["0xaa", "0xbb"],
     };

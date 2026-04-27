@@ -26,7 +26,7 @@ describe("CertChainRSA256 (rs2048)", function () {
       "smtIsOld0",
       "pk_blind",
     ],
-    ["subject_dn_hash", "pk_commit"]
+    ["nullifier", "pk_commit"]
   >;
   let input: Record<string, any>;
 

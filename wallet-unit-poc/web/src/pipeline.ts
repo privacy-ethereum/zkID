@@ -38,6 +38,8 @@ export interface ProvingContext {
   pin: Pin;
   /** Pre-fetched so popup `window.open` keeps user activation. */
   challenge: Challenge;
+  /** Application identifier bound into nullifier (decimal string). */
+  appId: string;
   /** Cancels in-flight network calls; Worker cancel is handled separately. */
   signal?: AbortSignal;
 }
@@ -156,6 +158,7 @@ export async function runSignPhasePipeline(
       userSignatureB64,
       tbs,
       smtInputs,
+      appId: ctx.appId,
     }),
   );
   checkAborted(signal);

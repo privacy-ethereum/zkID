@@ -96,7 +96,7 @@ function formatModulus(limbs: string[] | undefined): string {
 
 // Scalar ParsedInputs fields shown as rows; modulus is rendered separately.
 const PARSED_FIELDS = [
-  "subject_dn_hash",
+  "nullifier",
   "pk_commit",
   "smt_root",
   "challenge",

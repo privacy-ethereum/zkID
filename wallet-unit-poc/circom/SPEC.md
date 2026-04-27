@@ -35,8 +35,9 @@ Circuit A and Circuit B are linked via `pk_commit`: the verifier checks
    in the revocation tree rooted at `smtRoot`.
 4. **Linking** — `pk_commit = ChunkedPoseidonP256(user_pk_limbs ‖ pk_blind)`,
    binding this proof to the same user key used in Circuit B.
-5. **Subject DN hash** — `PoseidonBytes(subject_dn) → subject_dn_hash` (public
-   output; private bytes, only the hash is revealed).
+5. **Nullifier** — `PoseidonBytesWithField(subject_dn, app_id) → nullifier`
+   (public output). Binds the identity hash to a specific application so that a
+   proof generated for one relying party cannot be replayed at another.
 
 ### Circuit B — DeviceSig (`DeviceSigRSA256`)
 
@@ -55,7 +56,8 @@ Circuit A and Circuit B are linked via `pk_commit`: the verifier checks
 | ----------------------- | ------------- | --------------------------------------------- |
 | `issuer_rsa_modulus[k]` | public input  | MOICA's RSA public key (trust anchor)         |
 | `smtRoot`               | public input  | Revocation SMT root                           |
-| `subject_dn_hash`       | public output | `Poseidon(packed subject_dn)`                 |
+| `app_id`                | public input  | Application binding; `nullifier` commits to this value |
+| `nullifier`             | public output | `Poseidon(packed subject_dn, app_id)`         |
 | `pk_commit`             | public output | Links to Circuit B                            |
 
 ### Circuit B — DeviceSig
@@ -82,4 +84,4 @@ the tree rooted at `smtRoot`.
 - `circuits/components/smt-nonmembership.circom` — SMT verification template
 - `circuits/components/poseidon_p256.circom` — Poseidon hash over secq256r1
 - `circuits/components/pk_commit.circom` — `ChunkedPoseidonP256` for pk_commit
-- `circuits/utils/utils.circom` — cert parsing helpers (`VerifyTBSinCert`, `VerifySubjectDN`, `VerifySerialNumber`, `ExtractModulus`, `PackBytes`, `PoseidonBytes`)
+- `circuits/utils/utils.circom` — cert parsing helpers (`VerifyTBSinCert`, `VerifySubjectDN`, `VerifySerialNumber`, `ExtractModulus`, `PackBytes`, `PoseidonBytes`, `PoseidonBytesWithField`)

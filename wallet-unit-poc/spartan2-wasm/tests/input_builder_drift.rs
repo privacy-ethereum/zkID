@@ -86,19 +86,20 @@ fn assert_split_inputs_match(
     serial_hex: &str,
     smt_inputs: Option<&SmtCircuitInputs>,
     k_issuer: usize,
+    app_id: &str,
 ) {
     let user_cert = Certificate::from_der(user_der).expect("user parse");
     let issuer_cert = Certificate::from_der(issuer_der).expect("issuer parse");
 
     let (native_cert, native_device) = generate_split_inputs(
         &user_cert, &issuer_cert, sig_b64, DEFAULT_TBS, serial_hex,
-        smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH,
+        smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH, app_id,
     )
     .expect("native generate_split_inputs");
 
     let wasm_out = build_split_inputs_native_for_test(
         user_der, issuer_der, sig_b64, DEFAULT_TBS, serial_hex,
-        smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH,
+        smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH, app_id,
     )
     .expect("wasm crate build_split_inputs");
 
@@ -136,7 +137,7 @@ fn synthetic_smt_inputs() -> SmtCircuitInputs {
 fn cert_chain_rs2048_input_builder_drift() {
     let (user_der, issuer_der, sig_b64, serial_hex) = rs2048_fixtures();
     assert_split_inputs_match(
-        "rs2048", &user_der, &issuer_der, &sig_b64, &serial_hex, None, 17,
+        "rs2048", &user_der, &issuer_der, &sig_b64, &serial_hex, None, 17, "0",
     );
 }
 
@@ -144,7 +145,7 @@ fn cert_chain_rs2048_input_builder_drift() {
 fn cert_chain_rs4096_input_builder_drift() {
     let (user_der, issuer_der, sig_b64, serial_hex) = rs4096_fixtures();
     assert_split_inputs_match(
-        "rs4096", &user_der, &issuer_der, &sig_b64, &serial_hex, None, 34,
+        "rs4096", &user_der, &issuer_der, &sig_b64, &serial_hex, None, 34, "0",
     );
 }
 
@@ -163,5 +164,6 @@ fn cert_chain_rs2048_input_builder_drift_with_smt() {
         &serial_hex,
         Some(&smt),
         17,
+        "0",
     );
 }

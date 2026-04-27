@@ -142,7 +142,7 @@ export async function installMockServices(
                 parsed_inputs: {
                   challenge: "0xdeadbeef",
                   pk_commit: "0xmockpkcommit",
-                  subject_dn_hash: "0xmocksubjectdnhash",
+                  nullifier: "0xmocksubjectdnhash",
                   smt_root: "0xmocksmtroot",
                   serial_number: "0xdeadbeef",
                   issuer_rsa_modulus: ["0xaaaa", "0xbbbb"],

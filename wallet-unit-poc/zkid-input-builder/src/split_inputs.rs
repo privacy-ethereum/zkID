@@ -39,6 +39,7 @@ pub fn generate_split_inputs(
     k_issuer: usize,
     k_user: usize,
     max_cert_length: usize,
+    app_id: &str,
 ) -> Result<(serde_json::Value, serde_json::Value), Box<dyn std::error::Error>> {
     let user_cert_der = user_cert.to_der()?;
     let user_cert_tbs_der = user_cert.tbs_certificate.to_der()?;
@@ -118,6 +119,7 @@ pub fn generate_split_inputs(
         "smtOldValue": smt_old_value,
         "smtIsOld0": smt_is_old0,
         "pk_blind": &pk_blind,
+        "app_id": app_id,
     });
 
     let device_sig_json = serde_json::json!({

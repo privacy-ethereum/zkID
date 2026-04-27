@@ -12,7 +12,7 @@ name = "ecdsa-spartan2"
 path = "src/main.rs"
 
 [features]
-default = []
+default = ["device_sig_rs2048"]
 cert_chain_rs2048 = []
 cert_chain_rs4096 = []
 device_sig_rs2048 = []

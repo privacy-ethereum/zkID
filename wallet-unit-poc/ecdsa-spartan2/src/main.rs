@@ -107,6 +107,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
     let mut challenge_server = ecdsa_spartan2::challenge_client::default_server_url().to_string();
     let mut cert_chain_output = "../circom/inputs/cert_chain_rs2048/input.json".to_string();
     let mut device_sig_output = "../circom/inputs/device_sig_rs2048/input.json".to_string();
+    let mut app_id = "0".to_string();
 
     let mut i = 1;
     while i < command_args.len() {
@@ -125,6 +126,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
             "--challenge-server" => {
                 challenge_server = require_arg(command_args, &mut i, "--challenge-server")
             }
+            "--app-id" => app_id = require_arg(command_args, &mut i, "--app-id"),
             _ => {}
         }
         i += 1;
@@ -243,6 +245,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
         k_issuer,
         k_user,
         max_cert_length,
+        &app_id,
     )
     .unwrap_or_else(|e| {
         eprintln!("Error generating split inputs: {}", e);
@@ -267,7 +270,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
 
 /// `link-verify` CLI: verify both proofs and check pk_commit equality.
 ///
-/// CertChain public values: [subject_dn_hash, pk_commit, issuer_modulus..., smtRoot]
+/// CertChain public values: [nullifier, pk_commit, issuer_modulus..., smtRoot]
 /// DeviceSig public values: [pk_commit, packed_tbs]
 ///
 /// The verifier checks `pk_commit_A == pk_commit_B` to bind the two proofs
@@ -294,7 +297,7 @@ fn run_link_verify(command_args: &[String]) -> ! {
         path_config.key_path(DeviceSigRsa2048::VERIFYING_KEY),
     );
 
-    // pk_commit is at index 1 for cert-chain (after subject_dn_hash output)
+    // pk_commit is at index 1 for cert-chain (after nullifier output)
     // pk_commit is at index 0 for device-sig (first output)
     let pk_commit_a = &cc_public_values[1];
     let pk_commit_b = &ds_public_values[0];

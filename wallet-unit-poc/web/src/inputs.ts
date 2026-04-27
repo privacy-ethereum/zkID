@@ -25,6 +25,8 @@ export interface BuildInputsParams {
   /** TBS bytes the user's card just signed (= challenge bytes). */
   tbs: Uint8Array;
   smtInputs: SmtCircuitInputs | null;
+  /** Application identifier bound into nullifier (decimal string). */
+  appId: string;
 }
 
 export interface SplitInputs {
@@ -42,7 +44,7 @@ export async function buildInputs(
   params: BuildInputsParams,
 ): Promise<SplitInputs> {
   await ensureWasm();
-  const { card, userSignatureB64, tbs, smtInputs } = params;
+  const { card, userSignatureB64, tbs, smtInputs, appId } = params;
   const out = build_split_inputs(
     card.userCertDer,
     card.issuerCertDer,
@@ -52,6 +54,7 @@ export async function buildInputs(
     smtInputs,
     card.kIssuer,
     17,
+    appId,
   ) as { cert_chain: unknown; device_sig: unknown };
   return {
     certJson: JSON.stringify(out.cert_chain),

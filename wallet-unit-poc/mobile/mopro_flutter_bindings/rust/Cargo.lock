@@ -985,6 +985,7 @@ dependencies = [
  "web-time",
  "witnesscalc-adapter",
  "x509-cert",
+ "zkid-input-builder",
 ]
 
 [[package]]
@@ -4255,6 +4256,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "zkid-input-builder"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "der",
+ "hex",
+ "num-bigint 0.4.6",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha2",
+ "x509-cert",
 ]
 
 [[package]]

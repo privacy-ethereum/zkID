@@ -5,7 +5,9 @@ Given a MOICA user certificate (RSA-SHA256 / RS256) and a device signature over
 a fresh challenge, the prover emits two Spartan2 proofs that together attest to
 (a) a valid cert chain to a known issuer, (b) non-revocation of the user cert
 against an SMT root, and (c) possession of the user private key — without
-revealing personal data from the cert.
+revealing personal data from the cert. The identity hash (`nullifier`) is
+bound to an application-specific `app_id`, so a proof issued for one relying
+party cannot be replayed at another.
 
 Three proving surfaces share the same circuits, input builder, and proving engine:
 
@@ -64,10 +66,10 @@ cargo run --release --features cert_chain_rs2048 -- cert-chain prove \
 cargo run --release --features cert_chain_rs2048 -- cert-chain verify
 
 # Setup → prove → verify (device-sig, always RSA-2048).
-cargo run --release --features device_sig_rs2048 -- device-sig setup
-cargo run --release --features device_sig_rs2048 -- device-sig prove \
+cargo run --release -- device-sig setup
+cargo run --release -- device-sig prove \
   --input ../circom/inputs/device_sig_rs2048/input.json
-cargo run --release --features device_sig_rs2048 -- device-sig verify
+cargo run --release -- device-sig verify
 
 # Cross-proof link-verify (pk_commit equality).
 RUST_LOG=info cargo run --release -- link-verify

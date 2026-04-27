@@ -63,6 +63,7 @@ fn split_inputs_have_expected_structure() {
         17,
         17,
         MAX_CERT_CHAIN_LENGTH,
+        "0",
     )
     .expect("generate_split_inputs failed");
 
@@ -88,6 +89,7 @@ fn split_inputs_have_expected_structure() {
         "smtOldValue",
         "smtIsOld0",
         "pk_blind",
+        "app_id",
     ] {
         assert!(
             cert_chain.get(key).is_some(),
@@ -155,6 +157,7 @@ fn split_inputs_share_pk_blind() {
         17,
         17,
         MAX_CERT_CHAIN_LENGTH,
+        "0",
     )
     .expect("generate_split_inputs failed");
 
@@ -180,6 +183,7 @@ fn split_inputs_rs4096_have_expected_structure() {
         34,
         17,
         MAX_CERT_CHAIN_LENGTH,
+        "0",
     )
     .expect("generate_split_inputs failed for RS4096");
 
@@ -205,6 +209,7 @@ fn split_inputs_rs4096_have_expected_structure() {
         "smtOldValue",
         "smtIsOld0",
         "pk_blind",
+        "app_id",
     ] {
         assert!(
             cert_chain.get(key).is_some(),
@@ -277,6 +282,7 @@ fn split_inputs_rs4096_share_pk_blind() {
         34,
         17,
         MAX_CERT_CHAIN_LENGTH,
+        "0",
     )
     .expect("generate_split_inputs failed for RS4096");
 

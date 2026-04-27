@@ -28,6 +28,7 @@ Future<String> generateCertChainRs4096Input({
   required String issuerCertPath,
   String? smtSnapshotPath,
   required String outputDir,
+  required String appId,
 }) => RustLib.instance.api.openacMobileAppGenerateCertChainRs4096Input(
   certb64: certb64,
   signedResponse: signedResponse,
@@ -35,6 +36,7 @@ Future<String> generateCertChainRs4096Input({
   issuerCertPath: issuerCertPath,
   smtSnapshotPath: smtSnapshotPath,
   outputDir: outputDir,
+  appId: appId,
 );
 
 /// Setup circuit keys for both cert_chain_rs4096 and device_sig_rs2048.

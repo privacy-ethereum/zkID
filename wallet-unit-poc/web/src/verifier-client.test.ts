@@ -100,7 +100,7 @@ describe("verifier-client", () => {
             parsed_inputs: {
               challenge: "0xdead",
               pk_commit: "0x2",
-              subject_dn_hash: "0xabc",
+              nullifier: "0xabc",
               smt_root: "0xbeef",
               issuer_rsa_modulus: ["0xaaaa", "0xbbbb"],
             },
@@ -116,7 +116,7 @@ describe("verifier-client", () => {
       deviceSigProofBytes: new Uint8Array([1]),
     });
     expect(res.public_signals?.cert_chain).toEqual(["0x1", "0x2"]);
-    expect(res.parsed_inputs?.subject_dn_hash).toBe("0xabc");
+    expect(res.parsed_inputs?.nullifier).toBe("0xabc");
     expect(res.parsed_inputs?.issuer_rsa_modulus).toEqual(["0xaaaa", "0xbbbb"]);
   });
 

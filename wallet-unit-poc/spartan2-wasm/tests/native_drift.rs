@@ -58,7 +58,7 @@ fn cert_chain_rs2048_drift() {
     let vk_native: spartan2_wasm::VerifierKeyForTest = bincode::deserialize(&vk_bytes).unwrap();
     let pv = ecdsa_spartan2::prover::verify_circuit_with_loaded_data(&proof, &vk_native);
 
-    assert_eq!(pv.len(), 20, "cert_chain_rs2048 NUM_PUBLIC");
+    assert_eq!(pv.len(), 21, "cert_chain_rs2048 NUM_PUBLIC");
     assert_eq!(pv, public_values, "public values round-trip");
 }
 

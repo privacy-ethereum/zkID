@@ -15,11 +15,11 @@ Proofs are bound via `pk_commit = ChunkedPoseidonP256(user_pk_limbs ‖ pk_blind
 - **Default mode**: no other prerequisites (uses bundled test fixtures)
 - **Live mode**: [HiPKI LocalSignServer](https://publicca.hinet.net/HiPKI-01.htm) running on `localhost:61161`, a card reader, a valid Citizen Digital Certificate, and optionally [go-zkid-verifier](https://github.com/user/go-zkid-verifier) for challenge serving
 
-| Feature flag | Circuit | Key size | Issuer |
-|---|---|---|---|
-| `cert_chain_rs2048` | cert-chain (A) | RSA-2048 | MOICA-G2 |
-| `cert_chain_rs4096` | cert-chain (A) | RSA-4096 | 4096-bit CA |
-| `device_sig_rs2048` | device-sig (B) | RSA-2048 | (user key) |
+| Feature flag | Circuit | Key size | Issuer | Default |
+|---|---|---|---|---|
+| `cert_chain_rs2048` | cert-chain (A) | RSA-2048 | MOICA-G2 | no |
+| `cert_chain_rs4096` | cert-chain (A) | RSA-4096 | 4096-bit CA | no |
+| `device_sig_rs2048` | device-sig (B) | RSA-2048 | (user key) | **yes** |
 
 ## E2E Flow with Test Fixtures (no card reader needed)
 
@@ -31,17 +31,17 @@ RUST_LOG=info cargo run --release -- generate-split-input
 
 # 2. Setup proving keys (one-time per circuit)
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain setup
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig setup
+RUST_LOG=info cargo run --release -- device-sig setup
 
 # 3. Generate proofs
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain prove \
   --input ../circom/inputs/cert_chain_rs2048/input.json
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig prove \
+RUST_LOG=info cargo run --release -- device-sig prove \
   --input ../circom/inputs/device_sig_rs2048/input.json
 
 # 4. Verify proofs independently
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain verify
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig verify
+RUST_LOG=info cargo run --release -- device-sig verify
 
 # 5. Link-verify: check pk_commit equality across both proofs
 RUST_LOG=info cargo run --release -- link-verify
@@ -58,10 +58,10 @@ RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain pro
 RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain verify --cert-chain-4096
 
 # device-sig is always rs2048 (user keys are 2048-bit)
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig setup
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig prove \
+RUST_LOG=info cargo run --release -- device-sig setup
+RUST_LOG=info cargo run --release -- device-sig prove \
   --input ../circom/inputs/device_sig_rs2048_chain_rs4096/input.json
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig verify
+RUST_LOG=info cargo run --release -- device-sig verify
 
 RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 ```
@@ -89,17 +89,17 @@ RUST_LOG=info cargo run --release -- generate-split-input \
 
 # 2. Setup proving keys (skip if already generated)
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain setup
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig setup
+RUST_LOG=info cargo run --release -- device-sig setup
 
 # 3. Generate proofs
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain prove \
   --input ../circom/inputs/cert_chain_rs2048/input.json
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig prove \
+RUST_LOG=info cargo run --release -- device-sig prove \
   --input ../circom/inputs/device_sig_rs2048/input.json
 
 # 4. Verify + link-verify
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain verify
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig verify
+RUST_LOG=info cargo run --release -- device-sig verify
 RUST_LOG=info cargo run --release -- link-verify
 ```
 
@@ -110,15 +110,15 @@ RUST_LOG=info cargo run --release -- generate-split-input \
   --cert-chain-4096 --pin <YOUR_PIN>
 
 RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain setup --cert-chain-4096
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig setup
+RUST_LOG=info cargo run --release -- device-sig setup
 
 RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain prove \
   --cert-chain-4096 --input ../circom/inputs/cert_chain_rs4096/input.json
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig prove \
+RUST_LOG=info cargo run --release -- device-sig prove \
   --input ../circom/inputs/device_sig_rs2048_chain_rs4096/input.json
 
 RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain verify --cert-chain-4096
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig verify
+RUST_LOG=info cargo run --release -- device-sig verify
 RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 ```
 
@@ -131,6 +131,7 @@ RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 | `--smt-server <URL>` | *(off)* | Fetch SMT non-membership proof for revocation |
 | `--hipki-server <URL>` | `http://localhost:61161` | HiPKI LocalSignServer endpoint |
 | `--challenge-server <URL>` | `http://localhost:8080` | go-zkid-verifier challenge endpoint |
+| `--app-id <DECIMAL>` | `0` | Application identifier bound into `nullifier`; must match the verifier's expected value |
 
 ## Benchmark
 
@@ -138,7 +139,7 @@ RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain benchmark \
   --input ../circom/inputs/cert_chain_rs2048/input.json
 
-RUST_LOG=info cargo run --release --features device_sig_rs2048 -- device-sig benchmark \
+RUST_LOG=info cargo run --release -- device-sig benchmark \
   --input ../circom/inputs/device_sig_rs2048/input.json
 ```
 

@@ -28,8 +28,11 @@ CI runs this under `.github/workflows/web-tests.yaml` alongside the drift guard.
 
 ## Public surface
 
-- `generate_split_inputs(user_cert, issuer_cert, user_signature_b64, tbs, serial_hex, smt_inputs, k_issuer, k_user, max_cert_length)`
-  — returns `(cert_chain_json, device_sig_json)`.
+- `generate_split_inputs(user_cert, issuer_cert, user_signature_b64, tbs, serial_hex, smt_inputs, k_issuer, k_user, max_cert_length, app_id)`
+  — returns `(cert_chain_json, device_sig_json)`. `app_id` is a decimal-string
+  field element that is included in `nullifier` as
+  `Poseidon(packed_subject_dn, app_id)`, binding the proof to a specific
+  application. Must match the value the verifier expects.
 - `SmtCircuitInputs` — decimal-string field struct matching the Rust/TS
   interchange format used by both provers.
 - `parse_cert_offsets` — DER offset helpers for the cert-chain circuit's

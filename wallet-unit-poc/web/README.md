@@ -35,7 +35,7 @@ Start    Continue  Start    (auto)    Send     (auto)      Prove again
 - **Submitting** is a single-spinner screen for the `/link-verify` POST.
 - **Result** shows verified/not-verified with both timings, the
   server-derived nullifier, and an expandable debug block with the
-  parsed public inputs (`subject_dn_hash`, `pk_commit`, `smt_root`,
+  parsed public inputs (`nullifier`, `pk_commit`, `smt_root`,
   `serial_number`, `challenge`, `issuer_rsa_modulus`). **Prove again**
   routes back to setup for PIN re-verify; card + warm runtime stay green
   so only the PIN panel needs a fresh entry.
@@ -159,6 +159,7 @@ configurable via a `VITE_*` env var (see `.env.example`):
 | `go-zkid-verifier`        | `VITE_VERIFIER_BASE_URL`           | `http://localhost:8080`          | Challenge + `link-verify`                          |
 | HiPKI LocalSignServer     | `VITE_HIPKI_BASE_URL`              | `http://localhost:61161`         | `pkcs11info` + `sign` via popupForm postMessage    |
 | `moica-revocation-smt`    | (dev proxy)                        | `/smt-snapshot` → GH release     | Binary SMT snapshot + `smt.wasm` (read-only asset) |
+| Application ID            | `VITE_APP_ID`                      | `0`                              | Decimal field element bound into `nullifier` — must match the verifier's expected `app_id` |
 
 The revocation-tree path replaces the previous `moica-revocation-smt` REST
 server (`/proof/{issuer}/{serial}`), which leaked user serials per request.

@@ -100,6 +100,7 @@ abstract class RustLibApi extends BaseApi {
     required String issuerCertPath,
     String? smtSnapshotPath,
     required String outputDir,
+    required String appId,
   });
 
   Future<void> openacMobileAppInitApp();
@@ -303,6 +304,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required String issuerCertPath,
     String? smtSnapshotPath,
     required String outputDir,
+    required String appId,
   }) {
     return handler.executeNormal(
       NormalTask(
@@ -314,6 +316,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(issuerCertPath, serializer);
           sse_encode_opt_String(smtSnapshotPath, serializer);
           sse_encode_String(outputDir, serializer);
+          sse_encode_String(appId, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -334,6 +337,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           issuerCertPath,
           smtSnapshotPath,
           outputDir,
+          appId,
         ],
         apiImpl: this,
       ),
@@ -350,6 +354,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "issuerCertPath",
           "smtSnapshotPath",
           "outputDir",
+          "appId",
         ],
       );
 

@@ -91,6 +91,7 @@ function boot(): void {
         card: hipkiState.card,
         pin: pinState.pin,
         challenge: challengeState.challenge,
+        appId: import.meta.env.VITE_APP_ID ?? "0",
         signal: myController.signal,
       });
       // Drop Worker refs before navigation to avoid late events.

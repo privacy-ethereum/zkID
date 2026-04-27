@@ -36,6 +36,7 @@ fn build_split_inputs_core(
     k_issuer: usize,
     k_user: usize,
     max_cert_length: usize,
+    app_id: &str,
 ) -> Result<SplitInputsJs, String> {
     let user_cert = Certificate::from_der(user_cert_der)
         .map_err(|e| format!("user cert DER parse: {e}"))?;
@@ -52,6 +53,7 @@ fn build_split_inputs_core(
         k_issuer,
         k_user,
         max_cert_length,
+        app_id,
     )
     .map_err(|e| format!("generate_split_inputs: {e}"))?;
 
@@ -79,6 +81,7 @@ pub fn build_split_inputs(
     smt_inputs: JsValue,
     k_issuer: u32,
     k_user: u32,
+    app_id: &str,
 ) -> Result<JsValue, JsError> {
     // Reject unsupported limb counts at the boundary. Letting through a
     // garbage k value silently produces a mis-shaped JSON that reappears
@@ -114,6 +117,7 @@ pub fn build_split_inputs(
         k_issuer as usize,
         k_user as usize,
         MAX_CERT_CHAIN_LENGTH,
+        app_id,
     )
     .map_err(|e| JsError::new(&e))?;
 
@@ -182,6 +186,7 @@ pub fn build_split_inputs_native_for_test(
     k_issuer: usize,
     k_user: usize,
     max_cert_length: usize,
+    app_id: &str,
 ) -> Result<SplitInputsJs, String> {
     build_split_inputs_core(
         user_cert_der,
@@ -193,5 +198,6 @@ pub fn build_split_inputs_native_for_test(
         k_issuer,
         k_user,
         max_cert_length,
+        app_id,
     )
 }
