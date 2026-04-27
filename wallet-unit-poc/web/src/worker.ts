@@ -190,8 +190,8 @@ function clampThreads(): number {
   const override = parseThreadOverride();
   if (override != null) return override;
   const hc = (workerSelf.navigator as Navigator | undefined)?.hardwareConcurrency;
-  const raw = typeof hc === "number" && hc > 0 ? hc - 1 : 2;
-  return Math.max(2, Math.min(8, raw));
+  const raw = typeof hc === "number" && hc > 0 ? hc : 2;
+  return Math.max(2, Math.min(16, raw));
 }
 
 function parseThreadOverride(): number | null {
