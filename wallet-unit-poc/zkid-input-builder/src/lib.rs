@@ -9,7 +9,9 @@
 
 pub mod cert;
 pub mod encoding;
+pub mod random;
 pub mod split_inputs;
 pub mod types;
 
-pub use split_inputs::{generate_split_inputs, MAX_CERT_CHAIN_LENGTH};
+pub use random::random_pk_blind;
+pub use split_inputs::{generate_split_inputs, APP_ID_LEN, MAX_CERT_CHAIN_LENGTH};

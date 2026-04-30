@@ -40,7 +40,7 @@ use ecdsa_spartan2::{
     save_keys, serial_bytes_to_hex_trimmed, setup_circuit_keys, setup_circuit_keys_no_save,
     verify_circuit, verify_circuit_with_loaded_data, CertChainCircuit, CertChainRs4096Circuit,
     CertChainRsa2048, CertChainRsa4096, DeviceSigRsa2048, PathConfig, RsaKeySize,
-    Sha256RsaCircuit, MAX_CERT_CHAIN_LENGTH,
+    Sha256RsaCircuit, APP_ID_LEN, MAX_CERT_CHAIN_LENGTH,
 };
 use std::{
     env::args,
@@ -49,7 +49,8 @@ use std::{
     process,
 };
 use web_time::Instant;
-use tracing::info;
+use num_bigint::BigUint;
+use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
 fn get_file_size(path: &Path) -> u64 {
@@ -107,7 +108,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
     let mut challenge_server = ecdsa_spartan2::challenge_client::default_server_url().to_string();
     let mut cert_chain_output = "../circom/inputs/cert_chain_rs2048/input.json".to_string();
     let mut device_sig_output = "../circom/inputs/device_sig_rs2048/input.json".to_string();
-    let mut app_id = "0".to_string();
+    let mut pk_blind_override: Option<String> = None;
 
     let mut i = 1;
     while i < command_args.len() {
@@ -126,7 +127,18 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
             "--challenge-server" => {
                 challenge_server = require_arg(command_args, &mut i, "--challenge-server")
             }
-            "--app-id" => app_id = require_arg(command_args, &mut i, "--app-id"),
+            "--pk-blind" => {
+                let raw = require_arg(command_args, &mut i, "--pk-blind");
+                let parsed = BigUint::parse_bytes(raw.as_bytes(), 10).unwrap_or_else(|| {
+                    eprintln!("Error: --pk-blind must be a non-negative decimal integer");
+                    process::exit(1);
+                });
+                if parsed.bits() > 248 {
+                    eprintln!("Error: --pk-blind must be < 2^248 (got {} bits)", parsed.bits());
+                    process::exit(1);
+                }
+                pk_blind_override = Some(raw);
+            }
             _ => {}
         }
         i += 1;
@@ -135,19 +147,37 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
     let (k_issuer, k_user) = if rs4096 { (34, 17) } else { (17, 17) };
     let max_cert_length = MAX_CERT_CHAIN_LENGTH;
 
-    let (user_cert, user_sig_b64, issuer_cert, serial_hex, tbs_bytes) = if let Some(ref pin) = pin {
-        info!(server = %challenge_server, "Fetching TBS challenge from verifier");
+    let (user_cert, user_sig_b64, issuer_cert, serial_hex, app_id_bytes, challenge) = if let Some(ref pin) = pin {
+        info!(server = %challenge_server, "Fetching challenge from verifier");
         let challenge_resp = ecdsa_spartan2::challenge_client::create_challenge(&challenge_server)
             .unwrap_or_else(|e| {
                 eprintln!("Failed to fetch challenge from {}: {}", challenge_server, e);
                 process::exit(1);
             });
         info!(
-            challenge_id = %challenge_resp.challenge_id,
+            challenge = %challenge_resp.challenge,
             expires_at = %challenge_resp.expires_at,
             "Challenge received"
         );
-        let tbs_hex = challenge_resp.challenge_bytes;
+        let app_id_hex = challenge_resp.app_id;
+        let app_id_bytes = hex::decode(&app_id_hex).unwrap_or_else(|e| {
+            eprintln!("Verifier returned non-hex app_id ({}): {}", app_id_hex, e);
+            process::exit(1);
+        });
+        if app_id_bytes.len() != APP_ID_LEN {
+            eprintln!(
+                "Verifier app_id decodes to {} bytes, expected {}",
+                app_id_bytes.len(),
+                APP_ID_LEN
+            );
+            process::exit(1);
+        }
+        let app_id_str = String::from_utf8(app_id_bytes.clone()).unwrap_or_else(|_| {
+            eprintln!(
+                "app_id from verifier is not valid UTF-8; APP_ID must hex-decode to a UTF-8-safe value (HiPKI /sign takes string tbs)"
+            );
+            process::exit(1);
+        });
 
         info!(server = %hipki_server, "Fetching certificate chain from HiPKI");
         let pkcs11info = ecdsa_spartan2::hipki_client::fetch_pkcs11info(&hipki_server)
@@ -161,8 +191,8 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
                 process::exit(1);
             });
 
-        info!(tbs = %tbs_hex, "Signing TBS via HiPKI card");
-        let sign_response = ecdsa_spartan2::hipki_client::sign_tbs(&hipki_server, &tbs_hex, pin)
+        info!(app_id = %app_id_hex, "Signing app_id via HiPKI card");
+        let sign_response = ecdsa_spartan2::hipki_client::sign_tbs(&hipki_server, &app_id_str, pin)
             .unwrap_or_else(|e| {
                 eprintln!("Failed to sign via HiPKI: {}", e);
                 process::exit(1);
@@ -177,12 +207,19 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
         );
 
         info!(
-            challenge_id = %challenge_resp.challenge_id,
+            challenge = %challenge_resp.challenge,
             serial = %serial_hex,
-            "Live input ready — save challenge_id for /verify"
+            "Live input ready — save challenge for /link-verify"
         );
 
-        (user_cert, sign_response.signature, issuer_cert, serial_hex, tbs_hex.into_bytes())
+        (
+            user_cert,
+            sign_response.signature,
+            issuer_cert,
+            serial_hex,
+            app_id_bytes,
+            challenge_resp.challenge,
+        )
     } else if rs4096 {
         let response_path = Path::new("tests/testdata/rs4096_response_sign.json");
         let issuer_cert = CertChainRs4096Circuit::fetch_cert_from_file("tests/testdata/test_ca_rs4096.der")
@@ -202,6 +239,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
             issuer_cert,
             serial_hex,
             ecdsa_spartan2::DEFAULT_TBS.to_vec(),
+            ecdsa_spartan2::DEFAULT_CHALLENGE.to_string(),
         )
     } else {
         let response_path = Path::new("tests/testdata/response_sign_test.json");
@@ -226,6 +264,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
             issuer_cert,
             serial_hex,
             ecdsa_spartan2::DEFAULT_TBS.to_vec(),
+            ecdsa_spartan2::DEFAULT_CHALLENGE.to_string(),
         )
     };
 
@@ -234,18 +273,28 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
             .expect("Failed to fetch SMT proof")
     });
 
+    let from_override = pk_blind_override.is_some();
+    let pk_blind = pk_blind_override.unwrap_or_else(ecdsa_spartan2::random_pk_blind);
+    let prefix = &pk_blind[..pk_blind.len().min(8)];
+    if from_override {
+        warn!(pk_blind_prefix = prefix, "Using pk_blind from --pk-blind override — only safe for fixture/test runs; reusing across submissions defeats hiding");
+    } else {
+        info!(pk_blind_prefix = prefix, "Sampled pk_blind");
+    }
+
     info!("Generating split inputs (cert_chain + device_sig)...");
     let (cert_chain_json, device_sig_json) = generate_split_inputs(
         &user_cert,
         &issuer_cert,
         &user_sig_b64,
-        &tbs_bytes,
+        &app_id_bytes,
         &serial_hex,
         smt_inputs.as_ref(),
         k_issuer,
         k_user,
         max_cert_length,
-        &app_id,
+        &pk_blind,
+        &challenge,
     )
     .unwrap_or_else(|e| {
         eprintln!("Error generating split inputs: {}", e);
@@ -268,13 +317,11 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
     process::exit(0);
 }
 
-/// `link-verify` CLI: verify both proofs and check pk_commit equality.
+/// Verify both proofs and check `pk_commit_A == pk_commit_B` to bind them to
+/// the same user key.
 ///
-/// CertChain public values: [nullifier, pk_commit, issuer_modulus..., smtRoot]
-/// DeviceSig public values: [pk_commit, packed_tbs]
-///
-/// The verifier checks `pk_commit_A == pk_commit_B` to bind the two proofs
-/// and prevent proof-mixing attacks.
+/// CertChain public values: [pk_commit, issuer_modulus..., smtRoot]
+/// DeviceSig public values: [pk_commit, nullifier, app_id_bytes[31]]
 fn run_link_verify(command_args: &[String]) -> ! {
     let rs4096 = command_args.contains(&"--cert-chain-4096".to_string())
         || command_args.contains(&"-4".to_string());
@@ -297,10 +344,11 @@ fn run_link_verify(command_args: &[String]) -> ! {
         path_config.key_path(DeviceSigRsa2048::VERIFYING_KEY),
     );
 
-    // pk_commit is at index 1 for cert-chain (after nullifier output)
-    // pk_commit is at index 0 for device-sig (first output)
-    let pk_commit_a = &cc_public_values[1];
+    let pk_commit_a = &cc_public_values[0];
     let pk_commit_b = &ds_public_values[0];
+    let nullifier = &ds_public_values[1];
+    let app_id_packed = &ds_public_values[2];
+    let challenge = &ds_public_values[3];
 
     use ff::PrimeField;
     use subtle::ConstantTimeEq;
@@ -310,8 +358,16 @@ fn run_link_verify(command_args: &[String]) -> ! {
         .ct_eq(pk_commit_b.to_repr().as_ref())
         .into();
     if commits_match {
+        let bytes = app_id_packed.to_repr();
+        let app_id_hex: String = bytes.as_ref()[..31]
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect();
         info!(
             pk_commit = ?pk_commit_a,
+            nullifier = ?nullifier,
+            app_id = %app_id_hex,
+            challenge = ?challenge,
             "Link verification PASSED: pk_commit_A == pk_commit_B"
         );
         process::exit(0);
@@ -645,6 +701,8 @@ Live mode options (for generate-split-input):
   --challenge-server <url>   Challenge server URL (default: http://localhost:8080)
   --smt-server <url>         SMT server URL for revocation proof (optional)
   --issuer <id>              Issuer identifier (default: g2, or g3 with -4)
+  --pk-blind <decimal>       Override the per-session pk_blind with a fixed
+                             decimal field element (for reproducible fixtures)
 
 Examples:
   cargo run --release -- generate-split-input

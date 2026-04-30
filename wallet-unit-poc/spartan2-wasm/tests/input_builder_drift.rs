@@ -1,15 +1,6 @@
-//! Native-target drift test: build split inputs via spartan2-wasm's native
-//! entry point and compare byte-for-byte with `ecdsa-spartan2`'s native
-//! `generate_split_inputs`. Both routes share the same underlying
-//! `zkid-input-builder` implementation; this test guards the two marshalling
-//! layers (plus future divergence) against drifting apart.
-//!
-//! Load-bearing guarantee: if this test fails, the browser input builder
-//! disagrees with the Rust CLI reference by ≥ one byte — the precise class
-//! of failure that produces `Too many values for input signal __placeholder__`
-//! at witness time. CI blocks the PR before it can reach the browser.
-//!
-//! Runs on the default (native) target only. Never compiled for wasm32.
+//! Drift guard: spartan2-wasm's native entry must produce byte-identical JSON
+//! to `ecdsa-spartan2`'s `generate_split_inputs`. A one-byte drift would
+//! resurface witness-input shape errors at proving time. Native target only.
 
 #![cfg(not(target_arch = "wasm32"))]
 
@@ -18,13 +9,19 @@ use ecdsa_spartan2::{
         cert::{extract_issuer_cert, generate_user_cert_from_certb64, serial_bytes_to_hex_trimmed},
         types::{CardSignResponse, Pkcs11InfoResponse, Rs4096SignResponse, SmtCircuitInputs},
     },
-    generate_split_inputs, DEFAULT_TBS, MAX_CERT_CHAIN_LENGTH,
+    generate_split_inputs, DEFAULT_CHALLENGE, DEFAULT_TBS, MAX_CERT_CHAIN_LENGTH,
 };
 use spartan2_wasm::inputs::build_split_inputs_native_for_test;
 use x509_cert::{
     der::{Decode, Encode},
     Certificate,
 };
+
+/// Same constant as ecdsa-spartan2/tests/split_input_generation.rs so all
+/// committed test JSONs share the same blind. `DEFAULT_CHALLENGE` is reused
+/// from `ecdsa_spartan2` directly.
+const TEST_PK_BLIND: &str =
+    "452312848583266388373324160190187140051835877600158453279131187530910662655";
 
 const SIGN_RESPONSE_PATH: &str = "../ecdsa-spartan2/tests/testdata/response_sign_test.json";
 const PKCS11_RESPONSE_PATH: &str = "../ecdsa-spartan2/tests/testdata/pkcs11info_test.json";
@@ -86,20 +83,21 @@ fn assert_split_inputs_match(
     serial_hex: &str,
     smt_inputs: Option<&SmtCircuitInputs>,
     k_issuer: usize,
-    app_id: &str,
 ) {
     let user_cert = Certificate::from_der(user_der).expect("user parse");
     let issuer_cert = Certificate::from_der(issuer_der).expect("issuer parse");
 
     let (native_cert, native_device) = generate_split_inputs(
         &user_cert, &issuer_cert, sig_b64, DEFAULT_TBS, serial_hex,
-        smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH, app_id,
+        smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH,
+        TEST_PK_BLIND, DEFAULT_CHALLENGE,
     )
     .expect("native generate_split_inputs");
 
     let wasm_out = build_split_inputs_native_for_test(
         user_der, issuer_der, sig_b64, DEFAULT_TBS, serial_hex,
-        smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH, app_id,
+        smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH,
+        TEST_PK_BLIND, DEFAULT_CHALLENGE,
     )
     .expect("wasm crate build_split_inputs");
 
@@ -137,7 +135,7 @@ fn synthetic_smt_inputs() -> SmtCircuitInputs {
 fn cert_chain_rs2048_input_builder_drift() {
     let (user_der, issuer_der, sig_b64, serial_hex) = rs2048_fixtures();
     assert_split_inputs_match(
-        "rs2048", &user_der, &issuer_der, &sig_b64, &serial_hex, None, 17, "0",
+        "rs2048", &user_der, &issuer_der, &sig_b64, &serial_hex, None, 17,
     );
 }
 
@@ -145,7 +143,7 @@ fn cert_chain_rs2048_input_builder_drift() {
 fn cert_chain_rs4096_input_builder_drift() {
     let (user_der, issuer_der, sig_b64, serial_hex) = rs4096_fixtures();
     assert_split_inputs_match(
-        "rs4096", &user_der, &issuer_der, &sig_b64, &serial_hex, None, 34, "0",
+        "rs4096", &user_der, &issuer_der, &sig_b64, &serial_hex, None, 34,
     );
 }
 
@@ -164,6 +162,5 @@ fn cert_chain_rs2048_input_builder_drift_with_smt() {
         &serial_hex,
         Some(&smt),
         17,
-        "0",
     );
 }

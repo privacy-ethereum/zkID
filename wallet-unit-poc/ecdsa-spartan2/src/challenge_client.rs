@@ -7,10 +7,12 @@ use std::error::Error;
 const DEFAULT_SERVER_URL: &str = "http://localhost:8080";
 const MAX_RETRIES: usize = 3;
 
+/// `POST /challenge` response. `challenge` is the decimal field element the
+/// prover folds into the device-sig proof and submits back at /link-verify.
 #[derive(Debug, serde::Deserialize)]
 pub struct ChallengeResponse {
-    pub challenge_id: String,
-    pub challenge_bytes: String,
+    pub challenge: String,
+    pub app_id: String,
     pub expires_at: String,
 }
 
@@ -57,32 +59,24 @@ mod tests {
     #[test]
     fn test_challenge_response_deserialization() {
         let json = r#"{
-            "challenge_id": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
-            "challenge_bytes": "deadbeefcafebabe1234567890abcde",
+            "app_id": "6537373566323830356662393933653035613230386462666631356431633f1",
+            "challenge": "215078321887317284868454961554019057364",
             "expires_at": "2026-01-01T00:00:00Z"
         }"#;
         let resp: ChallengeResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(resp.challenge_id, "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4");
-        assert_eq!(resp.challenge_bytes, "deadbeefcafebabe1234567890abcde");
+        assert_eq!(
+            resp.app_id,
+            "6537373566323830356662393933653035613230386462666631356431633f1"
+        );
+        assert_eq!(resp.challenge, "215078321887317284868454961554019057364");
         assert_eq!(resp.expires_at, "2026-01-01T00:00:00Z");
-    }
-
-    #[test]
-    fn test_challenge_response_deserialization_minimal() {
-        let json = r#"{
-            "challenge_id": "00000000000000000000000000000000",
-            "challenge_bytes": "0000000000000000000000000000000",
-            "expires_at": "any-string-works"
-        }"#;
-        let resp: ChallengeResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(resp.expires_at, "any-string-works");
     }
 
     #[test]
     #[ignore] // requires live challenge server on localhost:8080
     fn test_fetch_challenge_live() {
         let resp = create_challenge(DEFAULT_SERVER_URL).unwrap();
-        assert!(!resp.challenge_id.is_empty());
-        assert!(!resp.challenge_bytes.is_empty());
+        assert!(!resp.challenge.is_empty());
+        assert!(!resp.app_id.is_empty());
     }
 }

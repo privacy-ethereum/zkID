@@ -6,7 +6,9 @@
 
 use super::circuit::{RsaKeySize, Sha256RsaCircuit};
 
-pub use zkid_input_builder::{generate_split_inputs, MAX_CERT_CHAIN_LENGTH};
+pub use zkid_input_builder::{
+    generate_split_inputs, random_pk_blind, APP_ID_LEN, MAX_CERT_CHAIN_LENGTH,
+};
 
 #[cfg(feature = "cert_chain_rs2048")]
 witnesscalc_adapter::witness!(cert_chain_rs2048);
@@ -27,7 +29,7 @@ pub struct CertChainRsa4096;
 impl RsaKeySize for CertChainRsa2048 {
     const RSA_K: usize = 17;
     const CIRCUIT_NAME: &'static str = "cert_chain_rs2048";
-    const NUM_PUBLIC: usize = 21;
+    const NUM_PUBLIC: usize = 19;
     const PROVING_KEY: &'static str = "cert_chain_rs2048_proving.key";
     const VERIFYING_KEY: &'static str = "cert_chain_rs2048_verifying.key";
     const PROOF: &'static str = "cert_chain_rs2048_proof.bin";
@@ -46,7 +48,7 @@ impl RsaKeySize for CertChainRsa2048 {
 impl RsaKeySize for CertChainRsa4096 {
     const RSA_K: usize = 34;
     const CIRCUIT_NAME: &'static str = "cert_chain_rs4096";
-    const NUM_PUBLIC: usize = 38;
+    const NUM_PUBLIC: usize = 36;
     const PROVING_KEY: &'static str = "cert_chain_rs4096_proving.key";
     const VERIFYING_KEY: &'static str = "cert_chain_rs4096_verifying.key";
     const PROOF: &'static str = "cert_chain_rs4096_proof.bin";
@@ -69,7 +71,8 @@ pub struct DeviceSigRsa2048;
 impl RsaKeySize for DeviceSigRsa2048 {
     const RSA_K: usize = 17;
     const CIRCUIT_NAME: &'static str = "device_sig_rs2048";
-    const NUM_PUBLIC: usize = 2;
+    // pk_commit, nullifier, app_id_packed, challenge.
+    const NUM_PUBLIC: usize = 4;
     const PROVING_KEY: &'static str = "device_sig_rs2048_proving.key";
     const VERIFYING_KEY: &'static str = "device_sig_rs2048_verifying.key";
     const PROOF: &'static str = "device_sig_rs2048_proof.bin";

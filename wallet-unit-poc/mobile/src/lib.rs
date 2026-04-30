@@ -132,7 +132,6 @@ pub fn generate_cert_chain_rs4096_input(
     issuer_cert_path: String,
     smt_snapshot_path: Option<String>,
     output_dir: String,
-    app_id: String,
 ) -> Result<String, ZkProofError> {
     let user_cert = CertChainRs4096Circuit::generate_user_cert_from_certb64(&certb64)
         .map_err(|e| ZkProofError::InvalidInput { msg: e.to_string() })?;
@@ -171,7 +170,6 @@ pub fn generate_cert_chain_rs4096_input(
         CertChainRsa4096::RSA_K, // k_issuer = 34 (RSA-4096 CA)
         DeviceSigRsa2048::RSA_K, // k_user   = 17 (RSA-2048 device key)
         MAX_CERT_CHAIN_LENGTH,
-        &app_id,
     )
     .map_err(|e| ZkProofError::InvalidInput { msg: e.to_string() })?;
 
@@ -369,9 +367,7 @@ pub fn link_verify(documents_path: String) -> Result<bool, ZkProofError> {
         config.key_path(DeviceSigRsa2048::VERIFYING_KEY),
     );
 
-    // pk_commit is at index 1 for cert-chain (after nullifier output)
-    // pk_commit is at index 0 for device-sig (first output)
-    let pk_commit_a = &cc_public_values[1];
+    let pk_commit_a = &cc_public_values[0];
     let pk_commit_b = &ds_public_values[0];
 
     use ff::PrimeField;
@@ -1012,7 +1008,6 @@ mod tests {
             .exists()
             .then(|| snapshot_path.to_string());
 
-        let app_id = "0".to_string();
         let result = generate_cert_chain_rs4096_input(
             certb64,
             signed_response,
@@ -1020,7 +1015,6 @@ mod tests {
             issuer_cert_path.to_string_lossy().to_string(),
             smt_snapshot,
             documents_path.clone(),
-            app_id,
         )
         .unwrap();
         assert!(result.contains("cert_chain"));

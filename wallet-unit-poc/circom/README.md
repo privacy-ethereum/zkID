@@ -44,6 +44,21 @@ memory-heavy.
 - `circuits/components/` — reusable templates: SMT non-membership, Poseidon over P256
 - `circuits/utils/utils.circom` — DER-level cert helpers (TBS / subject / serial extraction, modulus extraction, byte packing, Poseidon-over-bytes)
 
+## Public-output layout (verifier-side parsing)
+
+Witness order (after the implicit constant-1 wire):
+
+| Circuit              | Signals | Order                                                                |
+|----------------------|---------|----------------------------------------------------------------------|
+| `cert_chain_rs2048`  | 19      | `[pk_commit, issuer_rsa_modulus[17], smt_root]`                      |
+| `cert_chain_rs4096`  | 36      | `[pk_commit, issuer_rsa_modulus[34], smt_root]`                      |
+| `device_sig_rs2048`  |  4      | `[pk_commit, nullifier, app_id_packed, challenge]`                   |
+
+`app_id_packed` is `tbs[0..31]` packed little-endian into one field element;
+the verifier matches it against the configured `APP_ID` after the same
+packing. `challenge` is the verifier-issued per-session field element bound
+via a Semaphore-style dummy square (`challengeSquared <== challenge * challenge`).
+
 ## See also
 
 - [SPEC.md](./SPEC.md) — circuit specification (inputs, outputs, what's proven)

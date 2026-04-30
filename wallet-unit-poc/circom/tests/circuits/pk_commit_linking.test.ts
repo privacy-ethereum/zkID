@@ -13,12 +13,12 @@ import assert from "assert";
  * Node's string length limit.
  *
  * Witness layout (circom convention: index 0 = constant 1, then outputs):
- *   cert_chain:  witness[1] = nullifier, witness[2] = pk_commit
- *   device_sig:  witness[1] = pk_commit, witness[2] = packed_tbs
+ *   cert_chain:  witness[1] = pk_commit
+ *   device_sig:  witness[1] = pk_commit, witness[2] = nullifier
  */
 describe("pk_commit linking (CertChain <-> DeviceSig)", function () {
-  let certChainCircuit: WitnessTester<any, ["nullifier", "pk_commit"]>;
-  let deviceSigCircuit: WitnessTester<any, ["pk_commit", "packed_tbs"]>;
+  let certChainCircuit: WitnessTester<any, ["pk_commit"]>;
+  let deviceSigCircuit: WitnessTester<any, ["pk_commit", "nullifier"]>;
   let certChainInput: Record<string, any>;
   let deviceSigInput: Record<string, any>;
 
@@ -44,9 +44,7 @@ describe("pk_commit linking (CertChain <-> DeviceSig)", function () {
     const ccWitness = await certChainCircuit.calculateWitness(certChainInput);
     const dsWitness = await deviceSigCircuit.calculateWitness(deviceSigInput);
 
-    // cert_chain outputs: [nullifier, pk_commit] → pk_commit at index 2
-    const ccPkCommit = ccWitness[2];
-    // device_sig outputs: [pk_commit, packed_tbs] → pk_commit at index 1
+    const ccPkCommit = ccWitness[1];
     const dsPkCommit = dsWitness[1];
 
     assert.strictEqual(

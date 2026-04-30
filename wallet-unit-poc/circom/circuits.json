@@ -3,18 +3,18 @@
     "file": "cert_chain",
     "template": "CertChainRSA256",
     "params": [1536, 121, 17, 2048, 17, 2048, 128, 128, 20],
-    "pubs": ["issuer_rsa_modulus", "smtRoot", "app_id"]
+    "pubs": ["issuer_rsa_modulus", "smtRoot"]
   },
   "cert_chain_rs4096": {
     "file": "cert_chain",
     "template": "CertChainRSA256",
     "params": [1536, 121, 34, 4096, 17, 2048, 128, 128, 20],
-    "pubs": ["issuer_rsa_modulus", "smtRoot", "app_id"]
+    "pubs": ["issuer_rsa_modulus", "smtRoot"]
   },
   "device_sig_rs2048": {
     "file": "device_sig",
     "template": "DeviceSigRSA256",
     "params": [1536, 121, 17],
-    "pubs": []
+    "pubs": ["challenge"]
   }
 }

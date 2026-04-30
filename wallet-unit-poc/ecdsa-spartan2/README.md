@@ -4,9 +4,13 @@ Spartan2-based proving tooling for the zkID wallet proof of concept.
 
 Two linked circuits prove certificate ownership without revealing personal data:
 - **cert-chain** (Circuit A): certificate chain verification + SMT revocation + pk_commit
-- **device-sig** (Circuit B): device signature verification + pk_commit + packed_tbs
+- **device-sig** (Circuit B): device signature verification + pk_commit + nullifier + app_id binding
 
-Proofs are bound via `pk_commit = ChunkedPoseidonP256(user_pk_limbs ‖ pk_blind)` — computed identically in both circuits so the verifier can check `pk_commit_A == pk_commit_B`.
+Proofs are bound via `pk_commit = ChunkedPoseidonP256(user_pk_limbs ‖ pk_blind)` — computed identically in both circuits so the verifier can check `pk_commit_A == pk_commit_B`. `pk_blind` is a per-session 248-bit uniform sample; see [`circom/SPEC.md`](../circom/SPEC.md#why-per-session-randomness-for-pk_blind) for the threat model.
+
+Circuit B also emits `nullifier = ChunkedPoseidonP256(user_rsa_signature)`, which is deterministic per `(card, app_id)` and unforgeable without the card's private key. A per-session `challenge` field element from the verifier's `/challenge` endpoint is bound into the proof via a Semaphore-style dummy square so a precomputed proof cannot be replayed against a different session.
+
+Device-sig public-output layout: `[pk_commit, nullifier, app_id_packed, challenge]` (4 signals). `app_id_packed` is `tbs[0..31]` packed little-endian into one field element; the verifier matches it against the configured `APP_ID` after the same packing.
 
 ## Prerequisites
 
@@ -39,11 +43,7 @@ RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain pro
 RUST_LOG=info cargo run --release -- device-sig prove \
   --input ../circom/inputs/device_sig_rs2048/input.json
 
-# 4. Verify proofs independently
-RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain verify
-RUST_LOG=info cargo run --release -- device-sig verify
-
-# 5. Link-verify: check pk_commit equality across both proofs
+# 4. Link-verify: check pk_commit equality across both proofs
 RUST_LOG=info cargo run --release -- link-verify
 ```
 
@@ -97,9 +97,7 @@ RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain pro
 RUST_LOG=info cargo run --release -- device-sig prove \
   --input ../circom/inputs/device_sig_rs2048/input.json
 
-# 4. Verify + link-verify
-RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain verify
-RUST_LOG=info cargo run --release -- device-sig verify
+# 4. link-verify
 RUST_LOG=info cargo run --release -- link-verify
 ```
 
@@ -117,8 +115,6 @@ RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain pro
 RUST_LOG=info cargo run --release -- device-sig prove \
   --input ../circom/inputs/device_sig_rs2048_chain_rs4096/input.json
 
-RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain verify --cert-chain-4096
-RUST_LOG=info cargo run --release -- device-sig verify
 RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 ```
 
@@ -126,12 +122,11 @@ RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 
 | Flag | Default | Description |
 |---|---|---|
-| `--pin <PIN>` | *(off)* | Enables live mode — signs TBS via HiPKI card |
+| `--pin <PIN>` | *(off)* | Enables live mode — signs the 31-byte `app_id` via HiPKI card |
 | `--cert-chain-4096` / `-4` | rs2048 | Use RSA-4096 issuer (MOICA-G3) |
 | `--smt-server <URL>` | *(off)* | Fetch SMT non-membership proof for revocation |
 | `--hipki-server <URL>` | `http://localhost:61161` | HiPKI LocalSignServer endpoint |
 | `--challenge-server <URL>` | `http://localhost:8080` | go-zkid-verifier challenge endpoint |
-| `--app-id <DECIMAL>` | `0` | Application identifier bound into `nullifier`; must match the verifier's expected value |
 
 ## Benchmark
 

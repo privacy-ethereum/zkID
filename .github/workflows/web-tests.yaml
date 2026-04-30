@@ -101,9 +101,10 @@ jobs:
                   cargo test --release --test input_builder_drift
 
             - name: Run spartan2-wasm native_drift cross-parity test
+              # Serialize: 256 MB stack + ~470 MB proving key per test → OOM if parallel.
               run: |
                   cd wallet-unit-poc/spartan2-wasm
-                  cargo test --release --test native_drift
+                  cargo test --release --test native_drift -- --test-threads=1
 
             - name: Run zkid-input-builder unit tests
               run: |

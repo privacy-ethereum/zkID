@@ -39,7 +39,6 @@ fn cert_chain_rs2048_drift() {
     let input = fixture_input(CircuitKind::CertChainRs2048);
     let wtns = witness_bytes_in_big_stack::<CertChainRsa2048>(input);
 
-    // Use canonical shape-only circuit constructor.
     let (pk, vk) = setup_circuit_keys_no_save::<Sha256RsaCircuit<CertChainRsa2048>>(
         Sha256RsaCircuit::<CertChainRsa2048>::default(),
     );
@@ -47,18 +46,20 @@ fn cert_chain_rs2048_drift() {
     let pk_bytes = bincode::serialize(&pk).unwrap();
     let vk_bytes = bincode::serialize(&vk).unwrap();
 
-    // Prove via spartan2-wasm native path.
     let (proof_bytes, _instance_bytes, public_values) =
         prove_native_for_test(CircuitKind::CertChainRs2048, &pk_bytes, &wtns)
             .expect("spartan2-wasm prove");
 
-    // Verify via ecdsa-spartan2; drift should fail here.
     let proof: spartan2_wasm::R1CSSNARKForTest =
         bincode::deserialize(&proof_bytes).unwrap();
     let vk_native: spartan2_wasm::VerifierKeyForTest = bincode::deserialize(&vk_bytes).unwrap();
     let pv = ecdsa_spartan2::prover::verify_circuit_with_loaded_data(&proof, &vk_native);
 
-    assert_eq!(pv.len(), 21, "cert_chain_rs2048 NUM_PUBLIC");
+    assert_eq!(
+        pv.len(),
+        CircuitKind::CertChainRs2048.num_public(),
+        "cert_chain_rs2048 NUM_PUBLIC"
+    );
     assert_eq!(pv, public_values, "public values round-trip");
 }
 
@@ -81,6 +82,10 @@ fn device_sig_rs2048_drift() {
     let vk_native: spartan2_wasm::VerifierKeyForTest = bincode::deserialize(&vk_bytes).unwrap();
     let pv = ecdsa_spartan2::prover::verify_circuit_with_loaded_data(&proof, &vk_native);
 
-    assert_eq!(pv.len(), 2, "device_sig_rs2048 NUM_PUBLIC");
+    assert_eq!(
+        pv.len(),
+        CircuitKind::DeviceSigRs2048.num_public(),
+        "device_sig_rs2048 NUM_PUBLIC"
+    );
     assert_eq!(pv, public_values);
 }

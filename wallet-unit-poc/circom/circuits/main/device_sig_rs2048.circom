@@ -3,4 +3,4 @@ pragma circom 2.2.3;
 
 include "../device_sig.circom";
 
-component main = DeviceSigRSA256(1536, 121, 17);
+component main {public[challenge]} = DeviceSigRSA256(1536, 121, 17);

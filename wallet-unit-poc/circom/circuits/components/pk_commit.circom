@@ -23,6 +23,8 @@ include "poseidon_p256.circom";
 ///         Hiding: NOT inherently hiding. The caller must include a fresh,
 ///         random `pk_blind` as the last input element to randomize `out`
 ///         per session. See cert_chain.circom and device_sig.circom for usage.
+///         The `pk_blind` input is a per-session uniform field element drawn
+///         by the prover; see SPEC.md §"Why per-session randomness for pk_blind".
 /// @param nInputs  Number of input field elements (must be >= 1)
 /// @input  inputs  The field elements to hash
 /// @output out     Single-field commitment
