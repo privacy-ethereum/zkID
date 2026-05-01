@@ -4338,12 +4338,12 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "der",
+ "getrandom 0.2.16",
  "hex",
  "num-bigint 0.4.6",
  "rsa",
  "serde",
  "serde_json",
- "sha2",
  "x509-cert",
 ]
 

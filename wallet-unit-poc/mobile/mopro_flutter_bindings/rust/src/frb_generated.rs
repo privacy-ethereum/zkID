@@ -214,7 +214,8 @@ fn wire__openac_mobile_app__generate_cert_chain_rs4096_input_impl(
             let api_issuer_cert_path = <String>::sse_decode(&mut deserializer);
             let api_smt_snapshot_path = <Option<String>>::sse_decode(&mut deserializer);
             let api_output_dir = <String>::sse_decode(&mut deserializer);
-            let api_app_id = <String>::sse_decode(&mut deserializer);
+            let api_pk_blind = <String>::sse_decode(&mut deserializer);
+            let api_challenge = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
@@ -225,7 +226,8 @@ fn wire__openac_mobile_app__generate_cert_chain_rs4096_input_impl(
                         api_issuer_cert_path,
                         api_smt_snapshot_path,
                         api_output_dir,
-                        api_app_id,
+                        api_pk_blind,
+                        api_challenge,
                     )?;
                     Ok(output_ok)
                 })())
