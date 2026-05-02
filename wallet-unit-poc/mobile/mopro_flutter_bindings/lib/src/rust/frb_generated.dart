@@ -100,7 +100,6 @@ abstract class RustLibApi extends BaseApi {
     required String issuerCertPath,
     String? smtSnapshotPath,
     required String outputDir,
-    required String pkBlind,
     required String challenge,
   });
 
@@ -305,7 +304,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     required String issuerCertPath,
     String? smtSnapshotPath,
     required String outputDir,
-    required String pkBlind,
     required String challenge,
   }) {
     return handler.executeNormal(
@@ -318,7 +316,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           sse_encode_String(issuerCertPath, serializer);
           sse_encode_opt_String(smtSnapshotPath, serializer);
           sse_encode_String(outputDir, serializer);
-          sse_encode_String(pkBlind, serializer);
           sse_encode_String(challenge, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
@@ -340,7 +337,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           issuerCertPath,
           smtSnapshotPath,
           outputDir,
-          pkBlind,
           challenge,
         ],
         apiImpl: this,
@@ -358,7 +354,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           "issuerCertPath",
           "smtSnapshotPath",
           "outputDir",
-          "pkBlind",
           "challenge",
         ],
       );

@@ -132,7 +132,6 @@ pub fn generate_cert_chain_rs4096_input(
     issuer_cert_path: String,
     smt_snapshot_path: Option<String>,
     output_dir: String,
-    pk_blind: String,
     challenge: String,
 ) -> Result<String, ZkProofError> {
     let user_cert = CertChainRs4096Circuit::generate_user_cert_from_certb64(&certb64)
@@ -162,6 +161,7 @@ pub fn generate_cert_chain_rs4096_input(
         })
         .transpose()?;
 
+    let pk_blind = ecdsa_spartan2::random_pk_blind();
     let (cert_chain_json, device_sig_json) = generate_split_inputs(
         &user_cert,
         &issuer_cert,
@@ -978,8 +978,7 @@ mod tests {
         let tbs = std::str::from_utf8(ecdsa_spartan2::DEFAULT_TBS)
             .unwrap()
             .to_string();
-        let issuer_cert_path =
-            manifest.join("../ecdsa-spartan2/tests/testdata/test_ca_rs4096.der");
+        let issuer_cert_path = manifest.join("../ecdsa-spartan2/tests/testdata/test_ca_rs4096.der");
 
         // Use a temp dir as documents_path so input + key files stay isolated.
         let tmp = tempfile::tempdir().unwrap();
@@ -987,12 +986,10 @@ mod tests {
         std::fs::create_dir_all(tmp.path().join("keys")).unwrap();
 
         // Copy R1CS files — built by `yarn compile:cert_chain_rs4096/device_sig_rs2048`.
-        let cc_r1cs_src = manifest.join(
-            "../circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.r1cs",
-        );
-        let ds_r1cs_src = manifest.join(
-            "../circom/build/device_sig_rs2048/device_sig_rs2048_js/device_sig_rs2048.r1cs",
-        );
+        let cc_r1cs_src = manifest
+            .join("../circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.r1cs");
+        let ds_r1cs_src = manifest
+            .join("../circom/build/device_sig_rs2048/device_sig_rs2048_js/device_sig_rs2048.r1cs");
         assert!(
             cc_r1cs_src.exists(),
             "cert_chain_rs4096 R1CS not found at {}. Run `yarn compile:cert_chain_rs4096` first.",
@@ -1012,7 +1009,6 @@ mod tests {
             .exists()
             .then(|| snapshot_path.to_string());
 
-        let pk_blind = ecdsa_spartan2::random_pk_blind();
         let challenge = DEFAULT_CHALLENGE.to_string();
         let result = generate_cert_chain_rs4096_input(
             certb64,
@@ -1021,7 +1017,6 @@ mod tests {
             issuer_cert_path.to_string_lossy().to_string(),
             smt_snapshot,
             documents_path.clone(),
-            pk_blind,
             challenge,
         )
         .unwrap();

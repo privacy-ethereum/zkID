@@ -28,7 +28,6 @@ Future<String> generateCertChainRs4096Input({
   required String issuerCertPath,
   String? smtSnapshotPath,
   required String outputDir,
-  required String pkBlind,
   required String challenge,
 }) => RustLib.instance.api.openacMobileAppGenerateCertChainRs4096Input(
   certb64: certb64,
@@ -37,7 +36,6 @@ Future<String> generateCertChainRs4096Input({
   issuerCertPath: issuerCertPath,
   smtSnapshotPath: smtSnapshotPath,
   outputDir: outputDir,
-  pkBlind: pkBlind,
   challenge: challenge,
 );
 

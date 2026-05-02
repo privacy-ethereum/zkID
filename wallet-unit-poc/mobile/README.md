@@ -85,7 +85,28 @@ Before building for Android, install Android Studio and configure the NDK enviro
 
 These's already default [Flutter bindings](/wallet-unit-poc/mobile/mopro_flutter_bindings/), so no need to manually generate a new one.
 
-However, if you want to play around with your own tweak version, see [Mopro Flutter Setup](https://zkmopro.org/docs/setup/flutter-setup) for generating a custom bindings.
+However, if you want to regenerate the bindings (e.g., after modifying the Rust source), follow these steps:
+
+1. Run `mopro build` from the `wallet-unit-poc/mobile` directory and select **Release** mode and **Flutter** platform when prompted:
+
+    ```sh
+    cd wallet-unit-poc/mobile
+    mopro build
+    # Select: Release
+    # Select: Flutter
+    ```
+
+2. After the build completes, revert the absolute path that `mopro build` writes into `Cargo.toml` back to the relative path:
+
+    ```sh
+    # In mopro_flutter_bindings/rust/Cargo.toml, revert:
+    #   path = "/absolute/path/to/wallet-unit-poc/mobile"
+    # back to:
+    #   path = "../.."
+    git checkout mopro_flutter_bindings/rust/Cargo.toml
+    ```
+
+For more details, see [Mopro Flutter Setup](https://zkmopro.org/docs/setup/flutter-setup).
 
 #### 4(b). Connect Devices or Run Emulators
 
