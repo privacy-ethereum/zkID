@@ -159,25 +159,17 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
             expires_at = %challenge_resp.expires_at,
             "Challenge received"
         );
-        let app_id_hex = challenge_resp.app_id;
-        let app_id_bytes = hex::decode(&app_id_hex).unwrap_or_else(|e| {
-            eprintln!("Verifier returned non-hex app_id ({}): {}", app_id_hex, e);
-            process::exit(1);
-        });
+        let app_id_str = challenge_resp.app_id;
+        let app_id_bytes = app_id_str.as_bytes().to_vec();
         if app_id_bytes.len() != APP_ID_LEN {
             eprintln!(
-                "Verifier app_id decodes to {} bytes, expected {}",
+                "Verifier app_id is {} bytes, expected {} (got {:?})",
                 app_id_bytes.len(),
-                APP_ID_LEN
+                APP_ID_LEN,
+                app_id_str,
             );
             process::exit(1);
         }
-        let app_id_str = String::from_utf8(app_id_bytes.clone()).unwrap_or_else(|_| {
-            eprintln!(
-                "app_id from verifier is not valid UTF-8; APP_ID must hex-decode to a UTF-8-safe value (HiPKI /sign takes string tbs)"
-            );
-            process::exit(1);
-        });
 
         info!(server = %hipki_server, "Fetching certificate chain from HiPKI");
         let pkcs11info = ecdsa_spartan2::hipki_client::fetch_pkcs11info(&hipki_server)
@@ -191,7 +183,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
                 process::exit(1);
             });
 
-        info!(app_id = %app_id_hex, "Signing app_id via HiPKI card");
+        info!(app_id = %app_id_str, "Signing app_id via HiPKI card");
         let sign_response = ecdsa_spartan2::hipki_client::sign_tbs(&hipki_server, &app_id_str, pin)
             .unwrap_or_else(|e| {
                 eprintln!("Failed to sign via HiPKI: {}", e);

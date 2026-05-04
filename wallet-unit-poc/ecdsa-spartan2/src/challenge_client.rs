@@ -59,15 +59,12 @@ mod tests {
     #[test]
     fn test_challenge_response_deserialization() {
         let json = r#"{
-            "app_id": "6537373566323830356662393933653035613230386462666631356431633f1",
+            "app_id": "e775f2805fb993e05a208dbff15d1c1",
             "challenge": "215078321887317284868454961554019057364",
             "expires_at": "2026-01-01T00:00:00Z"
         }"#;
         let resp: ChallengeResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(
-            resp.app_id,
-            "6537373566323830356662393933653035613230386462666631356431633f1"
-        );
+        assert_eq!(resp.app_id, "e775f2805fb993e05a208dbff15d1c1");
         assert_eq!(resp.challenge, "215078321887317284868454961554019057364");
         assert_eq!(resp.expires_at, "2026-01-01T00:00:00Z");
     }
