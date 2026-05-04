@@ -8,10 +8,24 @@
 // inside the click handler would await a network response first and get
 // the HiPKI popup blocked by every modern browser.
 
-import { $challenge } from "../challenge-state";
+import { $challenge, type ChallengeState } from "../challenge-state";
 import { $hipki, $pin, $warmup } from "../setup-state";
 import { dispatch } from "../store";
 import { createChallenge } from "../verifier-client";
+
+export function startButtonStateFor(
+  c: ChallengeState,
+): { disabled: boolean; label: string } {
+  switch (c.status) {
+    case "pending":
+    case "fetching":
+      return { disabled: true, label: "Fetching challenge…" };
+    case "ready":
+      return { disabled: false, label: "Start proving" };
+    case "error":
+      return { disabled: false, label: "Retry challenge" };
+  }
+}
 
 export function mountReady(root: HTMLElement): () => void {
   root.innerHTML = `
@@ -89,24 +103,17 @@ export function mountReady(root: HTMLElement): () => void {
         ? "Verified and locked"
         : `Status: ${pinState.status}`;
 
-    switch (challenge.status) {
-      case "pending":
-      case "fetching":
-        challengeEl.textContent = "Fetching…";
-        startBtn.disabled = true;
-        startBtn.textContent = "Fetching challenge…";
-        break;
-      case "ready":
-        challengeEl.textContent = `id=${challenge.challenge.challenge_id}`;
-        startBtn.disabled = false;
-        startBtn.textContent = "Start proving";
-        break;
-      case "error":
-        challengeEl.textContent = `Error: ${challenge.message}`;
-        startBtn.disabled = true;
-        startBtn.textContent = "Retry challenge";
-        break;
+    if (challenge.status === "ready") {
+      const { challenge: decimal } = challenge.challenge;
+      challengeEl.textContent = `${decimal.slice(0, 12)}…`;
+    } else if (challenge.status === "error") {
+      challengeEl.textContent = `Error: ${challenge.message}`;
+    } else {
+      challengeEl.textContent = "Fetching…";
     }
+    const btn = startButtonStateFor(challenge);
+    startBtn.disabled = btn.disabled;
+    startBtn.textContent = btn.label;
   }
 
   async function fetchChallenge(): Promise<void> {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  appIdToBytes,
   base64ToBytes,
   bytesToHex,
-  challengeBytesToTbs,
   hexToBytes,
 } from "./bytes";
 
@@ -47,28 +47,25 @@ describe("bytesToHex", () => {
   });
 });
 
-describe("challengeBytesToTbs", () => {
-  // Byte-for-byte parity with the native Rust prover's `.into_bytes()` on
-  // the raw `challenge_bytes` string. If this diverges from UTF-8 encoding,
-  // web-generated proofs stop verifying against the same challenge.
-  it("encodes even-length hex string as ASCII bytes (matches Rust .into_bytes())", () => {
-    // "deadbeef" → [0x64, 0x65, 0x61, 0x64, 0x62, 0x65, 0x65, 0x66]
-    expect(challengeBytesToTbs("deadbeef")).toEqual(
+describe("appIdToBytes", () => {
+  // Byte-for-byte parity with the native Rust prover's `app_id_str.as_bytes()`.
+  // Diverging here desynchronizes the device-sig public signal from the
+  // verifier's `APP_ID` env var and `/link-verify` rejects every proof.
+  it("encodes ASCII app_id as UTF-8 bytes", () => {
+    expect(appIdToBytes("deadbeef")).toEqual(
       new Uint8Array([0x64, 0x65, 0x61, 0x64, 0x62, 0x65, 0x65, 0x66]),
     );
   });
 
-  it("handles odd-length hex without throwing (regression: server may emit odd-length)", () => {
-    // 31-char fixture. Hex-decoding this would throw; UTF-8 encoding must
-    // succeed and produce 31 bytes.
-    const out = challengeBytesToTbs("deadbeefcafebabe1234567890abcde");
+  it("accepts a 31-char app_id (the canonical length, often not valid hex)", () => {
+    const out = appIdToBytes("deadbeefcafebabe1234567890abcde");
     expect(out.byteLength).toBe(31);
     expect(out[0]).toBe(0x64);
     expect(out[out.length - 1]).toBe(0x65);
   });
 
   it("encodes empty string to empty array", () => {
-    expect(challengeBytesToTbs("")).toEqual(new Uint8Array(0));
+    expect(appIdToBytes("")).toEqual(new Uint8Array(0));
   });
 });
 

@@ -32,7 +32,9 @@ export interface ProveInput {
   certJson: string;
   deviceJson: string;
   certKind: Kind;
-  challengeId: string;
+  /** Verifier-issued per-session field element (decimal string). Forwarded
+   *  back via `proving_complete` for review-screen display. */
+  challenge: string;
 }
 
 export type WorkerInMsg =
@@ -84,7 +86,7 @@ export type Progress =
       certProofBytes: Uint8Array;
       deviceProofBytes: Uint8Array;
       certKind: Kind;
-      challengeId: string;
+      challenge: string;
       provingMs: number;
       /** Per-circuit timing breakdown for measurement logs. */
       certWitnessMs: number;
@@ -483,7 +485,7 @@ async function runProve(inputs: ProveInput): Promise<void> {
       certProofBytes,
       deviceProofBytes,
       certKind,
-      challengeId: inputs.challengeId,
+      challenge: inputs.challenge,
       provingMs: performance.now() - t0,
       certWitnessMs,
       certProveMs,

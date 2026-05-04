@@ -79,7 +79,7 @@ export function mountReview(root: HTMLElement): () => void {
   const retryBtn = root.querySelector<HTMLButtonElement>('[data-testid="review-retry"]')!;
   const sendBtn = root.querySelector<HTMLButtonElement>('[data-testid="review-send"]')!;
 
-  challengeEl.textContent = shortId(run.challengeId);
+  challengeEl.textContent = shortId(run.challenge);
   chainEl.textContent = run.certChainType.toUpperCase();
   certSizeEl.textContent = humanBytes(certBytes, "0 B");
   deviceSizeEl.textContent = humanBytes(deviceBytes, "0 B");

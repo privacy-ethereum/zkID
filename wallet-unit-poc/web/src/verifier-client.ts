@@ -7,10 +7,16 @@ const VERIFIER_BASE =
   import.meta.env.VITE_VERIFIER_BASE_URL ?? "http://localhost:8080";
 
 const MAX_RAW_PROOF_BYTES = 700 * 1024;
+const APP_ID_BYTES = 31;
 
 export interface Challenge {
-  challenge_id: string;
-  challenge_bytes: string;
+  /** Per-session field-element binding (decimal string). Embedded into the
+   *  device-sig proof; the verifier extracts it from the public signals and
+   *  normalizes it back to decimal for the store lookup. */
+  challenge: string;
+  /** 31-byte UTF-8 relying-party identifier. Signed by the card and fed
+   *  verbatim into the circuit's `app_id_bytes`. */
+  app_id: string;
   expires_at: string;
 }
 
@@ -48,7 +54,7 @@ export interface LinkVerifyParams {
 /** Default request timeout; can be overridden by VITE_VERIFIER_TIMEOUT_MS. */
 const VERIFIER_TIMEOUT_MS = parsePositiveInt(
   import.meta.env.VITE_VERIFIER_TIMEOUT_MS,
-  15_000,
+  60_000,
 );
 
 export interface CreateChallengeOptions {
@@ -72,11 +78,19 @@ export async function createChallenge(
   const body = (await r.json()) as Partial<Challenge>;
   // Runtime shape guard to catch server field drift early.
   if (
-    typeof body?.challenge_id !== "string" ||
-    typeof body?.challenge_bytes !== "string"
+    typeof body?.challenge !== "string" ||
+    typeof body?.app_id !== "string"
   ) {
     throw new Error(
       `POST /challenge: unexpected response shape (got keys: ${Object.keys(body ?? {}).join(", ") || "none"})`,
+    );
+  }
+  // The device-sig circuit has 31 fixed `app_id_bytes` slots. A drift here
+  // produces a non-verifying proof many seconds later instead of failing
+  // fast; assert it at the wire boundary.
+  if (new TextEncoder().encode(body.app_id).byteLength !== APP_ID_BYTES) {
+    throw new Error(
+      `POST /challenge: app_id must be ${APP_ID_BYTES} UTF-8 bytes (got ${body.app_id.length} chars)`,
     );
   }
   return body as Challenge;

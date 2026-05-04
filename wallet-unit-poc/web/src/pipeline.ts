@@ -4,7 +4,7 @@
 
 import { cert_modulus_bits, cert_serial_hex } from "./wasm/spartan2_wasm.js";
 
-import { base64ToBytes, challengeBytesToTbs } from "./bytes";
+import { appIdToBytes, base64ToBytes } from "./bytes";
 import { fetchPkcs11Info, signTbs } from "./hipki-client";
 import { buildInputs, ensureWasm } from "./inputs";
 import type { CircuitKind } from "./manifest";
@@ -38,8 +38,6 @@ export interface ProvingContext {
   pin: Pin;
   /** Pre-fetched so popup `window.open` keeps user activation. */
   challenge: Challenge;
-  /** Application identifier bound into nullifier (decimal string). */
-  appId: string;
   /** Cancels in-flight network calls; Worker cancel is handled separately. */
   signal?: AbortSignal;
 }
@@ -102,16 +100,15 @@ export async function runSignPhasePipeline(
 
   // Pre-fetched in Ready; keep this path await-free until `signTbs` so popup
   // user activation remains valid.
-  stepDone("challenge", `id=${challenge.challenge_id}`);
-  // Keep challenge bytes opaque for Rust parity; do not hex-decode.
-  const tbs = challengeBytesToTbs(challenge.challenge_bytes);
+  stepDone("challenge", `challenge=${challenge.challenge.slice(0, 12)}…`);
+  const appIdBytes = appIdToBytes(challenge.app_id);
 
   // Popup signing cannot be interrupted; abort on next check. Use cert from
   // `/sign` response, not setup cache, to match actual signing key.
   const { signatureB64: userSignatureB64, userCertDer: signedUserCertDer } =
     await stage("sign", async () => {
       const sig = await signTbs({
-        tbs: challenge.challenge_bytes,
+        tbs: challenge.app_id,
         pin: ctx.pin.consume(),
         slotDescription: ctx.card.slotDescription,
       });
@@ -156,9 +153,9 @@ export async function runSignPhasePipeline(
         serialHex: signedSerialHex,
       },
       userSignatureB64,
-      tbs,
+      appIdBytes,
       smtInputs,
-      appId: ctx.appId,
+      challenge: challenge.challenge,
     }),
   );
   checkAborted(signal);
@@ -167,7 +164,7 @@ export async function runSignPhasePipeline(
     certJson,
     deviceJson,
     certKind: ctx.card.certKind,
-    challengeId: challenge.challenge_id,
+    challenge: challenge.challenge,
   };
   return input;
 }

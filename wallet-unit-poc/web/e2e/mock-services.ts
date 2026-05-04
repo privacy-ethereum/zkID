@@ -108,8 +108,8 @@ export async function installMockServices(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        challenge_id: "e2e-challenge-0001",
-        challenge_bytes: "deadbeef",
+        challenge: "215078321887317284868454961554019057364",
+        app_id: "deadbeefcafebabe1234567890abcde",
         expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
       }),
     });
@@ -132,7 +132,9 @@ export async function installMockServices(
       body.cert_chain_proof.length > 0 &&
       body.device_sig_proof.length > 0 &&
       ["rs2048", "rs4096"].includes(body?.cert_chain_type) &&
-      // Server derives these fields; client must not send them.
+      // Server extracts these from the proof's public signals; the client
+      // must not include them in the request envelope.
+      !("challenge" in (body ?? {})) &&
       !("challenge_id" in (body ?? {})) &&
       !("nullifier" in (body ?? {}));
     await route.fulfill({

@@ -165,7 +165,9 @@ configurable via a `VITE_*` env var (see `.env.example`):
 | `go-zkid-verifier`        | `VITE_VERIFIER_BASE_URL`           | `http://localhost:8080`          | Challenge + `link-verify`                          |
 | HiPKI LocalSignServer     | `VITE_HIPKI_BASE_URL`              | `http://localhost:61161`         | `pkcs11info` + `sign` via popupForm postMessage    |
 | `moica-revocation-smt`    | (dev proxy)                        | `/smt-snapshot` → GH release     | Binary SMT snapshot + `smt.wasm` (read-only asset) |
-| Application ID            | `VITE_APP_ID`                      | `0`                              | Decimal field element bound into `nullifier` — must match the verifier's expected `app_id` |
+
+The 31-byte `app_id` and per-session `challenge` are returned by `POST /challenge` —
+no client-side env var. To change `app_id`, set `APP_ID` on the verifier.
 
 The revocation-tree path replaces the previous `moica-revocation-smt` REST
 server (`/proof/{issuer}/{serial}`), which leaked user serials per request.
@@ -173,8 +175,7 @@ The app now downloads snapshots once, rebuilds the tree in-browser via
 `smt.wasm`, and queries locally.
 
 Per-request timeouts are configurable via `VITE_VERIFIER_TIMEOUT_MS`
-(default 15000) — a hung verifier aborts cleanly instead of leaving the UI
-spinning.
+(default 60000).
 
 ### HiPKI CORS + mixed-content (why we use the popup bridge)
 

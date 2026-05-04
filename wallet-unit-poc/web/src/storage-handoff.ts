@@ -6,7 +6,9 @@
 import type { ProveInput } from "./worker";
 
 const PROVE_INPUT_KEY = "zkid:proveInput";
-const SCHEMA_VERSION = 1;
+// Bump on incompatible ProveInput shape changes; stale prior blobs are
+// rejected by the version check rather than feeding a fresh proving page.
+const SCHEMA_VERSION = 2;
 
 interface StoredProveInput {
   v: typeof SCHEMA_VERSION;

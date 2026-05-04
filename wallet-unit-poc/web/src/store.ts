@@ -18,7 +18,9 @@ import type { CircuitKind } from "./manifest";
 import type { ParsedInputs } from "./verifier-client";
 
 export interface ProvingRun {
-  challengeId: string;
+  /** Verifier-issued per-session field element (decimal string). Held only
+   *  for review-screen display; the proof itself is the source of truth. */
+  challenge: string;
   certChainType: "rs2048" | "rs4096";
   certProofBytes: Uint8Array;
   deviceProofBytes: Uint8Array;

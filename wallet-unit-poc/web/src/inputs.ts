@@ -22,11 +22,13 @@ export interface BuildInputsParams {
   card: CardContext;
   /** Raw PKCS#1 v1.5 signature from HiPKI, base64-encoded. */
   userSignatureB64: string;
-  /** TBS bytes the user's card just signed (= challenge bytes). */
-  tbs: Uint8Array;
+  /** 31-byte UTF-8 `app_id` from the verifier — the bytes the card signed
+   *  and the device-sig circuit consumes as `app_id_bytes`. */
+  appIdBytes: Uint8Array;
   smtInputs: SmtCircuitInputs | null;
-  /** Application identifier bound into nullifier (decimal string). */
-  appId: string;
+  /** Verifier-issued per-session field element (decimal string), bound into
+   *  the device-sig proof via a Semaphore-style dummy square. */
+  challenge: string;
 }
 
 export interface SplitInputs {
@@ -44,17 +46,17 @@ export async function buildInputs(
   params: BuildInputsParams,
 ): Promise<SplitInputs> {
   await ensureWasm();
-  const { card, userSignatureB64, tbs, smtInputs, appId } = params;
+  const { card, userSignatureB64, appIdBytes, smtInputs, challenge } = params;
   const out = build_split_inputs(
     card.userCertDer,
     card.issuerCertDer,
     userSignatureB64,
-    tbs,
+    appIdBytes,
     card.serialHex,
     smtInputs,
     card.kIssuer,
     17,
-    appId,
+    challenge,
   ) as { cert_chain: unknown; device_sig: unknown };
   return {
     certJson: JSON.stringify(out.cert_chain),

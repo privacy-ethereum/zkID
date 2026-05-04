@@ -143,7 +143,7 @@ export function applyProgress(p: Progress): void {
       dispatch({
         type: "proving_complete",
         run: {
-          challengeId: done.challengeId,
+          challenge: done.challenge,
           certChainType:
             done.certKind === "cert_chain_rs4096" ? "rs4096" : "rs2048",
           certProofBytes: done.certProofBytes,

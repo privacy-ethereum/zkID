@@ -216,11 +216,8 @@ export function mountSetup(root: HTMLElement): () => void {
         assetsRetry.hidden = true;
         break;
       case "running": {
-        const bytes =
-          state.bytesDone && state.bytesTotal
-            ? ` — ${humanBytes(state.bytesDone, "0 B")} / ${humanBytes(state.bytesTotal, "0 B")}`
-            : "";
-        assetsBody.textContent = `${state.sublabel}${bytes}`;
+        // sublabel already carries the bytes pair (see warmupSublabel).
+        assetsBody.textContent = state.sublabel;
         assetsRetry.hidden = true;
         break;
       }

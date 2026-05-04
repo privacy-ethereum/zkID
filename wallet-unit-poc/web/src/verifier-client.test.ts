@@ -10,8 +10,8 @@ describe("verifier-client", () => {
 
   it("POSTs /challenge and returns the parsed body", async () => {
     const payload = {
-      challenge_id: "abc",
-      challenge_bytes: "AAAA",
+      challenge: "215078321887317284868454961554019057364",
+      app_id: "deadbeefcafebabe1234567890abcde",
       expires_at: "2026-04-20T12:00:00Z",
     };
     const fetchSpy = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -34,7 +34,7 @@ describe("verifier-client", () => {
     await expect(createChallenge()).rejects.toThrow(/503/);
   });
 
-  it("throws when /challenge response is missing challenge_id or challenge_bytes", async () => {
+  it("throws when /challenge response is missing challenge or app_id", async () => {
     globalThis.fetch = vi.fn(
       async () =>
         new Response(
@@ -45,7 +45,22 @@ describe("verifier-client", () => {
     await expect(createChallenge()).rejects.toThrow(/unexpected response shape/);
   });
 
-  it("base64-encodes proofs and POSTs to /link-verify without challenge_id or nullifier", async () => {
+  it("throws when /challenge app_id is not 31 UTF-8 bytes", async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            challenge: "1",
+            app_id: "too-short",
+            expires_at: "2026-04-20T12:00:00Z",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as typeof fetch;
+    await expect(createChallenge()).rejects.toThrow(/app_id must be 31/);
+  });
+
+  it("base64-encodes proofs and POSTs only the proof envelope to /link-verify", async () => {
     const certProof = new Uint8Array([1, 2, 3, 4]);
     const deviceProof = new Uint8Array([9, 9, 9, 9, 9]);
     const fetchSpy = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -56,7 +71,9 @@ describe("verifier-client", () => {
       // Base64 of [1,2,3,4] = "AQIDBA=="; of [9,9,9,9,9] = "CQkJCQk="
       expect(body.cert_chain_proof).toBe("AQIDBA==");
       expect(body.device_sig_proof).toBe("CQkJCQk=");
-      // Server derives both — client must not send them.
+      // Server extracts these from the proof's public signals; the client
+      // must not include them in the request envelope.
+      expect(body).not.toHaveProperty("challenge");
       expect(body).not.toHaveProperty("challenge_id");
       expect(body).not.toHaveProperty("nullifier");
       return new Response(

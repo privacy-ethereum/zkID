@@ -4,7 +4,7 @@ import { transition, type AppEvent, type AppState, type ProvingRun } from "./sto
 
 function makeRun(overrides: Partial<ProvingRun> = {}): ProvingRun {
   return {
-    challengeId: "ch-abcdef",
+    challenge: "215078321887317284868454961554019057364",
     certChainType: "rs2048",
     certProofBytes: new Uint8Array([1, 2, 3]),
     deviceProofBytes: new Uint8Array([4, 5, 6]),
