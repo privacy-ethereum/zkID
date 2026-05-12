@@ -13,9 +13,9 @@ secq256r1 prime field; proven by the Rust prover in
 yarn install
 
 # Compile a single circuit
-yarn compile:cert_chain_rs2048
-yarn compile:cert_chain_rs4096
-yarn compile:device_sig_rs2048
+yarn compile:certChainRS2048
+yarn compile:certChainRS4096
+yarn compile:userSigRS2048
 
 # Compile all
 yarn compile:all
@@ -39,22 +39,22 @@ memory-heavy.
 
 - `circuits/main/` — top-level circuit entry points (one file per build target)
 - `circuits/rs256.circom` — RS256 cert verification and shared templates
-- `circuits/cert_chain.circom` — CertChain circuit (Circuit A: cert chain + revocation + pk_commit)
-- `circuits/device_sig.circom` — DeviceSig circuit (Circuit B: device signature + pk_commit)
+- `circuits/certChain.circom` — CertChain circuit (Circuit A: cert chain + revocation + pkCommit)
+- `circuits/userSig.circom` — UserSig circuit (Circuit B: device signature + pkCommit)
 - `circuits/components/` — reusable templates: SMT non-membership, Poseidon over P256
-- `circuits/utils/utils.circom` — DER-level cert helpers (TBS / subject / serial extraction, modulus extraction, byte packing, Poseidon-over-bytes)
+- `circuits/utils/utils.circom` — DER-level cert helpers (TBS / serial extraction, modulus extraction, byte packing, Poseidon-over-bytes)
 
 ## Public-output layout (verifier-side parsing)
 
 Witness order (after the implicit constant-1 wire):
 
-| Circuit              | Signals | Order                                                                |
-|----------------------|---------|----------------------------------------------------------------------|
-| `cert_chain_rs2048`  | 19      | `[pk_commit, issuer_rsa_modulus[17], smt_root]`                      |
-| `cert_chain_rs4096`  | 36      | `[pk_commit, issuer_rsa_modulus[34], smt_root]`                      |
-| `device_sig_rs2048`  |  4      | `[pk_commit, nullifier, app_id_packed, challenge]`                   |
+| Circuit              | Signals | Order                                                               |
+|----------------------|---------|---------------------------------------------------------------------|
+| `certChainRS2048`  | 19      | `[pkCommit, issuerRsaModulus[17], smtRoot]`                         |
+| `certChainRS4096`  | 36      | `[pkCommit, issuerRsaModulus[34], smtRoot]`                         |
+| `userSigRS2048`  |  4      | `[pkCommit, nullifier, appIdPacked, challenge]`                     |
 
-`app_id_packed` is `tbs[0..31]` packed little-endian into one field element;
+`appIdPacked` is `tbs[0..31]` packed little-endian into one field element;
 the verifier matches it against the configured `APP_ID` after the same
 packing. `challenge` is the verifier-issued per-session field element bound
 via a Semaphore-style dummy square (`challengeSquared <== challenge * challenge`).

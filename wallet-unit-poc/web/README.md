@@ -122,10 +122,10 @@ only and never called here.
 
 On click, the Worker resolves these URLs (all gzipped on the server):
 
-- `/keys/cert_chain_rs2048_proving.key.gz` (or rs4096 if the cert input is 4096)
-- `/keys/device_sig_rs2048_proving.key.gz`
-- `/keys/cert_chain_rs2048.wasm.gz` (circom witness-gen)
-- `/keys/device_sig_rs2048.wasm.gz`
+- `/keys/certChainRS2048_proving.key.gz` (or rs4096 if the cert input is 4096)
+- `/keys/userSigRS2048_proving.key.gz`
+- `/keys/certChainRS2048.wasm.gz` (circom witness-gen)
+- `/keys/userSigRS2048.wasm.gz`
 
 SHA-256 digests for the above are read from the GitHub Release API
 (`https://api.github.com/repos/zkmopro/zkID/releases/tags/latest`) and verified
@@ -273,7 +273,7 @@ threads = clamp(navigator.hardwareConcurrency - 1, 2, 8)
 
 Leave one core for the main thread so UI updates stay smooth during proving.
 The 8-thread cap is not arbitrary: wasm32 has a 4 GB linear-memory ceiling and
-`cert_chain_rs4096` proofs pressure it at higher thread counts. Override with
+`certChainRS4096` proofs pressure it at higher thread counts. Override with
 `?threads=<n>` on the URL if you want to experiment (clamped to `[1, 32]`).
 
 ## Storage inspection
@@ -282,7 +282,7 @@ Cached assets live in:
 
 - **OPFS**: DevTools → Application → Storage → Origin Private File System.
   Each asset is stored at a cache key that embeds the upstream SHA-256
-  (e.g. `cert_chain_rs2048_pk_<sha>`); a key-hit doubles as proof of prior
+  (e.g. `certChainRS2048_pk_<sha>`); a key-hit doubles as proof of prior
   verification, so cached reads skip rehashing.
 - **IndexedDB fallback**: database `zkid-assets`, object store `assets`.
 

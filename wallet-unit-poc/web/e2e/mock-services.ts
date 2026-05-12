@@ -128,9 +128,9 @@ export async function installMockServices(
     const body = req.postDataJSON();
     const shapeOk =
       typeof body?.cert_chain_proof === "string" &&
-      typeof body?.device_sig_proof === "string" &&
+      typeof body?.user_sig_proof === "string" &&
       body.cert_chain_proof.length > 0 &&
-      body.device_sig_proof.length > 0 &&
+      body.user_sig_proof.length > 0 &&
       ["rs2048", "rs4096"].includes(body?.cert_chain_type) &&
       // Server extracts these from the proof's public signals; the client
       // must not include them in the request envelope.
@@ -150,15 +150,15 @@ export async function installMockServices(
                 persisted: true,
                 public_signals: {
                   cert_chain: ["0xmocksubjectdnhash", "0xmockpkcommit"],
-                  device_sig: ["0xmockpkcommit", "0xmockpackedtbs"],
+                  user_sig: ["0xmockpkcommit", "0xmockpackedtbs"],
                 },
                 parsed_inputs: {
                   challenge: "0xdeadbeef",
-                  pk_commit: "0xmockpkcommit",
+                  pkCommit: "0xmockpkcommit",
                   nullifier: "0xmocksubjectdnhash",
                   smt_root: "0xmocksmtroot",
                   serial_number: "0xdeadbeef",
-                  issuer_rsa_modulus: ["0xaaaa", "0xbbbb"],
+                  issuerRsaModulus: ["0xaaaa", "0xbbbb"],
                 },
               }
             : { verified: false }),
@@ -189,12 +189,12 @@ const SMT_RELEASE_API =
   "https://api.github.com/repos/moven0831/moica-revocation-smt/releases/tags/snapshot-latest";
 
 const KEYS_FIXTURE_FILES = [
-  "cert_chain_rs2048_proving.key.gz",
-  "cert_chain_rs2048.wasm.gz",
-  "cert_chain_rs4096_proving.key.gz",
-  "cert_chain_rs4096.wasm.gz",
-  "device_sig_rs2048_proving.key.gz",
-  "device_sig_rs2048.wasm.gz",
+  "certChainRS2048_proving.key.gz",
+  "certChainRS2048.wasm.gz",
+  "certChainRS4096_proving.key.gz",
+  "certChainRS4096.wasm.gz",
+  "userSigRS2048_proving.key.gz",
+  "userSigRS2048.wasm.gz",
 ];
 
 const SMT_FIXTURE_FILES = [

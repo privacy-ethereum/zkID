@@ -13,8 +13,6 @@ use x509_cert::{
 pub struct CertOffsets {
     pub modulus_offset: usize,       // first real modulus byte (after sign byte)
     pub modulus_tag_offset: usize,   // where 0x02 INTEGER tag is
-    pub subject_dn_offset: usize,    // where subject DN starts
-    pub subject_dn_length: usize,    // length of subject DN
     pub serial_number_offset: usize, // where serial number starts
 }
 
@@ -27,7 +25,7 @@ pub fn serial_bytes_to_hex_trimmed(serial_bytes: &[u8]) -> String {
     }
 }
 
-/// Find the RSA modulus and subject DN byte offsets in a DER-encoded certificate.
+/// Find the RSA modulus and serial number byte offsets in a DER-encoded certificate.
 pub fn parse_cert_offsets(der: &[u8]) -> Result<CertOffsets, Box<dyn std::error::Error>> {
     let (modulus_offset, modulus_tag_offset) = find_modulus_offset(der)?;
 
@@ -40,11 +38,6 @@ pub fn parse_cert_offsets(der: &[u8]) -> Result<CertOffsets, Box<dyn std::error:
     }
 
     let cert = Certificate::from_der(der)?;
-
-    let subject_der = cert.tbs_certificate.subject.to_der()?;
-    let subject_dn_offset =
-        find_subslice(der, &subject_der).ok_or("Subject DN not found in cert DER")?;
-
     let tbs_der = cert.tbs_certificate.to_der()?;
     let tbs_start = find_subslice(der, &tbs_der).ok_or("TBS not found in cert DER")?;
     let serial_offset = tbs_start + find_serial_offset_in_tbs(&tbs_der)?;
@@ -52,8 +45,6 @@ pub fn parse_cert_offsets(der: &[u8]) -> Result<CertOffsets, Box<dyn std::error:
     Ok(CertOffsets {
         modulus_offset,
         modulus_tag_offset,
-        subject_dn_offset,
-        subject_dn_length: subject_der.len(),
         serial_number_offset: serial_offset,
     })
 }

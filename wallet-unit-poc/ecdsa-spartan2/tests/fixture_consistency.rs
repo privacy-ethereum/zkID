@@ -97,22 +97,22 @@ fn fixture_rs4096_signature_matches_default_tbs() {
 }
 
 #[test]
-fn fixture_device_sig_input_is_valid_json() {
-    let input_str = std::fs::read_to_string("../circom/inputs/device_sig_rs2048/input.json")
-        .expect("device_sig_rs2048/input.json not found");
+fn fixture_user_sig_input_is_valid_json() {
+    let input_str = std::fs::read_to_string("../circom/inputs/user_sig_rs2048/input.json")
+        .expect("user_sig_rs2048/input.json not found");
     let input: serde_json::Value =
-        serde_json::from_str(&input_str).expect("invalid JSON in device_sig input");
+        serde_json::from_str(&input_str).expect("invalid JSON in user_sig input");
 
     for key in [
         "tbs",
-        "tbs_length",
-        "user_pk_limbs",
-        "user_rsa_signature",
-        "pk_blind",
+        "tbsLength",
+        "userPkLimbs",
+        "userRsaSignature",
+        "pkBlind",
     ] {
         assert!(
             input.get(key).is_some(),
-            "device_sig input missing key: {key}"
+            "user_sig input missing key: {key}"
         );
     }
 
@@ -122,14 +122,14 @@ fn fixture_device_sig_input_is_valid_json() {
         "tbs array must have maxMessageLength=1536 elements"
     );
     assert_eq!(
-        input["user_pk_limbs"].as_array().unwrap().len(),
+        input["userPkLimbs"].as_array().unwrap().len(),
         17,
-        "user_pk_limbs must have k=17 limbs for RSA-2048"
+        "userPkLimbs must have k=17 limbs for RSA-2048"
     );
     assert_eq!(
-        input["user_rsa_signature"].as_array().unwrap().len(),
+        input["userRsaSignature"].as_array().unwrap().len(),
         17,
-        "user_rsa_signature must have k=17 limbs for RSA-2048"
+        "userRsaSignature must have k=17 limbs for RSA-2048"
     );
 }
 
@@ -137,21 +137,21 @@ fn fixture_device_sig_input_is_valid_json() {
 fn fixture_pk_blind_matches_across_inputs() {
     let cc_str = std::fs::read_to_string("../circom/inputs/cert_chain_rs2048/input.json")
         .expect("cert_chain_rs2048/input.json not found");
-    let ds_str = std::fs::read_to_string("../circom/inputs/device_sig_rs2048/input.json")
-        .expect("device_sig_rs2048/input.json not found");
+    let ds_str = std::fs::read_to_string("../circom/inputs/user_sig_rs2048/input.json")
+        .expect("user_sig_rs2048/input.json not found");
 
     let cc: serde_json::Value = serde_json::from_str(&cc_str).unwrap();
     let ds: serde_json::Value = serde_json::from_str(&ds_str).unwrap();
 
-    let cc_blind = cc["pk_blind"]
+    let cc_blind = cc["pkBlind"]
         .as_str()
-        .expect("cert_chain pk_blind not a string");
-    let ds_blind = ds["pk_blind"]
+        .expect("cert_chain pkBlind not a string");
+    let ds_blind = ds["pkBlind"]
         .as_str()
-        .expect("device_sig pk_blind not a string");
+        .expect("user_sig pkBlind not a string");
 
     assert_eq!(
         cc_blind, ds_blind,
-        "pk_blind must match between cert_chain_rs2048 and device_sig_rs2048 fixtures"
+        "pkBlind must match between cert_chain_rs2048 and user_sig_rs2048 fixtures"
     );
 }

@@ -1,12 +1,12 @@
 pragma circom 2.2.3;
 
 include "rs256.circom";
-include "components/pk_commit.circom";
+include "components/pkCommit.circom";
 
-/// @title DeviceSigRSA256
-/// @notice Circuit B of the CertChain + DeviceSig pair. Verifies an RSA
-///         signature over the SHA-256-padded `tbs` and emits `pk_commit`,
-///         `nullifier = ChunkedPoseidonP256(signature)`, and `app_id_packed`
+/// @title UserSigRSA256
+/// @notice Circuit B of the CertChain + UserSig pair. Verifies an RSA
+///         signature over the SHA-256-padded `tbs` and emits `pkCommit`,
+///         `nullifier = ChunkedPoseidonP256(signature)`, and `appIdPacked`
 ///         (`tbs[0..31]` packed into one field element).
 ///
 ///         `challenge` is a per-session field element issued by the verifier,
@@ -18,28 +18,38 @@ include "components/pk_commit.circom";
 /// @param maxMessageLength  Max byte length of `tbs` (1536)
 /// @param n                 RSA limb bits (e.g. 121)
 /// @param k                 RSA limb count (17 for 2048-bit, 34 for 4096-bit)
-template DeviceSigRSA256(maxMessageLength, n, k) {
+template UserSigRSA256(maxMessageLength, n, k) {
     signal input tbs[maxMessageLength];
-    signal input tbs_length;
+    signal input tbsLength;
 
-    signal input user_pk_limbs[k];
-    signal input user_rsa_signature[k];
+    signal input userPkLimbs[k];
+    signal input userRsaSignature[k];
 
-    // Must match CertChainRSA256's pk_blind.
-    signal input pk_blind;
+    // Must match CertChainRSA256's pkBlind.
+    signal input pkBlind;
 
     // Per-session nonce from the verifier's /challenge endpoint.
     signal input challenge;
 
-    signal output pk_commit;
+    signal output pkCommit;
     signal output nullifier;
-    signal output app_id_packed;
+    signal output appIdPacked;
+
+    // Range-check tbsLength to 7 bits before the comparator so a
+    // field-sized input cannot wrap around LessEqThan's internal arithmetic.
+    component tlBits = Num2Bits(7);
+    tlBits.in <== tbsLength;
+
+    component tlBound = LessEqThan(7);
+    tlBound.in[0] <== tbsLength;
+    tlBound.in[1] <== 64;
+    tlBound.out === 1;
 
     CertRSA256Verify(maxMessageLength, n, k)(
         tbs,
-        tbs_length,
-        user_pk_limbs,
-        user_rsa_signature
+        tbsLength,
+        userPkLimbs,
+        userRsaSignature
     );
 
     // Pack tbs[0..31] little-endian into one field element. Byte-range of
@@ -49,23 +59,23 @@ template DeviceSigRSA256(maxMessageLength, n, k) {
     for (var i = 0; i < maxMessageLength; i++) {
         appIdPacker.in[i] <== tbs[i];
     }
-    app_id_packed <== appIdPacker.out[0];
+    appIdPacked <== appIdPacker.out[0];
 
     // Semaphore-style dummy square: binds `challenge` into the constraint
-    // system without it entering pk_commit or the nullifier.
+    // system without it entering pkCommit or the nullifier.
     signal challengeSquared;
     challengeSquared <== challenge * challenge;
 
-    component pkCommit = ChunkedPoseidonP256(k + 1);
+    component pkHash = ChunkedPoseidonP256(k + 1);
     for (var i = 0; i < k; i++) {
-        pkCommit.inputs[i] <== user_pk_limbs[i];
+        pkHash.inputs[i] <== userPkLimbs[i];
     }
-    pkCommit.inputs[k] <== pk_blind;
-    pk_commit <== pkCommit.out;
+    pkHash.inputs[k] <== pkBlind;
+    pkCommit <== pkHash.out;
 
     component nullifierHash = ChunkedPoseidonP256(k);
     for (var i = 0; i < k; i++) {
-        nullifierHash.inputs[i] <== user_rsa_signature[i];
+        nullifierHash.inputs[i] <== userRsaSignature[i];
     }
     nullifier <== nullifierHash.out;
 }

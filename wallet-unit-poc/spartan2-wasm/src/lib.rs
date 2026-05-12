@@ -34,7 +34,7 @@ pub type VerifierKeyForTest = <R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey;
 pub enum CircuitKind {
     CertChainRs2048 = 0,
     CertChainRs4096 = 1,
-    DeviceSigRs2048 = 2,
+    UserSigRs2048 = 2,
 }
 
 impl CircuitKind {
@@ -44,7 +44,7 @@ impl CircuitKind {
             CircuitKind::CertChainRs2048 => 19,
             CircuitKind::CertChainRs4096 => 36,
             // pk_commit, nullifier, app_id_packed, challenge.
-            CircuitKind::DeviceSigRs2048 => 4,
+            CircuitKind::UserSigRs2048 => 4,
         }
     }
 
@@ -53,7 +53,7 @@ impl CircuitKind {
         match self {
             CircuitKind::CertChainRs2048
             | CircuitKind::CertChainRs4096
-            | CircuitKind::DeviceSigRs2048 => 0,
+            | CircuitKind::UserSigRs2048 => 0,
         }
     }
 }
@@ -164,7 +164,7 @@ fn pk_slot(kind: CircuitKind) -> &'static PkCell {
     match kind {
         CircuitKind::CertChainRs2048 => &PK_CERT_2048,
         CircuitKind::CertChainRs4096 => &PK_CERT_4096,
-        CircuitKind::DeviceSigRs2048 => &PK_DEVICE_2048,
+        CircuitKind::UserSigRs2048 => &PK_DEVICE_2048,
     }
 }
 
@@ -261,9 +261,9 @@ pub fn verify(proof_bytes: &[u8], vk_bytes: &[u8]) -> Result<JsValue, JsError> {
 #[wasm_bindgen]
 pub fn link_verify(cert_pubs: Vec<String>, device_pubs: Vec<String>) -> Result<JsValue, JsError> {
     let cert_pk = cert_pubs.get(CircuitKind::CertChainRs2048.pk_commit_index())
-        .ok_or_else(|| JsError::new("cert public values missing pk_commit"))?;
-    let device_pk = device_pubs.get(CircuitKind::DeviceSigRs2048.pk_commit_index())
-        .ok_or_else(|| JsError::new("device public values missing pk_commit"))?;
+        .ok_or_else(|| JsError::new("cert public values missing pkCommit"))?;
+    let device_pk = device_pubs.get(CircuitKind::UserSigRs2048.pk_commit_index())
+        .ok_or_else(|| JsError::new("device public values missing pkCommit"))?;
     let ok = cert_pk == device_pk;
     #[derive(Serialize)]
     struct LinkJs { ok: bool, cert_pk_commit: String, device_pk_commit: String }
@@ -308,7 +308,7 @@ mod tests {
     #[test] fn num_public_matches_spec() {
         assert_eq!(CircuitKind::CertChainRs2048.num_public(), 19);
         assert_eq!(CircuitKind::CertChainRs4096.num_public(), 36);
-        assert_eq!(CircuitKind::DeviceSigRs2048.num_public(), 4);
+        assert_eq!(CircuitKind::UserSigRs2048.num_public(), 4);
     }
 
     /// Regression: oversized section lengths must return Err, not panic.

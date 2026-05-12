@@ -9,13 +9,13 @@
   },
   "scripts": {
     "test": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha",
-    "test:device_sig": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha tests/circuits/device_sig_rs2048.test.ts",
-    "test:cert_chain_2048": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha tests/circuits/cert_chain_rs2048.test.ts",
-    "test:cert_chain_4096": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha tests/circuits/cert_chain_rs4096.test.ts",
+    "test:user_sig": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha tests/circuits/userSigRS2048.test.ts",
+    "test:cert_chain_2048": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha tests/circuits/certChainRS2048.test.ts",
+    "test:cert_chain_4096": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha tests/circuits/certChainRS4096.test.ts",
     "test:linking": "NODE_OPTIONS=--max-old-space-size=16384 npx mocha tests/circuits/pk_commit_linking.test.ts",
-    "compile:cert_chain_rs2048": "bash scripts/compile.sh cert_chain_rs2048",
-    "compile:cert_chain_rs4096": "bash scripts/compile.sh cert_chain_rs4096",
-    "compile:device_sig_rs2048": "bash scripts/compile.sh device_sig_rs2048",
+    "compile:certChainRS2048": "bash scripts/compile.sh certChainRS2048",
+    "compile:certChainRS4096": "bash scripts/compile.sh certChainRS4096",
+    "compile:userSigRS2048": "bash scripts/compile.sh userSigRS2048",
     "compile:all": "bash scripts/compile.sh all"
   },
   "dependencies": {

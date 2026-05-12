@@ -88,7 +88,7 @@ export function mountReady(root: HTMLElement): () => void {
     if (hipki.status === "card_ready") {
       const dn = hipki.subjectDN ? ` — ${hipki.subjectDN}` : "";
       cardEl.textContent = `${hipki.cardSN}${dn}`;
-      const chainKind = hipki.card.certKind === "cert_chain_rs4096" ? "RSA-4096 (MOICA-G3)" : "RSA-2048 (MOICA-G2)";
+      const chainKind = hipki.card.certKind === "certChainRS4096" ? "RSA-4096 (MOICA-G3)" : "RSA-2048 (MOICA-G2)";
       chainEl.textContent = chainKind;
     } else {
       cardEl.textContent = "Not ready";

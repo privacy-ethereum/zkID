@@ -1,11 +1,11 @@
 use std::path::Path;
 
 #[cfg(feature = "cert_chain_rs2048")]
-const CERT_CHAIN_RS2048_CIRCUIT_NAME: &str = "cert_chain_rs2048";
+const CERT_CHAIN_RS2048_CIRCUIT_NAME: &str = "certChainRS2048";
 #[cfg(feature = "cert_chain_rs4096")]
-const CERT_CHAIN_RS4096_CIRCUIT_NAME: &str = "cert_chain_rs4096";
-#[cfg(feature = "device_sig_rs2048")]
-const DEVICE_SIG_RS2048_CIRCUIT_NAME: &str = "device_sig_rs2048";
+const CERT_CHAIN_RS4096_CIRCUIT_NAME: &str = "certChainRS4096";
+#[cfg(feature = "user_sig_rs2048")]
+const DEVICE_SIG_RS2048_CIRCUIT_NAME: &str = "userSigRS2048";
 
 fn is_ios_target(target: &str) -> bool {
     matches!(
@@ -53,7 +53,7 @@ fn main() {
     stage_circuit(&circuits_dir, &staging_dir, CERT_CHAIN_RS2048_CIRCUIT_NAME);
     #[cfg(feature = "cert_chain_rs4096")]
     stage_circuit(&circuits_dir, &staging_dir, CERT_CHAIN_RS4096_CIRCUIT_NAME);
-    #[cfg(feature = "device_sig_rs2048")]
+    #[cfg(feature = "user_sig_rs2048")]
     stage_circuit(&circuits_dir, &staging_dir, DEVICE_SIG_RS2048_CIRCUIT_NAME);
 
     witnesscalc_adapter::build_and_link(staging_dir.to_str().unwrap());

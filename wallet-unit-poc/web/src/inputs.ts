@@ -57,9 +57,9 @@ export async function buildInputs(
     card.kIssuer,
     17,
     challenge,
-  ) as { cert_chain: unknown; device_sig: unknown };
+  ) as { cert_chain: unknown; user_sig: unknown };
   return {
     certJson: JSON.stringify(out.cert_chain),
-    deviceJson: JSON.stringify(out.device_sig),
+    deviceJson: JSON.stringify(out.user_sig),
   };
 }

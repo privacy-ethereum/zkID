@@ -8,7 +8,7 @@ include "circomlib/circuits/comparators.circom";
 include "circomlib/circuits/switcher.circom";
 include "circomlib/circuits/smt/smtlevins.circom";
 include "circomlib/circuits/smt/smtverifiersm.circom";
-include "smt_hash_p256.circom";
+include "smtHashP256.circom";
 
 template SMTVerifierLevelP256() {
     signal input st_top;

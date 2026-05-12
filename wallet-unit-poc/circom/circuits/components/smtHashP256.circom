@@ -1,6 +1,6 @@
 pragma circom 2.2.3;
 
-include "poseidon_p256.circom";
+include "poseidonP256.circom";
 
 /// @title SMTHash1P256
 /// @notice Leaf hash: Poseidon(key, value, 1) over P-256 field

@@ -469,14 +469,14 @@ describe("Full Pipeline via SDK (Prepare + Show with Shared Blinds)", () => {
 
     // Step 5: Build Show circuit inputs via SDK
     const birthdayClaim = data.disclosures[birthdayIdx]!;
-    const deviceSignature = signDeviceNonce(
+    const userSignature = signDeviceNonce(
       VERIFIER_NONCE,
       data.devicePrivateKeyHex,
     );
     const showInputs = buildShowCircuitInputs(
       DEFAULT_SHOW_PARAMS,
       VERIFIER_NONCE,
-      deviceSignature,
+      userSignature,
       data.devicePublicKey,
       birthdayClaim,
       { year: 2025, month: 1, day: 1 },

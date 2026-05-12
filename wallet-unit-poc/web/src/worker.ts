@@ -107,15 +107,15 @@ export type Progress =
     };
 
 const KIND_ENUM: Record<Kind, CircuitKind> = {
-  cert_chain_rs2048: CircuitKind.CertChainRs2048,
-  cert_chain_rs4096: CircuitKind.CertChainRs4096,
-  device_sig_rs2048: CircuitKind.DeviceSigRs2048,
+  certChainRS2048: CircuitKind.CertChainRs2048,
+  certChainRS4096: CircuitKind.CertChainRs4096,
+  userSigRS2048: CircuitKind.UserSigRs2048,
 };
 
 const KIND_LABEL: Record<Kind, string> = {
-  cert_chain_rs2048: "cert_chain_rs2048",
-  cert_chain_rs4096: "cert_chain_rs4096",
-  device_sig_rs2048: "device_sig_rs2048",
+  certChainRS2048: "certChainRS2048",
+  certChainRS4096: "certChainRS4096",
+  userSigRS2048: "userSigRS2048",
 };
 
 let cancelled = false;
@@ -299,9 +299,9 @@ async function runWarmup(): Promise<void> {
     if (cancelled) return;
 
     const kinds: Kind[] = [
-      "cert_chain_rs2048",
-      "cert_chain_rs4096",
-      "device_sig_rs2048",
+      "certChainRS2048",
+      "certChainRS4096",
+      "userSigRS2048",
     ];
 
     type Role = "pk" | "wgen";
@@ -424,9 +424,9 @@ async function runProve(inputs: ProveInput): Promise<void> {
 
     const certWgen = witnessCache[certKind];
     if (!certWgen) throw new Error(`warmup did not cache witness-wasm for ${certKind}`);
-    const deviceWgen = witnessCache["device_sig_rs2048"];
+    const deviceWgen = witnessCache["userSigRS2048"];
     if (!deviceWgen)
-      throw new Error("warmup did not cache witness-wasm for device_sig_rs2048");
+      throw new Error("warmup did not cache witness-wasm for userSigRS2048");
 
     post({ step: "witness", status: "in_progress", kind: certKind });
     const certWitnessStart = performance.now();
@@ -447,33 +447,33 @@ async function runProve(inputs: ProveInput): Promise<void> {
     post({
       step: "witness",
       status: "in_progress",
-      kind: "device_sig_rs2048",
+      kind: "userSigRS2048",
     });
     const deviceWitnessStart = performance.now();
     const deviceWtns = await calculateWitness(
-      "device_sig_rs2048",
+      "userSigRS2048",
       inputs.deviceJson,
       deviceWgen,
     );
     const deviceWitnessMs = performance.now() - deviceWitnessStart;
     if (cancelled) return;
-    post({ step: "witness", status: "done", kind: "device_sig_rs2048" });
+    post({ step: "witness", status: "done", kind: "userSigRS2048" });
 
     post({
       step: "prove",
       status: "in_progress",
-      kind: "device_sig_rs2048",
+      kind: "userSigRS2048",
       phase: "prep",
     });
     const deviceProveStart = performance.now();
-    const deviceProofOut = prove(KIND_ENUM["device_sig_rs2048"], deviceWtns) as {
+    const deviceProofOut = prove(KIND_ENUM["userSigRS2048"], deviceWtns) as {
       proof: ArrayLike<number>;
     };
     const deviceProveMs = performance.now() - deviceProveStart;
     post({
       step: "prove",
       status: "done",
-      kind: "device_sig_rs2048",
+      kind: "userSigRS2048",
       phase: "prove",
     });
     if (cancelled) return;

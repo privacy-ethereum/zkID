@@ -1,6 +1,6 @@
 pragma circom 2.2.3;
 
-include "poseidon_p256.circom";
+include "poseidonP256.circom";
 
 /// @title ChunkedPoseidonP256
 /// @notice Sponge-style hash over an arbitrary number of field elements.
@@ -21,10 +21,10 @@ include "poseidon_p256.circom";
 ///         resistance (modulo the standard assumption).
 ///
 ///         Hiding: NOT inherently hiding. The caller must include a fresh,
-///         random `pk_blind` as the last input element to randomize `out`
-///         per session. See cert_chain.circom and device_sig.circom for usage.
-///         The `pk_blind` input is a per-session uniform field element drawn
-///         by the prover; see SPEC.md §"Why per-session randomness for pk_blind".
+///         random `pkBlind` as the last input element to randomize `out`
+///         per session. See cert_chain.circom and user_sig.circom for usage.
+///         The `pkBlind` input is a per-session uniform field element drawn
+///         by the prover; see SPEC.md §"Why per-session randomness for pkBlind".
 /// @param nInputs  Number of input field elements (must be >= 1)
 /// @input  inputs  The field elements to hash
 /// @output out     Single-field commitment

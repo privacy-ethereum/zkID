@@ -25,7 +25,10 @@ use super::types::Pkcs11InfoResponse;
 pub trait RsaKeySize: Send + Sync + Clone + 'static {
     /// 121-bit limb count (`k` in `RSAVerifier65537(121, k)`).
     const RSA_K: usize;
+    /// Snake_case name used for Rust-internal file naming (keys, proof, witness).
     const CIRCUIT_NAME: &'static str;
+    /// CamelCase name matching the circomkit circuit ID, used for the build output path.
+    const BUILD_NAME: &'static str;
     const NUM_PUBLIC: usize;
     const PROVING_KEY: &'static str;
     const VERIFYING_KEY: &'static str;
@@ -95,7 +98,7 @@ impl<T: RsaKeySize> Sha256RsaCircuit<T> {
     }
 
     fn r1cs_path(&self) -> PathBuf {
-        self.path_config.r1cs_path(T::CIRCUIT_NAME)
+        self.path_config.r1cs_path(T::BUILD_NAME)
     }
 
     // Forwarding methods -- preserve `CertChainCircuit::method()` call sites.

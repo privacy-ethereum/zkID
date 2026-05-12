@@ -1,6 +1,6 @@
 pragma circom 2.2.3;
 
-include "poseidon_p256_constants.circom";
+include "poseidonP256Constants.circom";
 
 /// @title Sigma
 /// @notice S-box: x^5

@@ -176,8 +176,8 @@ async function deriveIssuerFromCert(
   await ensureWasm();
   const bits = cert_modulus_bits(issuerCertDer);
   return bits > 2048
-    ? { issuer: "g3", kIssuer: 34, certKind: "cert_chain_rs4096" }
-    : { issuer: "g2", kIssuer: 17, certKind: "cert_chain_rs2048" };
+    ? { issuer: "g3", kIssuer: 34, certKind: "certChainRS4096" }
+    : { issuer: "g2", kIssuer: 17, certKind: "certChainRS2048" };
 }
 
 /** Build `CardContext` from HiPKI `/pkcs11info`, optionally scoped to a slot. */

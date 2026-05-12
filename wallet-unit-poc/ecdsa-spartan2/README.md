@@ -23,7 +23,7 @@ Device-sig public-output layout: `[pk_commit, nullifier, app_id_packed, challeng
 |---|---|---|---|---|
 | `cert_chain_rs2048` | cert-chain (A) | RSA-2048 | MOICA-G2 | no |
 | `cert_chain_rs4096` | cert-chain (A) | RSA-4096 | 4096-bit CA | no |
-| `device_sig_rs2048` | device-sig (B) | RSA-2048 | (user key) | **yes** |
+| `user_sig_rs2048` | device-sig (B) | RSA-2048 | (user key) | **yes** |
 
 ## E2E Flow with Test Fixtures (no card reader needed)
 
@@ -41,7 +41,7 @@ RUST_LOG=info cargo run --release -- device-sig setup
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain prove \
   --input ../circom/inputs/cert_chain_rs2048/input.json
 RUST_LOG=info cargo run --release -- device-sig prove \
-  --input ../circom/inputs/device_sig_rs2048/input.json
+  --input ../circom/inputs/user_sig_rs2048/input.json
 
 # 4. Link-verify: check pk_commit equality across both proofs
 RUST_LOG=info cargo run --release -- link-verify
@@ -60,7 +60,7 @@ RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain ver
 # device-sig is always rs2048 (user keys are 2048-bit)
 RUST_LOG=info cargo run --release -- device-sig setup
 RUST_LOG=info cargo run --release -- device-sig prove \
-  --input ../circom/inputs/device_sig_rs2048_chain_rs4096/input.json
+  --input ../circom/inputs/user_sig_rs2048_chain_rs4096/input.json
 RUST_LOG=info cargo run --release -- device-sig verify
 
 RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
@@ -95,7 +95,7 @@ RUST_LOG=info cargo run --release -- device-sig setup
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain prove \
   --input ../circom/inputs/cert_chain_rs2048/input.json
 RUST_LOG=info cargo run --release -- device-sig prove \
-  --input ../circom/inputs/device_sig_rs2048/input.json
+  --input ../circom/inputs/user_sig_rs2048/input.json
 
 # 4. link-verify
 RUST_LOG=info cargo run --release -- link-verify
@@ -113,7 +113,7 @@ RUST_LOG=info cargo run --release -- device-sig setup
 RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain prove \
   --cert-chain-4096 --input ../circom/inputs/cert_chain_rs4096/input.json
 RUST_LOG=info cargo run --release -- device-sig prove \
-  --input ../circom/inputs/device_sig_rs2048_chain_rs4096/input.json
+  --input ../circom/inputs/user_sig_rs2048_chain_rs4096/input.json
 
 RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 ```
@@ -135,7 +135,7 @@ RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain ben
   --input ../circom/inputs/cert_chain_rs2048/input.json
 
 RUST_LOG=info cargo run --release -- device-sig benchmark \
-  --input ../circom/inputs/device_sig_rs2048/input.json
+  --input ../circom/inputs/user_sig_rs2048/input.json
 ```
 
 ## Tests

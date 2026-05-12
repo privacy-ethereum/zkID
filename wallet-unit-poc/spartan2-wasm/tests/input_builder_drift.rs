@@ -108,8 +108,8 @@ fn assert_split_inputs_match(
     );
     assert_eq!(
         serde_json::to_string(&native_device).unwrap(),
-        serde_json::to_string(&wasm_out.device_sig).unwrap(),
-        "{kind}: device_sig input JSON drifted between ecdsa-spartan2 and spartan2-wasm"
+        serde_json::to_string(&wasm_out.user_sig).unwrap(),
+        "{kind}: user_sig input JSON drifted between ecdsa-spartan2 and spartan2-wasm"
     );
 }
 

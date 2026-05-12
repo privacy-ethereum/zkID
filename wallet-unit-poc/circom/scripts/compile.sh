@@ -1,10 +1,10 @@
 #!/bin/bash
 
 usage() {
-    echo "Usage: $0 {cert_chain_rs2048|cert_chain_rs4096|device_sig_rs2048|all}"
-    echo "  cert_chain_rs2048: Phase 2 split — Circuit A (cert chain + revocation) for MOICA-G2."
-    echo "  cert_chain_rs4096: Phase 2 split — Circuit A for MOICA-G3 (4096-bit issuer, 2048-bit user)."
-    echo "  device_sig_rs2048: Phase 2 split — Circuit B (device signature); always RSA-2048 (user keys are always 2048-bit)."
+    echo "Usage: $0 {certChainRS2048|certChainRS4096|userSigRS2048|all}"
+    echo "  certChainRS2048: Phase 2 split — Circuit A (cert chain + revocation) for MOICA-G2."
+    echo "  certChainRS4096: Phase 2 split — Circuit A for MOICA-G3 (4096-bit issuer, 2048-bit user)."
+    echo "  userSigRS2048: Phase 2 split — Circuit B (device signature); always RSA-2048 (user keys are always 2048-bit)."
     echo "  all:               Compile all circuits."
     exit 1
 }
@@ -28,19 +28,19 @@ function compile() {
 
 
 case "$1" in
-    cert_chain_rs2048)
-        compile cert_chain_rs2048
+    certChainRS2048)
+        compile certChainRS2048
     ;;
-    cert_chain_rs4096)
-        compile cert_chain_rs4096
+    certChainRS4096)
+        compile certChainRS4096
     ;;
-    device_sig_rs2048)
-        compile device_sig_rs2048
+    userSigRS2048)
+        compile userSigRS2048
     ;;
     all)
-        compile cert_chain_rs2048
-        compile cert_chain_rs4096
-        compile device_sig_rs2048
+        compile certChainRS2048
+        compile certChainRS4096
+        compile userSigRS2048
     ;;
     *)
         echo "Error: Invalid option '$1'."

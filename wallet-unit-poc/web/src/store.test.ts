@@ -8,7 +8,7 @@ function makeRun(overrides: Partial<ProvingRun> = {}): ProvingRun {
     certChainType: "rs2048",
     certProofBytes: new Uint8Array([1, 2, 3]),
     deviceProofBytes: new Uint8Array([4, 5, 6]),
-    certKind: "cert_chain_rs2048",
+    certKind: "certChainRS2048",
     provingMs: 1234,
     ...overrides,
   };
@@ -77,10 +77,10 @@ describe("transition", () => {
   it("submit_complete threads server nullifier + parsed inputs into result", () => {
     const parsed = {
       challenge: "0xdead",
-      pk_commit: "0x2",
+      pkCommit: "0x2",
       nullifier: "0xabc",
       smt_root: "0xbeef",
-      issuer_rsa_modulus: ["0xaa", "0xbb"],
+      issuerRsaModulus: ["0xaa", "0xbb"],
     };
     const next = transition(
       { phase: "submitting", run: makeRun(), startedAt: 0 },

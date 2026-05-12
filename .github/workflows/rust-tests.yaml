@@ -76,7 +76,7 @@ jobs:
                   restore-keys: |
                       rust-tests-cargo-
 
-            # === cert-chain RSA-2048 issuer + device-sig RSA-2048 user ===
+            # === cert-chain RSA-2048 issuer + user-sig RSA-2048 user ===
 
             - name: Generate split inputs (RS2048)
               run: |
@@ -90,19 +90,19 @@ jobs:
                   cargo run --release --features cert_chain_rs2048 -- cert-chain prove --input ../circom/inputs/cert_chain_rs2048/input.json
                   cargo run --release --features cert_chain_rs2048 -- cert-chain verify
 
-            - name: Run e2e flow — device-sig (RS2048)
+            - name: Run e2e flow — user-sig (RS2048)
               run: |
                   cd wallet-unit-poc/ecdsa-spartan2
-                  cargo run --release -- device-sig setup --input ../circom/inputs/device_sig_rs2048/input.json
-                  cargo run --release -- device-sig prove --input ../circom/inputs/device_sig_rs2048/input.json
-                  cargo run --release -- device-sig verify
+                  cargo run --release -- user-sig setup --input ../circom/inputs/user_sig_rs2048/input.json
+                  cargo run --release -- user-sig prove --input ../circom/inputs/user_sig_rs2048/input.json
+                  cargo run --release -- user-sig verify
 
             - name: Link-verify (RS2048)
               run: |
                   cd wallet-unit-poc/ecdsa-spartan2
                   RUST_LOG=info cargo run --release -- link-verify
 
-            # === cert-chain 4096-bit issuer + device-sig 2048-bit user ===
+            # === cert-chain 4096-bit issuer + user-sig 2048-bit user ===
 
             - name: Generate split inputs (RS4096)
               run: |
@@ -116,12 +116,12 @@ jobs:
                   cargo run --release --features cert_chain_rs4096 -- cert-chain prove --cert-chain-4096 --input ../circom/inputs/cert_chain_rs4096/input.json
                   cargo run --release --features cert_chain_rs4096 -- cert-chain verify --cert-chain-4096
 
-            - name: Run e2e flow — device-sig (RS4096 chain)
+            - name: Run e2e flow — user-sig (RS4096 chain)
               run: |
                   cd wallet-unit-poc/ecdsa-spartan2
-                  cargo run --release --features device_sig_rs2048 -- device-sig setup --input ../circom/inputs/device_sig_rs2048_chain_rs4096/input.json
-                  cargo run --release --features device_sig_rs2048 -- device-sig prove --input ../circom/inputs/device_sig_rs2048_chain_rs4096/input.json
-                  cargo run --release --features device_sig_rs2048 -- device-sig verify
+                  cargo run --release --features user_sig_rs2048 -- user-sig setup --input ../circom/inputs/user_sig_rs2048_chain_rs4096/input.json
+                  cargo run --release --features user_sig_rs2048 -- user-sig prove --input ../circom/inputs/user_sig_rs2048_chain_rs4096/input.json
+                  cargo run --release --features user_sig_rs2048 -- user-sig verify
 
             - name: Link-verify (RS4096)
               run: |
@@ -153,11 +153,11 @@ jobs:
                   cd wallet-unit-poc/ecdsa-spartan2/keys
                   for f in cert_chain_rs2048_proving.key cert_chain_rs2048_verifying.key \
                            cert_chain_rs4096_proving.key cert_chain_rs4096_verifying.key \
-                           device_sig_rs2048_proving.key device_sig_rs2048_verifying.key; do
+                           user_sig_rs2048_proving.key user_sig_rs2048_verifying.key; do
                     gzip -k "$f"
                   done
                   cd "$GITHUB_WORKSPACE/wallet-unit-poc/circom/build"
-                  for circuit in cert_chain_rs2048 cert_chain_rs4096 device_sig_rs2048; do
+                  for circuit in certChainRS2048 certChainRS4096 userSigRS2048; do
                     gzip -k "${circuit}/${circuit}_js/${circuit}.r1cs"
                     gzip -k "${circuit}/${circuit}_js/${circuit}.wasm"
                   done
@@ -176,19 +176,19 @@ jobs:
                       wallet-unit-poc/ecdsa-spartan2/keys/cert_chain_rs2048_verifying.key.gz
                       wallet-unit-poc/ecdsa-spartan2/keys/cert_chain_rs4096_proving.key.gz
                       wallet-unit-poc/ecdsa-spartan2/keys/cert_chain_rs4096_verifying.key.gz
-                      wallet-unit-poc/ecdsa-spartan2/keys/device_sig_rs2048_proving.key.gz
-                      wallet-unit-poc/ecdsa-spartan2/keys/device_sig_rs2048_verifying.key.gz
-                      wallet-unit-poc/circom/build/cert_chain_rs2048/cert_chain_rs2048_js/cert_chain_rs2048.r1cs.gz
-                      wallet-unit-poc/circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.r1cs.gz
-                      wallet-unit-poc/circom/build/device_sig_rs2048/device_sig_rs2048_js/device_sig_rs2048.r1cs.gz
-                      wallet-unit-poc/circom/build/cpp/cert_chain_rs2048.cpp.gz
-                      wallet-unit-poc/circom/build/cpp/cert_chain_rs2048.dat.gz
-                      wallet-unit-poc/circom/build/cpp/cert_chain_rs4096.cpp.gz
-                      wallet-unit-poc/circom/build/cpp/cert_chain_rs4096.dat.gz
-                      wallet-unit-poc/circom/build/cpp/device_sig_rs2048.cpp.gz
-                      wallet-unit-poc/circom/build/cpp/device_sig_rs2048.dat.gz
-                      wallet-unit-poc/circom/build/cert_chain_rs2048/cert_chain_rs2048_js/cert_chain_rs2048.wasm.gz
-                      wallet-unit-poc/circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.wasm.gz
-                      wallet-unit-poc/circom/build/device_sig_rs2048/device_sig_rs2048_js/device_sig_rs2048.wasm.gz
+                      wallet-unit-poc/ecdsa-spartan2/keys/user_sig_rs2048_proving.key.gz
+                      wallet-unit-poc/ecdsa-spartan2/keys/user_sig_rs2048_verifying.key.gz
+                      wallet-unit-poc/circom/build/certChainRS2048/certChainRS2048_js/certChainRS2048.r1cs.gz
+                      wallet-unit-poc/circom/build/certChainRS4096/certChainRS4096_js/certChainRS4096.r1cs.gz
+                      wallet-unit-poc/circom/build/userSigRS2048/userSigRS2048_js/userSigRS2048.r1cs.gz
+                      wallet-unit-poc/circom/build/cpp/certChainRS2048.cpp.gz
+                      wallet-unit-poc/circom/build/cpp/certChainRS2048.dat.gz
+                      wallet-unit-poc/circom/build/cpp/certChainRS4096.cpp.gz
+                      wallet-unit-poc/circom/build/cpp/certChainRS4096.dat.gz
+                      wallet-unit-poc/circom/build/cpp/userSigRS2048.cpp.gz
+                      wallet-unit-poc/circom/build/cpp/userSigRS2048.dat.gz
+                      wallet-unit-poc/circom/build/certChainRS2048/certChainRS2048_js/certChainRS2048.wasm.gz
+                      wallet-unit-poc/circom/build/certChainRS4096/certChainRS4096_js/certChainRS4096.wasm.gz
+                      wallet-unit-poc/circom/build/userSigRS2048/userSigRS2048_js/userSigRS2048.wasm.gz
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -125,7 +125,7 @@ function formatModulus(limbs: string[] | undefined): string {
 // Scalar ParsedInputs fields shown as rows; modulus is rendered separately.
 const PARSED_FIELDS = [
   "nullifier",
-  "pk_commit",
+  "pkCommit",
   "smt_root",
   "challenge",
 ] as const satisfies ReadonlyArray<keyof ParsedInputs>;
@@ -144,7 +144,7 @@ function renderParsedInputs(
       rows.push(debugRow(key, `result-${key.replace(/_/g, "-")}`, shortHex(parsed[key])));
     }
     rows.push(
-      debugRow("issuer_rsa_modulus", "result-issuer-modulus", formatModulus(parsed.issuer_rsa_modulus)),
+      debugRow("issuerRsaModulus", "result-issuer-modulus", formatModulus(parsed.issuerRsaModulus)),
     );
   }
   return `

@@ -12,10 +12,10 @@ name = "ecdsa-spartan2"
 path = "src/main.rs"
 
 [features]
-default = ["device_sig_rs2048"]
+default = ["user_sig_rs2048"]
 cert_chain_rs2048 = []
 cert_chain_rs4096 = []
-device_sig_rs2048 = []
+user_sig_rs2048 = []
 
 [dependencies]
 zkid-input-builder = { path = "../zkid-input-builder" }

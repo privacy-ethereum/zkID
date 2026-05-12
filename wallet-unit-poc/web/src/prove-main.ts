@@ -108,7 +108,7 @@ function boot(): void {
         {
           certChainType: state.run.certChainType,
           certChainProofBytes: state.run.certProofBytes,
-          deviceSigProofBytes: state.run.deviceProofBytes,
+          userSigProofBytes: state.run.deviceProofBytes,
         },
         { signal: mine.signal },
       );

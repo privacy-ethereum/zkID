@@ -12,7 +12,7 @@ default = ["uniffi", "mobile"]
 uniffi = ["mopro-ffi/uniffi"]
 flutter = ["mopro-ffi/flutter"]
 wasm = []
-mobile = ["ecdsa-spartan2/cert_chain_rs4096", "ecdsa-spartan2/device_sig_rs2048"]
+mobile = ["ecdsa-spartan2/cert_chain_rs4096", "ecdsa-spartan2/user_sig_rs2048"]
 
 [dependencies]
 mopro-ffi = "0.3.5"

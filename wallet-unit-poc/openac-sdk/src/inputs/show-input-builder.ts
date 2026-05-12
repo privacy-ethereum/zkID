@@ -30,7 +30,7 @@ export function signDeviceNonce(nonce: string, privateKey: EcdsaPrivateKey): str
 export function buildShowCircuitInputs(
   params: ShowCircuitParams,
   nonce: string,
-  deviceSignature: string,
+  userSignature: string,
   deviceKey: EcdsaPublicKey,
   claim: string,
   currentDate: { year: number; month: number; day: number }
@@ -66,7 +66,7 @@ export function buildShowCircuitInputs(
   }
 
   // decode the device signature
-  const sigBytes = base64Decode(deviceSignature);
+  const sigBytes = base64Decode(userSignature);
   const sigHex = Array.from(sigBytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");

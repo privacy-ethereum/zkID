@@ -5,7 +5,7 @@ include "circomlib/circuits/comparators.circom";
 include "@zk-email/circuits/lib/sha.circom";
 include "@zk-email/circuits/lib/rsa.circom";
 include "@zk-email/circuits/utils/array.circom";
-include "components/smt-nonmembership.circom";
+include "components/smtNonmembership.circom";
 include "utils/utils.circom";
 
 /// @title Bits2Limbs
@@ -62,9 +62,6 @@ template CertRSA256Verify(maxMessageLength, n, k) {
     hashToLimbs.in <== shaReversed;
 
     // === Step 4: RSA Verify ===
-    component rsaVerifier = RSAVerifier65537(n, k);
-    rsaVerifier.modulus <== rsaModulus;
-    rsaVerifier.signature <== rsaSignature;
-    rsaVerifier.message <== hashToLimbs.out;
+    RSAVerifier65537(n, k)(hashToLimbs.out, rsaSignature, rsaModulus);
 }
 

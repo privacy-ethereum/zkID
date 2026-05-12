@@ -29,7 +29,7 @@ CI runs this under `.github/workflows/web-tests.yaml` alongside the drift guard.
 ## Public surface
 
 - `generate_split_inputs(user_cert, issuer_cert, user_signature_b64, app_id_bytes, serial_hex, smt_inputs, k_issuer, k_user, max_cert_length, pk_blind)`
-  — returns `(cert_chain_json, device_sig_json)`. The caller supplies
+  — returns `(cert_chain_json, user_sig_json)`. The caller supplies
   `pk_blind` as a decimal-string field element; it is threaded into both
   circuits so the verifier can check `pk_commit_A == pk_commit_B`. Use
   `random_pk_blind()` for fresh per-session sampling in production; pass a

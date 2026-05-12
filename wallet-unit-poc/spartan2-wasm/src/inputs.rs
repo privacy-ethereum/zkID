@@ -12,12 +12,12 @@ use zkid_input_builder::{
     types::SmtCircuitInputs, APP_ID_LEN, MAX_CERT_CHAIN_LENGTH,
 };
 
-/// Two-JSON return shape. `cert_chain` + `device_sig` match the keys the
+/// Two-JSON return shape. `cert_chain` + `user_sig` match the keys the
 /// circom witness calculator expects in its input file.
 #[derive(Serialize)]
 pub struct SplitInputsJs {
     pub cert_chain: serde_json::Value,
-    pub device_sig: serde_json::Value,
+    pub user_sig: serde_json::Value,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -39,7 +39,7 @@ fn build_split_inputs_core(
     let issuer_cert = Certificate::from_der(issuer_cert_der)
         .map_err(|e| format!("issuer cert DER parse: {e}"))?;
 
-    let (cert_chain, device_sig) = generate_split_inputs(
+    let (cert_chain, user_sig) = generate_split_inputs(
         &user_cert,
         &issuer_cert,
         user_signature_b64,
@@ -56,7 +56,7 @@ fn build_split_inputs_core(
 
     Ok(SplitInputsJs {
         cert_chain,
-        device_sig,
+        user_sig,
     })
 }
 

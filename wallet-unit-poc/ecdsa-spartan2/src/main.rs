@@ -2,13 +2,13 @@
 //!
 //! The monolith RS256 circuit has been split into two stages:
 //! - **cert-chain**: Certificate chain verification (Circuit A)
-//! - **device-sig**: Device signature verification (Circuit B)
+//! - **user-sig**: User signature verification (Circuit B)
 //!
 //!   | Command       | Feature flag        | Key size | CA             |
 //!   |---------------|---------------------|----------|----------------|
 //!   | cert-chain    | `cert_chain_rs2048` | RSA-2048 | MOICA-G2       |
 //!   | cert-chain -4 | `cert_chain_rs4096` | RSA-4096 | 4096-bit CA    |
-//!   | device-sig    | `device_sig_rs2048` | RSA-2048 | (user key)     |
+//!   | user-sig    | `user_sig_rs2048` | RSA-2048 | (user key)     |
 //!
 //! # Generate split circuit inputs
 //!
@@ -21,11 +21,11 @@
 //!   cargo run --release --features cert_chain_rs2048 -- cert-chain prove --input ../circom/inputs/cert_chain_rs2048/input.json
 //!   cargo run --release --features cert_chain_rs2048 -- cert-chain verify
 //!
-//! # Setup / Prove / Verify  (device-sig)
+//! # Setup / Prove / Verify  (user-sig)
 //!
-//!   cargo run --release --features device_sig_rs2048 -- device-sig setup
-//!   cargo run --release --features device_sig_rs2048 -- device-sig prove --input ../circom/inputs/device_sig_rs2048/input.json
-//!   cargo run --release --features device_sig_rs2048 -- device-sig verify
+//!   cargo run --release --features user_sig_rs2048 -- user-sig setup
+//!   cargo run --release --features user_sig_rs2048 -- user-sig prove --input ../circom/inputs/user_sig_rs2048/input.json
+//!   cargo run --release --features user_sig_rs2048 -- user-sig verify
 //!
 //! # Link-verify  (check pk_commit equality across proofs)
 //!
@@ -39,7 +39,7 @@ use ecdsa_spartan2::{
     generate_split_inputs, load_proof, prove_circuit, prove_circuit_with_pk, run_circuit,
     save_keys, serial_bytes_to_hex_trimmed, setup_circuit_keys, setup_circuit_keys_no_save,
     verify_circuit, verify_circuit_with_loaded_data, CertChainCircuit, CertChainRs4096Circuit,
-    CertChainRsa2048, CertChainRsa4096, DeviceSigRsa2048, PathConfig, RsaKeySize,
+    CertChainRsa2048, CertChainRsa4096, UserSigRsa2048, PathConfig, RsaKeySize,
     Sha256RsaCircuit, APP_ID_LEN, MAX_CERT_CHAIN_LENGTH,
 };
 use std::{
@@ -107,7 +107,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
     let mut hipki_server = ecdsa_spartan2::hipki_client::default_server_url().to_string();
     let mut challenge_server = ecdsa_spartan2::challenge_client::default_server_url().to_string();
     let mut cert_chain_output = "../circom/inputs/cert_chain_rs2048/input.json".to_string();
-    let mut device_sig_output = "../circom/inputs/device_sig_rs2048/input.json".to_string();
+    let mut user_sig_output = "../circom/inputs/user_sig_rs2048/input.json".to_string();
     let mut pk_blind_override: Option<String> = None;
 
     let mut i = 1;
@@ -116,8 +116,8 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
             "--cert-chain-4096" | "-4" => {
                 rs4096 = true;
                 cert_chain_output = "../circom/inputs/cert_chain_rs4096/input.json".to_string();
-                device_sig_output =
-                    "../circom/inputs/device_sig_rs2048_chain_rs4096/input.json".to_string();
+                user_sig_output =
+                    "../circom/inputs/user_sig_rs2048_chain_rs4096/input.json".to_string();
                 issuer = "g3".to_string();
             }
             "--smt-server" => smt_server = Some(require_arg(command_args, &mut i, "--smt-server")),
@@ -269,13 +269,13 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
     let pk_blind = pk_blind_override.unwrap_or_else(ecdsa_spartan2::random_pk_blind);
     let prefix = &pk_blind[..pk_blind.len().min(8)];
     if from_override {
-        warn!(pk_blind_prefix = prefix, "Using pk_blind from --pk-blind override — only safe for fixture/test runs; reusing across submissions defeats hiding");
+        warn!(pk_blind_prefix = prefix, "Using pkBlind from --pk-blind override — only safe for fixture/test runs; reusing across submissions defeats hiding");
     } else {
-        info!(pk_blind_prefix = prefix, "Sampled pk_blind");
+        info!(pk_blind_prefix = prefix, "Sampled pkBlind");
     }
 
-    info!("Generating split inputs (cert_chain + device_sig)...");
-    let (cert_chain_json, device_sig_json) = generate_split_inputs(
+    info!("Generating split inputs (cert_chain + user_sig)...");
+    let (cert_chain_json, user_sig_json) = generate_split_inputs(
         &user_cert,
         &issuer_cert,
         &user_sig_b64,
@@ -295,7 +295,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
 
     for (path, json) in [
         (&cert_chain_output, &cert_chain_json),
-        (&device_sig_output, &device_sig_json),
+        (&user_sig_output, &user_sig_json),
     ] {
         if let Some(parent) = Path::new(path).parent() {
             fs::create_dir_all(parent).ok();
@@ -313,7 +313,7 @@ fn run_generate_split_input(command_args: &[String]) -> ! {
 /// the same user key.
 ///
 /// CertChain public values: [pk_commit, issuer_modulus..., smtRoot]
-/// DeviceSig public values: [pk_commit, nullifier, app_id_bytes[31]]
+/// UserSig public values: [pk_commit, nullifier, app_id_bytes[31]]
 fn run_link_verify(command_args: &[String]) -> ! {
     let rs4096 = command_args.contains(&"--cert-chain-4096".to_string())
         || command_args.contains(&"-4".to_string());
@@ -330,10 +330,10 @@ fn run_link_verify(command_args: &[String]) -> ! {
         path_config.key_path(cc_vk_file),
     );
 
-    info!("Verifying device-sig proof...");
+    info!("Verifying user-sig proof...");
     let ds_public_values = verify_circuit(
-        path_config.artifact_path(DeviceSigRsa2048::PROOF),
-        path_config.key_path(DeviceSigRsa2048::VERIFYING_KEY),
+        path_config.artifact_path(UserSigRsa2048::PROOF),
+        path_config.key_path(UserSigRsa2048::VERIFYING_KEY),
     );
 
     let pk_commit_a = &cc_public_values[0];
@@ -365,7 +365,7 @@ fn run_link_verify(command_args: &[String]) -> ! {
         process::exit(0);
     } else {
         eprintln!(
-            "Link verification FAILED!\n  pk_commit_A (cert-chain): {:?}\n  pk_commit_B (device-sig): {:?}",
+            "Link verification FAILED!\n  pk_commit_A (cert-chain): {:?}\n  pk_commit_B (user-sig): {:?}",
             pk_commit_a, pk_commit_b
         );
         process::exit(1);
@@ -402,9 +402,9 @@ fn main() {
     let top_command = &command_args[0];
     match top_command.as_str() {
         "cert-chain" => execute_cert_chain(command.action, command.options),
-        "device-sig" => execute_device_sig(command.action, command.options),
+        "user-sig" => execute_user_sig(command.action, command.options),
         _ => {
-            eprintln!("Unknown command '{}'. Use cert-chain or device-sig.", top_command);
+            eprintln!("Unknown command '{}'. Use cert-chain or user-sig.", top_command);
             print_usage();
             process::exit(1);
         }
@@ -434,16 +434,16 @@ fn execute_cert_chain(action: CircuitAction, options: CommandOptions) {
     execute_rs256_for::<CertChainRsa2048>(action, options);
 }
 
-/// Execute device-sig (Circuit B) commands — always RSA-2048.
-fn execute_device_sig(action: CircuitAction, options: CommandOptions) {
-    if !cfg!(feature = "device_sig_rs2048") {
+/// Execute user-sig (Circuit B) commands — always RSA-2048.
+fn execute_user_sig(action: CircuitAction, options: CommandOptions) {
+    if !cfg!(feature = "user_sig_rs2048") {
         eprintln!(
-            "Error: device-sig commands require the `device_sig_rs2048` feature. \
-             Rebuild with --features device_sig_rs2048"
+            "Error: user-sig commands require the `user_sig_rs2048` feature. \
+             Rebuild with --features user_sig_rs2048"
         );
         process::exit(1);
     }
-    execute_rs256_for::<DeviceSigRsa2048>(action, options);
+    execute_rs256_for::<UserSigRsa2048>(action, options);
 }
 
 /// Generic execute — works for any RSA key size.
@@ -600,7 +600,7 @@ fn parse_command(args: &[String]) -> Result<ParsedCommand, String> {
             process::exit(0);
         }
         "cert-chain" => parse_circuit_command(&args[1..]),
-        "device-sig" => parse_circuit_command(&args[1..]),
+        "user-sig" => parse_circuit_command(&args[1..]),
         other => Err(format!("Unknown command '{other}'")),
     }
 }
@@ -672,9 +672,9 @@ fn print_usage() {
 
 Commands:
   cert-chain           Certificate chain verification (Circuit A)
-  device-sig           Device signature verification (Circuit B)
+  user-sig             User signature verification (Circuit B)
   generate-split-input Generate split circuit input JSONs
-  link-verify          Verify pk_commit equality across cert-chain and device-sig proofs
+  link-verify          Verify pk_commit equality across cert-chain and user-sig proofs
 
 Actions:
   run                  Run the complete circuit (setup, prove, verify)
@@ -702,9 +702,9 @@ Examples:
   cargo run --release --features cert_chain_rs2048 -- cert-chain setup
   cargo run --release --features cert_chain_rs2048 -- cert-chain prove --input ../circom/inputs/cert_chain_rs2048/input.json
   cargo run --release --features cert_chain_rs2048 -- cert-chain verify
-  cargo run --release --features device_sig_rs2048 -- device-sig setup
-  cargo run --release --features device_sig_rs2048 -- device-sig prove --input ../circom/inputs/device_sig_rs2048/input.json
-  cargo run --release --features device_sig_rs2048 -- device-sig verify
+  cargo run --release --features user_sig_rs2048 -- user-sig setup
+  cargo run --release --features user_sig_rs2048 -- user-sig prove --input ../circom/inputs/user_sig_rs2048/input.json
+  cargo run --release --features user_sig_rs2048 -- user-sig verify
   cargo run --release -- link-verify
   cargo run --release -- link-verify --cert-chain-4096
 

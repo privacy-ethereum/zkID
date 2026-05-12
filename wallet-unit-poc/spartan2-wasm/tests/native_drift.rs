@@ -7,7 +7,7 @@
 use ecdsa_spartan2::{
     circuits::{
         circuit::{RsaKeySize, Sha256RsaCircuit},
-        split_circuits::{CertChainRsa2048, DeviceSigRsa2048},
+        split_circuits::{CertChainRsa2048, UserSigRsa2048},
     },
     setup::setup_circuit_keys_no_save,
 };
@@ -17,7 +17,7 @@ fn fixture_input(kind: CircuitKind) -> String {
     let path = match kind {
         CircuitKind::CertChainRs2048 => "../circom/inputs/cert_chain_rs2048/input.json",
         CircuitKind::CertChainRs4096 => panic!("RS4096 fixture not available in unit tests"),
-        CircuitKind::DeviceSigRs2048 => "../circom/inputs/device_sig_rs2048/input.json",
+        CircuitKind::UserSigRs2048 => "../circom/inputs/user_sig_rs2048/input.json",
     };
     std::fs::read_to_string(path).expect("read fixture input")
 }
@@ -64,19 +64,19 @@ fn cert_chain_rs2048_drift() {
 }
 
 #[test]
-fn device_sig_rs2048_drift() {
-    let input = fixture_input(CircuitKind::DeviceSigRs2048);
-    let wtns = witness_bytes_in_big_stack::<DeviceSigRsa2048>(input);
+fn user_sig_rs2048_drift() {
+    let input = fixture_input(CircuitKind::UserSigRs2048);
+    let wtns = witness_bytes_in_big_stack::<UserSigRsa2048>(input);
 
-    let (pk, vk) = setup_circuit_keys_no_save::<Sha256RsaCircuit<DeviceSigRsa2048>>(
-        Sha256RsaCircuit::<DeviceSigRsa2048>::default(),
+    let (pk, vk) = setup_circuit_keys_no_save::<Sha256RsaCircuit<UserSigRsa2048>>(
+        Sha256RsaCircuit::<UserSigRsa2048>::default(),
     );
 
     let pk_bytes = bincode::serialize(&pk).unwrap();
     let vk_bytes = bincode::serialize(&vk).unwrap();
 
     let (proof_bytes, _instance_bytes, public_values) =
-        prove_native_for_test(CircuitKind::DeviceSigRs2048, &pk_bytes, &wtns).unwrap();
+        prove_native_for_test(CircuitKind::UserSigRs2048, &pk_bytes, &wtns).unwrap();
 
     let proof: spartan2_wasm::R1CSSNARKForTest = bincode::deserialize(&proof_bytes).unwrap();
     let vk_native: spartan2_wasm::VerifierKeyForTest = bincode::deserialize(&vk_bytes).unwrap();
@@ -84,8 +84,8 @@ fn device_sig_rs2048_drift() {
 
     assert_eq!(
         pv.len(),
-        CircuitKind::DeviceSigRs2048.num_public(),
-        "device_sig_rs2048 NUM_PUBLIC"
+        CircuitKind::UserSigRs2048.num_public(),
+        "user_sig_rs2048 NUM_PUBLIC"
     );
     assert_eq!(pv, public_values);
 }

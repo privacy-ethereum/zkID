@@ -365,7 +365,7 @@ fn wire__openac_mobile_app__prove_cert_chain_rs4096_impl(
         },
     )
 }
-fn wire__openac_mobile_app__prove_device_sig_rs2048_impl(
+fn wire__openac_mobile_app__prove_user_sig_rs2048_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -373,7 +373,7 @@ fn wire__openac_mobile_app__prove_device_sig_rs2048_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "prove_device_sig_rs2048",
+            debug_name: "prove_user_sig_rs2048",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -391,7 +391,7 @@ fn wire__openac_mobile_app__prove_device_sig_rs2048_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok = openac_mobile_app::prove_device_sig_rs2048(api_documents_path)?;
+                    let output_ok = openac_mobile_app::prove_user_sig_rs2048(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -533,7 +533,7 @@ fn wire__openac_mobile_app__verify_cert_chain_rs4096_impl(
         },
     )
 }
-fn wire__openac_mobile_app__verify_device_sig_rs2048_impl(
+fn wire__openac_mobile_app__verify_user_sig_rs2048_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -541,7 +541,7 @@ fn wire__openac_mobile_app__verify_device_sig_rs2048_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "verify_device_sig_rs2048",
+            debug_name: "verify_user_sig_rs2048",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -560,7 +560,7 @@ fn wire__openac_mobile_app__verify_device_sig_rs2048_impl(
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
                     let output_ok =
-                        openac_mobile_app::verify_device_sig_rs2048(api_documents_path)?;
+                        openac_mobile_app::verify_user_sig_rs2048(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -882,7 +882,7 @@ fn pde_ffi_dispatcher_primary_impl(
             wire__openac_mobile_app__prove_cert_chain_rs4096_impl(port, ptr, rust_vec_len, data_len)
         }
         10 => {
-            wire__openac_mobile_app__prove_device_sig_rs2048_impl(port, ptr, rust_vec_len, data_len)
+            wire__openac_mobile_app__prove_user_sig_rs2048_impl(port, ptr, rust_vec_len, data_len)
         }
         11 => {
             wire__openac_mobile_app__run_complete_benchmark_impl(port, ptr, rust_vec_len, data_len)
@@ -900,7 +900,7 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        15 => wire__openac_mobile_app__verify_device_sig_rs2048_impl(
+        15 => wire__openac_mobile_app__verify_user_sig_rs2048_impl(
             port,
             ptr,
             rust_vec_len,

@@ -21,7 +21,7 @@ fi
 
 # 2. Circom witness calculators (one per circuit). witness_calculator.js is
 #    identical across circomkit outputs for the same circom version — copy once.
-for circuit in cert_chain_rs2048 cert_chain_rs4096 device_sig_rs2048; do
+for circuit in certChainRS2048 certChainRS4096 userSigRS2048; do
   SRC="${CIRCOM_BUILD}/${circuit}/${circuit}_js"
   if [ -d "${SRC}" ]; then
     cp "${SRC}/${circuit}.wasm" "${WEB_DIR}/public/assets/"

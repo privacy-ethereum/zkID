@@ -23,16 +23,16 @@ export interface Challenge {
 /** Raw verifier public inputs (hex strings). */
 export interface PublicSignals {
   cert_chain: string[];
-  device_sig: string[];
+  user_sig: string[];
 }
 
 /** Named parse of public signals from the verifier response. */
 export interface ParsedInputs {
   challenge: string;
-  pk_commit: string;
+  pkCommit: string;
   nullifier: string;
   smt_root: string;
-  issuer_rsa_modulus: string[];
+  issuerRsaModulus: string[];
 }
 
 export interface LinkVerifyResult {
@@ -48,7 +48,7 @@ export interface LinkVerifyResult {
 export interface LinkVerifyParams {
   certChainType: "rs2048" | "rs4096";
   certChainProofBytes: Uint8Array;
-  deviceSigProofBytes: Uint8Array;
+  userSigProofBytes: Uint8Array;
 }
 
 /** Default request timeout; can be overridden by VITE_VERIFIER_TIMEOUT_MS. */
@@ -101,13 +101,13 @@ export async function submitLinkVerify(
   opts: SubmitLinkVerifyOptions = {},
 ): Promise<LinkVerifyResult> {
   assertProofSize("cert_chain_proof", params.certChainProofBytes);
-  assertProofSize("device_sig_proof", params.deviceSigProofBytes);
+  assertProofSize("user_sig_proof", params.userSigProofBytes);
 
   const body = {
     cert_chain_type: params.certChainType,
     // Go's json.Unmarshal decodes base64 into []byte.
     cert_chain_proof: bytesToBase64(params.certChainProofBytes),
-    device_sig_proof: bytesToBase64(params.deviceSigProofBytes),
+    user_sig_proof: bytesToBase64(params.userSigProofBytes),
   };
 
   const r = await fetch(`${VERIFIER_BASE}/link-verify`, {

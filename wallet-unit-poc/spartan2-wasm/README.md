@@ -2,7 +2,7 @@
 
 Standalone WebAssembly crate that builds the Spartan2 prover used by
 [`wallet-unit-poc/web/`](../web). It compiles the three zkID circuits
-(`cert_chain_rs2048`, `cert_chain_rs4096`, `device_sig_rs2048`) into a single
+(`cert_chain_rs2048`, `cert_chain_rs4096`, `user_sig_rs2048`) into a single
 `spartan2_wasm.wasm` module with wasm-bindgen + wasm-bindgen-rayon bindings.
 Production verification is server-side via
 [`go-zkid-verifier`](https://github.com/zkmopro/go-zkid-verifier/pull/8);
@@ -48,7 +48,7 @@ reusable workflow, which produces the same artifacts.
 All exports come from the generated `pkg/spartan2_wasm.js`.
 
 - `CircuitKind` — enum with numeric discriminants: `CertChainRs2048 = 0`,
-  `CertChainRs4096 = 1`, `DeviceSigRs2048 = 2`. Pass one of these to every
+  `CertChainRs4096 = 1`, `UserSigRs2048 = 2`. Pass one of these to every
   circuit-scoped call.
 - `init_thread_pool(n)` — re-export from `wasm-bindgen-rayon`. Call once after
   module init with your chosen thread count before any `prove`.
@@ -69,7 +69,7 @@ All exports come from the generated `pkg/spartan2_wasm.js`.
   Inputs are the `public_values` arrays returned by `prove`. Not used in
   production — the server-side verifier performs this check.
 - `build_split_inputs(userCertDer, issuerCertDer, userSignatureB64, appIdBytes, serialHex, smtInputs, kIssuer, kUser, challenge)` →
-  `{ cert_chain, device_sig }`. Builds the cert-chain + device-sig circuit
+  `{ cert_chain, user_sig }`. Builds the cert-chain + device-sig circuit
   input JSON from raw card + SMT data. `appIdBytes` must be exactly 31 bytes —
   the relying-party identifier the cardholder signed. `smtInputs` accepts
   `null` (zero defaults) or a snake_case `SmtCircuitInputs` object. `kIssuer`

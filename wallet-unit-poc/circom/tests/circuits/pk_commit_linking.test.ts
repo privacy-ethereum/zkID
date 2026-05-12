@@ -4,45 +4,45 @@ import { loadInput } from "../common/fixtures";
 import assert from "assert";
 
 /**
- * Cross-circuit invariant: CertChainRSA256 (Circuit A) and DeviceSigRSA256
- * (Circuit B) must produce identical pk_commit when given the same user RSA
- * public key and pk_blind. This is the linking check that prevents proof-mixing.
+ * Cross-circuit invariant: CertChainRSA256 (Circuit A) and UserSigRSA256
+ * (Circuit B) must produce identical pkCommit when given the same user RSA
+ * public key and pkBlind. This is the linking check that prevents proof-mixing.
  *
- * We read pk_commit directly from the witness array by index rather than via
+ * We read pkCommit directly from the witness array by index rather than via
  * readWitnessSignals, because the .sym files for these large circuits exceed
  * Node's string length limit.
  *
  * Witness layout (circom convention: index 0 = constant 1, then outputs):
- *   cert_chain:  witness[1] = pk_commit
- *   device_sig:  witness[1] = pk_commit, witness[2] = nullifier
+ *   cert_chain:  witness[1] = pkCommit
+ *   user_sig:  witness[1] = pkCommit, witness[2] = nullifier
  */
-describe("pk_commit linking (CertChain <-> DeviceSig)", function () {
-  let certChainCircuit: WitnessTester<any, ["pk_commit"]>;
-  let deviceSigCircuit: WitnessTester<any, ["pk_commit", "nullifier"]>;
+describe("pkCommit linking (CertChain <-> UserSig)", function () {
+  let certChainCircuit: WitnessTester<any, ["pkCommit"]>;
+  let userSigCircuit: WitnessTester<any, ["pkCommit", "nullifier"]>;
   let certChainInput: Record<string, any>;
-  let deviceSigInput: Record<string, any>;
+  let userSigInput: Record<string, any>;
 
   before(async function () {
     this.timeout(900_000);
     certChainInput = loadInput("cert_chain_rs2048");
-    deviceSigInput = loadInput("device_sig_rs2048");
+    userSigInput = loadInput("user_sig_rs2048");
 
-    certChainCircuit = await circomkit.WitnessTester("cert_chain_rs2048", {
-      file: "cert_chain",
+    certChainCircuit = await circomkit.WitnessTester("certChainRS2048", {
+      file: "certChain",
       template: "CertChainRSA256",
-      params: [1536, 121, 17, 2048, 17, 2048, 128, 128, 20],
+      params: [1536, 121, 17, 2048, 17, 2048, 128, 20],
     });
-    deviceSigCircuit = await circomkit.WitnessTester("device_sig_rs2048", {
-      file: "device_sig",
-      template: "DeviceSigRSA256",
+    userSigCircuit = await circomkit.WitnessTester("userSigRS2048", {
+      file: "userSig",
+      template: "UserSigRSA256",
       params: [1536, 121, 17],
     });
   });
 
-  it("produces identical pk_commit for same user key and pk_blind", async function () {
+  it("produces identical pkCommit for same user key and pkBlind", async function () {
     this.timeout(900_000);
     const ccWitness = await certChainCircuit.calculateWitness(certChainInput);
-    const dsWitness = await deviceSigCircuit.calculateWitness(deviceSigInput);
+    const dsWitness = await userSigCircuit.calculateWitness(userSigInput);
 
     const ccPkCommit = ccWitness[1];
     const dsPkCommit = dsWitness[1];
@@ -50,7 +50,7 @@ describe("pk_commit linking (CertChain <-> DeviceSig)", function () {
     assert.strictEqual(
       ccPkCommit,
       dsPkCommit,
-      "pk_commit must match between CertChain and DeviceSig for same key+blind"
+      "pkCommit must match between CertChain and UserSig for same key+blind"
     );
   });
 });

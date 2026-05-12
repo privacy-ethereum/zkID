@@ -7,9 +7,9 @@
 import type { SmtIssuer } from "./smt-client";
 
 export type CircuitKind =
-  | "cert_chain_rs2048"
-  | "cert_chain_rs4096"
-  | "device_sig_rs2048";
+  | "certChainRS2048"
+  | "certChainRS4096"
+  | "userSigRS2048";
 
 export interface CircuitManifest {
   kind: CircuitKind;
@@ -26,23 +26,23 @@ export interface SmtAssetManifest {
 }
 
 export const CIRCUITS: Record<CircuitKind, CircuitManifest> = {
-  cert_chain_rs2048: {
-    kind: "cert_chain_rs2048",
+  certChainRS2048: {
+    kind: "certChainRS2048",
     numPublic: 20,
-    pkUrl: "/keys/cert_chain_rs2048_proving.key.gz",
-    witnessWasmUrl: "/keys/cert_chain_rs2048.wasm.gz",
+    pkUrl: "/keys/certChainRS2048_proving.key.gz",
+    witnessWasmUrl: "/keys/certChainRS2048.wasm.gz",
   },
-  cert_chain_rs4096: {
-    kind: "cert_chain_rs4096",
+  certChainRS4096: {
+    kind: "certChainRS4096",
     numPublic: 37,
-    pkUrl: "/keys/cert_chain_rs4096_proving.key.gz",
-    witnessWasmUrl: "/keys/cert_chain_rs4096.wasm.gz",
+    pkUrl: "/keys/certChainRS4096_proving.key.gz",
+    witnessWasmUrl: "/keys/certChainRS4096.wasm.gz",
   },
-  device_sig_rs2048: {
-    kind: "device_sig_rs2048",
+  userSigRS2048: {
+    kind: "userSigRS2048",
     numPublic: 2,
-    pkUrl: "/keys/device_sig_rs2048_proving.key.gz",
-    witnessWasmUrl: "/keys/device_sig_rs2048.wasm.gz",
+    pkUrl: "/keys/userSigRS2048_proving.key.gz",
+    witnessWasmUrl: "/keys/userSigRS2048.wasm.gz",
   },
 };
 

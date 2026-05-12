@@ -7,12 +7,38 @@ include "circomlib/circuits/poseidon.circom";
 include "@zk-email/circuits/utils/array.circom";
 
 
+/// @title AssertSliceInTBS
+/// @notice Proves that the byte slice [offset, offset+length) lies entirely
+///         within a MOICA-signed TBS region of tbsLen bytes.
+///         Also range-checks offset and length to 13 bits each, preventing
+///         field-element wrap-around on the LessEqThan comparator (which
+///         assumes both operands fit in 14 bits after being summed).
+///         Caller must separately ensure tbsLen < 2^13 (one Num2Bits(13) call).
+template AssertSliceInTBS() {
+    signal input offset;
+    signal input length;
+    signal input tbsLen;
+
+    component offRng = Num2Bits(13);
+    offRng.in <== offset;
+
+    component lenRng = Num2Bits(13);
+    lenRng.in <== length;
+
+    // offset + length <= tbsLen
+    // Both summands < 2^13, so their sum < 2^14 — safe for LessEqThan(14).
+    component bnd = LessEqThan(14);
+    bnd.in[0] <== offset + length;
+    bnd.in[1] <== tbsLen;
+    bnd.out === 1;
+}
+
 template VerifyTBSinCert(MAX_CERT_LEN, MAX_TBS_LEN) {
     var TBS_OFFSET = 4;
 
     signal input user_cert[MAX_CERT_LEN];
     signal input tbs[MAX_TBS_LEN];
-    signal input issuer_tbs_length;          // actual length, runtime
+    signal input issuerTbsLength;          // actual length, runtime
 
     component isLt[MAX_TBS_LEN];
     signal diff[MAX_TBS_LEN];
@@ -20,9 +46,9 @@ template VerifyTBSinCert(MAX_CERT_LEN, MAX_TBS_LEN) {
     for (var i = 0; i < MAX_TBS_LEN - TBS_OFFSET; i++) {
         isLt[i] = LessThan(12);
         isLt[i].in[0] <== i;
-        isLt[i].in[1] <== issuer_tbs_length;
+        isLt[i].in[1] <== issuerTbsLength;
 
-        // only enforce if i < issuer_tbs_length
+        // only enforce if i < issuerTbsLength
         // (user_cert[4+i] - tbs[i]) * isLt[i].out === 0
         diff[i] <== user_cert[TBS_OFFSET + i] - tbs[i];
         diff[i] * isLt[i].out === 0;

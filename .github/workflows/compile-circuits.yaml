@@ -45,12 +45,12 @@ jobs:
               with:
                   name: circuit-cpp
                   path: |
-                      wallet-unit-poc/circom/build/cpp/cert_chain_rs2048.cpp
-                      wallet-unit-poc/circom/build/cpp/cert_chain_rs2048.dat
-                      wallet-unit-poc/circom/build/cpp/cert_chain_rs4096.cpp
-                      wallet-unit-poc/circom/build/cpp/cert_chain_rs4096.dat
-                      wallet-unit-poc/circom/build/cpp/device_sig_rs2048.cpp
-                      wallet-unit-poc/circom/build/cpp/device_sig_rs2048.dat
+                      wallet-unit-poc/circom/build/cpp/certChainRS2048.cpp
+                      wallet-unit-poc/circom/build/cpp/certChainRS2048.dat
+                      wallet-unit-poc/circom/build/cpp/certChainRS4096.cpp
+                      wallet-unit-poc/circom/build/cpp/certChainRS4096.dat
+                      wallet-unit-poc/circom/build/cpp/userSigRS2048.cpp
+                      wallet-unit-poc/circom/build/cpp/userSigRS2048.dat
                   retention-days: 3
 
             - name: Upload R1CS artifacts
@@ -58,9 +58,9 @@ jobs:
               with:
                   name: circuit-r1cs
                   path: |
-                      wallet-unit-poc/circom/build/cert_chain_rs2048/cert_chain_rs2048_js/cert_chain_rs2048.r1cs
-                      wallet-unit-poc/circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.r1cs
-                      wallet-unit-poc/circom/build/device_sig_rs2048/device_sig_rs2048_js/device_sig_rs2048.r1cs
+                      wallet-unit-poc/circom/build/certChainRS2048/certChainRS2048_js/certChainRS2048.r1cs
+                      wallet-unit-poc/circom/build/certChainRS4096/certChainRS4096_js/certChainRS4096.r1cs
+                      wallet-unit-poc/circom/build/userSigRS2048/userSigRS2048_js/userSigRS2048.r1cs
                   retention-days: 3
 
             - name: Upload circuit WASM artifacts
@@ -68,10 +68,10 @@ jobs:
               with:
                   name: circuit-wasm
                   path: |
-                      wallet-unit-poc/circom/build/cert_chain_rs2048/cert_chain_rs2048_js/cert_chain_rs2048.wasm
-                      wallet-unit-poc/circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.wasm
-                      wallet-unit-poc/circom/build/device_sig_rs2048/device_sig_rs2048_js/device_sig_rs2048.wasm
-                      wallet-unit-poc/circom/build/cert_chain_rs2048/cert_chain_rs2048_js/witness_calculator.js
-                      wallet-unit-poc/circom/build/cert_chain_rs4096/cert_chain_rs4096_js/witness_calculator.js
-                      wallet-unit-poc/circom/build/device_sig_rs2048/device_sig_rs2048_js/witness_calculator.js
+                      wallet-unit-poc/circom/build/certChainRS2048/certChainRS2048_js/certChainRS2048.wasm
+                      wallet-unit-poc/circom/build/certChainRS4096/certChainRS4096_js/certChainRS4096.wasm
+                      wallet-unit-poc/circom/build/userSigRS2048/userSigRS2048_js/userSigRS2048.wasm
+                      wallet-unit-poc/circom/build/certChainRS2048/certChainRS2048_js/witness_calculator.js
+                      wallet-unit-poc/circom/build/certChainRS4096/certChainRS4096_js/witness_calculator.js
+                      wallet-unit-poc/circom/build/userSigRS2048/userSigRS2048_js/witness_calculator.js
                   retention-days: 3

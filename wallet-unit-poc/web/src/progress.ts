@@ -19,9 +19,9 @@ import {
 import type { Progress } from "./worker";
 
 const KIND_LABEL: Record<Kind, string> = {
-  cert_chain_rs2048: "cert_chain_rs2048",
-  cert_chain_rs4096: "cert_chain_rs4096",
-  device_sig_rs2048: "device_sig_rs2048",
+  certChainRS2048: "certChainRS2048",
+  certChainRS4096: "certChainRS4096",
+  userSigRS2048: "userSigRS2048",
 };
 
 type WarmupEvent = Extract<Progress, { step: "warmup" }>;
@@ -65,7 +65,7 @@ export function markPriorStepsDone(step: Step): void {
 
 function applyWitness(p: WitnessEvent): void {
   if (!p.kind) return;
-  const step: Step = p.kind === "device_sig_rs2048" ? "prove_device" : "prove_cert";
+  const step: Step = p.kind === "userSigRS2048" ? "prove_device" : "prove_cert";
   if (p.status === "in_progress") {
     markPriorStepsDone(step);
     markInProgress(step, "witness");
@@ -76,7 +76,7 @@ function applyWitness(p: WitnessEvent): void {
 
 function applyProve(p: ProveEvent): void {
   if (!p.kind) return;
-  const step: Step = p.kind === "device_sig_rs2048" ? "prove_device" : "prove_cert";
+  const step: Step = p.kind === "userSigRS2048" ? "prove_device" : "prove_cert";
   if (p.status === "in_progress") {
     markPriorStepsDone(step);
     markInProgress(step, p.phase === "prep" ? "prep" : "proving");
@@ -145,7 +145,7 @@ export function applyProgress(p: Progress): void {
         run: {
           challenge: done.challenge,
           certChainType:
-            done.certKind === "cert_chain_rs4096" ? "rs4096" : "rs2048",
+            done.certKind === "certChainRS4096" ? "rs4096" : "rs2048",
           certProofBytes: done.certProofBytes,
           deviceProofBytes: done.deviceProofBytes,
           certKind: done.certKind,

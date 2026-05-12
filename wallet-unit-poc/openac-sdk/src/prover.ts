@@ -106,7 +106,7 @@ export class Prover {
 
     // build Show circuit inputs
     const currentDate = request.currentDate ?? new Date();
-    const deviceSignature = signDeviceNonce(
+    const userSignature = signDeviceNonce(
       request.verifierNonce,
       request.devicePrivateKey,
     );
@@ -130,7 +130,7 @@ export class Prover {
     const showInputs = buildShowCircuitInputs(
       showParams,
       request.verifierNonce,
-      deviceSignature,
+      userSignature,
       deviceKey,
       birthdayClaim.raw,
       {
