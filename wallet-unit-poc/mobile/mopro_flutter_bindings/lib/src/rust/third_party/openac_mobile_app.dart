@@ -10,11 +10,11 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 Future<void> initApp() => RustLib.instance.api.openacMobileAppInitApp();
 
-/// Generate split circuit inputs for both cert_chain_rs4096 and device_sig_rs2048.
+/// Generate split circuit inputs for both cert_chain_rs4096 and user_sig_rs2048.
 ///
 /// Writes two JSON files into `output_dir`:
 ///   - `cert_chain_rs4096_input.json`
-///   - `device_sig_rs2048_input.json`
+///   - `user_sig_rs2048_input.json`
 ///
 /// These are the input files expected by `prove` via `PathConfig::mobile`.
 ///
@@ -39,10 +39,10 @@ Future<String> generateCertChainRs4096Input({
   challenge: challenge,
 );
 
-/// Setup circuit keys for both cert_chain_rs4096 and device_sig_rs2048.
+/// Setup circuit keys for both cert_chain_rs4096 and user_sig_rs2048.
 ///
-/// Requires that `{documents_path}/cert_chain_rs4096.r1cs` and
-/// `{documents_path}/device_sig_rs2048.r1cs` are present.
+/// Requires that `{documents_path}/certChainRS4096.r1cs` and
+/// `{documents_path}/userSigRS2048.r1cs` are present.
 Future<String> setupKeys({required String documentsPath}) =>
     RustLib.instance.api.openacMobileAppSetupKeys(documentsPath: documentsPath);
 
@@ -60,18 +60,18 @@ Future<ProofResult> proveCertChainRs4096({required String documentsPath}) =>
       documentsPath: documentsPath,
     );
 
-/// Generate proofs for both cert_chain_rs4096 and device_sig_rs2048 circuits.
+/// Generate proofs for both cert_chain_rs4096 and user_sig_rs2048 circuits.
 ///
 /// Reads input JSONs via `PathConfig::mobile(documents_path)`:
 ///   - `{documents_path}/cert_chain_rs4096_input.json`
-///   - `{documents_path}/device_sig_rs2048_input.json`
+///   - `{documents_path}/user_sig_rs2048_input.json`
 ///
 /// Writes proofs, instances, and witnesses under `{documents_path}/keys/`.
 ///
 /// Witnesses are pre-warmed before any Spartan2 key I/O so that witnesscalc's
 /// C++ realloc runs on a clean heap and avoids macOS SIGSEGV from moved pointers.
-Future<ProofResult> proveDeviceSigRs2048({required String documentsPath}) =>
-    RustLib.instance.api.openacMobileAppProveDeviceSigRs2048(
+Future<ProofResult> proveUserSigRs2048({required String documentsPath}) =>
+    RustLib.instance.api.openacMobileAppProveUserSigRs2048(
       documentsPath: documentsPath,
     );
 
@@ -81,17 +81,17 @@ Future<bool> verifyCertChainRs4096({required String documentsPath}) => RustLib
     .api
     .openacMobileAppVerifyCertChainRs4096(documentsPath: documentsPath);
 
-/// Verify proofs for device_sig_rs2048 circuit.
-Future<bool> verifyDeviceSigRs2048({required String documentsPath}) => RustLib
+/// Verify proofs for user_sig_rs2048 circuit.
+Future<bool> verifyUserSigRs2048({required String documentsPath}) => RustLib
     .instance
     .api
-    .openacMobileAppVerifyDeviceSigRs2048(documentsPath: documentsPath);
+    .openacMobileAppVerifyUserSigRs2048(documentsPath: documentsPath);
 
-/// Verify proofs for cert_chain_rs4096 and device_sig_rs2048 circuits.
+/// Verify proofs for cert_chain_rs4096 and user_sig_rs2048 circuits.
 Future<bool> linkVerify({required String documentsPath}) => RustLib.instance.api
     .openacMobileAppLinkVerify(documentsPath: documentsPath);
 
-/// Run complete benchmark pipeline for both cert_chain_rs4096 and device_sig_rs2048 circuits.
+/// Run complete benchmark pipeline for both cert_chain_rs4096 and user_sig_rs2048 circuits.
 ///
 /// Witnesses are pre-warmed on a clean heap before Spartan2 setup to prevent macOS SIGSEGV:
 /// witnesscalc's C++ `realloc()` moves large allocations on a fragmented heap, leaving stale

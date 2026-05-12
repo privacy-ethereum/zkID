@@ -201,8 +201,8 @@ pub fn generate_cert_chain_rs4096_input(
 
 /// Setup circuit keys for both cert_chain_rs4096 and user_sig_rs2048.
 ///
-/// Requires that `{documents_path}/cert_chain_rs4096.r1cs` and
-/// `{documents_path}/user_sig_rs2048.r1cs` are present.
+/// Requires that `{documents_path}/certChainRS4096.r1cs` and
+/// `{documents_path}/userSigRS2048.r1cs` are present.
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 pub fn setup_keys(documents_path: String) -> Result<String, ZkProofError> {
     let config = make_config(&documents_path);
@@ -790,7 +790,7 @@ mod tests {
     /// Integration test: prove + verify both circuits.
     ///
     /// Prerequisites:
-    ///   - Run `yarn compile:cert_chain_rs4096` and `yarn compile:user_sig_rs2048`
+    ///   - Run `yarn compile:certChainRS4096` and `yarn compile:userSigRS2048`
     ///   - Run `cargo run -- generate-split-input --cert-chain-4096` from ecdsa-spartan2/
     ///
     /// Keys are generated inline during this test (setup is included).
@@ -800,22 +800,22 @@ mod tests {
         let documents_path = manifest.join("../ecdsa-spartan2");
 
         let cc_r1cs_src = manifest
-            .join("../circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.r1cs");
+            .join("../circom/build/certChainRS4096/certChainRS4096_js/certChainRS4096.r1cs");
         let ds_r1cs_src = manifest
-            .join("../circom/build/user_sig_rs2048/user_sig_rs2048_js/user_sig_rs2048.r1cs");
+            .join("../circom/build/userSigRS2048/userSigRS2048_js/userSigRS2048.r1cs");
         assert!(
             cc_r1cs_src.exists(),
-            "cert_chain_rs4096 R1CS not found at {}. Run `yarn compile:cert_chain_rs4096` first.",
+            "cert_chain_rs4096 R1CS not found at {}. Run `yarn compile:certChainRS4096` first.",
             cc_r1cs_src.display()
         );
         assert!(
             ds_r1cs_src.exists(),
-            "user_sig_rs2048 R1CS not found at {}. Run `yarn compile:user_sig_rs2048` first.",
+            "user_sig_rs2048 R1CS not found at {}. Run `yarn compile:userSigRS2048` first.",
             ds_r1cs_src.display()
         );
 
-        let cc_r1cs_dst = documents_path.join("cert_chain_rs4096.r1cs");
-        let ds_r1cs_dst = documents_path.join("user_sig_rs2048.r1cs");
+        let cc_r1cs_dst = documents_path.join("certChainRS4096.r1cs");
+        let ds_r1cs_dst = documents_path.join("userSigRS2048.r1cs");
         if !cc_r1cs_dst.exists() {
             std::fs::copy(&cc_r1cs_src, &cc_r1cs_dst)?;
         }
@@ -875,21 +875,21 @@ mod tests {
 
         let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let cc_r1cs_src = manifest
-            .join("../circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.r1cs");
+            .join("../circom/build/certChainRS4096/certChainRS4096_js/certChainRS4096.r1cs");
         let ds_r1cs_src = manifest
-            .join("../circom/build/user_sig_rs2048/user_sig_rs2048_js/user_sig_rs2048.r1cs");
+            .join("../circom/build/userSigRS2048/userSigRS2048_js/userSigRS2048.r1cs");
         let cc_input_src = manifest.join("../circom/inputs/cert_chain_rs4096/input.json");
         let ds_input_src =
             manifest.join("../circom/inputs/user_sig_rs2048_chain_rs4096/input.json");
 
         assert!(
             cc_r1cs_src.exists(),
-            "cert_chain_rs4096 R1CS not found at {}. Run `yarn compile:cert_chain_rs4096` first.",
+            "cert_chain_rs4096 R1CS not found at {}. Run `yarn compile:certChainRS4096` first.",
             cc_r1cs_src.display()
         );
         assert!(
             ds_r1cs_src.exists(),
-            "user_sig_rs2048 R1CS not found at {}. Run `yarn compile:user_sig_rs2048` first.",
+            "user_sig_rs2048 R1CS not found at {}. Run `yarn compile:userSigRS2048` first.",
             ds_r1cs_src.display()
         );
         assert!(
@@ -903,9 +903,9 @@ mod tests {
             ds_input_src.display()
         );
 
-        symlink(&cc_r1cs_src, dir.join("cert_chain_rs4096.r1cs"))
+        symlink(&cc_r1cs_src, dir.join("certChainRS4096.r1cs"))
             .expect("Failed to symlink cert_chain R1CS");
-        symlink(&ds_r1cs_src, dir.join("user_sig_rs2048.r1cs"))
+        symlink(&ds_r1cs_src, dir.join("userSigRS2048.r1cs"))
             .expect("Failed to symlink user_sig R1CS");
         symlink(&cc_input_src, dir.join("cert_chain_rs4096_input.json"))
             .expect("Failed to symlink cert_chain input");
@@ -985,23 +985,23 @@ mod tests {
         let documents_path = tmp.path().to_string_lossy().to_string();
         std::fs::create_dir_all(tmp.path().join("keys")).unwrap();
 
-        // Copy R1CS files — built by `yarn compile:cert_chain_rs4096/user_sig_rs2048`.
+        // Copy R1CS files — built by `yarn compile:certChainRS4096/user_sig_rs2048`.
         let cc_r1cs_src = manifest
-            .join("../circom/build/cert_chain_rs4096/cert_chain_rs4096_js/cert_chain_rs4096.r1cs");
+            .join("../circom/build/certChainRS4096/certChainRS4096_js/certChainRS4096.r1cs");
         let ds_r1cs_src = manifest
-            .join("../circom/build/user_sig_rs2048/user_sig_rs2048_js/user_sig_rs2048.r1cs");
+            .join("../circom/build/userSigRS2048/userSigRS2048_js/userSigRS2048.r1cs");
         assert!(
             cc_r1cs_src.exists(),
-            "cert_chain_rs4096 R1CS not found at {}. Run `yarn compile:cert_chain_rs4096` first.",
+            "cert_chain_rs4096 R1CS not found at {}. Run `yarn compile:certChainRS4096` first.",
             cc_r1cs_src.display()
         );
         assert!(
             ds_r1cs_src.exists(),
-            "user_sig_rs2048 R1CS not found at {}. Run `yarn compile:user_sig_rs2048` first.",
+            "user_sig_rs2048 R1CS not found at {}. Run `yarn compile:userSigRS2048` first.",
             ds_r1cs_src.display()
         );
-        std::fs::copy(&cc_r1cs_src, tmp.path().join("cert_chain_rs4096.r1cs")).unwrap();
-        std::fs::copy(&ds_r1cs_src, tmp.path().join("user_sig_rs2048.r1cs")).unwrap();
+        std::fs::copy(&cc_r1cs_src, tmp.path().join("certChainRS4096.r1cs")).unwrap();
+        std::fs::copy(&ds_r1cs_src, tmp.path().join("userSigRS2048.r1cs")).unwrap();
 
         // Generate circuit inputs, writing directly into documents_path.
         let snapshot_path = "/tmp/g3-tree-snapshot.json.gz";

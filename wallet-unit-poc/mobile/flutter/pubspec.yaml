@@ -55,10 +55,10 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/circom/cert_chain_rs4096.r1cs.gz
-    - assets/circom/device_sig_rs2048.r1cs.gz
+    - assets/circom/certChainRS4096.r1cs.gz
+    - assets/circom/userSigRS2048.r1cs.gz
     - assets/circom/cert_chain_rs4096_input.json
-    - assets/circom/device_sig_rs2048_input.json
+    - assets/circom/user_sig_rs2048_input.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

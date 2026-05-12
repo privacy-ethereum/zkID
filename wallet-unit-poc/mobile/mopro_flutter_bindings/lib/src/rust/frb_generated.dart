@@ -64,7 +64,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => 1810054927;
+  int get rustContentHash => -2131495952;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -113,7 +113,7 @@ abstract class RustLibApi extends BaseApi {
     required String documentsPath,
   });
 
-  Future<ProofResult> openacMobileAppProveDeviceSigRs2048({
+  Future<ProofResult> openacMobileAppProveUserSigRs2048({
     required String documentsPath,
   });
 
@@ -132,13 +132,13 @@ abstract class RustLibApi extends BaseApi {
     required String documentsPath,
   });
 
-  Future<bool> openacMobileAppVerifyDeviceSigRs2048({
-    required String documentsPath,
-  });
-
   Future<bool> openacMobileAppVerifySmtProof({
     required SmtProof proof,
     required String expectedRoot,
+  });
+
+  Future<bool> openacMobileAppVerifyUserSigRs2048({
+    required String documentsPath,
   });
 
   RustArcIncrementStrongCountFnType
@@ -478,7 +478,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<ProofResult> openacMobileAppProveDeviceSigRs2048({
+  Future<ProofResult> openacMobileAppProveUserSigRs2048({
     required String documentsPath,
   }) {
     return handler.executeNormal(
@@ -498,16 +498,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData:
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
-        constMeta: kOpenacMobileAppProveDeviceSigRs2048ConstMeta,
+        constMeta: kOpenacMobileAppProveUserSigRs2048ConstMeta,
         argValues: [documentsPath],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kOpenacMobileAppProveDeviceSigRs2048ConstMeta =>
+  TaskConstMeta get kOpenacMobileAppProveUserSigRs2048ConstMeta =>
       const TaskConstMeta(
-        debugName: "prove_device_sig_rs2048",
+        debugName: "prove_user_sig_rs2048",
         argNames: ["documentsPath"],
       );
 
@@ -645,40 +645,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<bool> openacMobileAppVerifyDeviceSigRs2048({
-    required String documentsPath,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(documentsPath, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 15,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_bool,
-          decodeErrorData:
-              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
-        ),
-        constMeta: kOpenacMobileAppVerifyDeviceSigRs2048ConstMeta,
-        argValues: [documentsPath],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta get kOpenacMobileAppVerifyDeviceSigRs2048ConstMeta =>
-      const TaskConstMeta(
-        debugName: "verify_device_sig_rs2048",
-        argNames: ["documentsPath"],
-      );
-
-  @override
   Future<bool> openacMobileAppVerifySmtProof({
     required SmtProof proof,
     required String expectedRoot,
@@ -692,7 +658,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 15,
             port: port_,
           );
         },
@@ -711,6 +677,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(
         debugName: "verify_smt_proof",
         argNames: ["proof", "expectedRoot"],
+      );
+
+  @override
+  Future<bool> openacMobileAppVerifyUserSigRs2048({
+    required String documentsPath,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(documentsPath, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 16,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_bool,
+          decodeErrorData:
+              sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
+        ),
+        constMeta: kOpenacMobileAppVerifyUserSigRs2048ConstMeta,
+        argValues: [documentsPath],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kOpenacMobileAppVerifyUserSigRs2048ConstMeta =>
+      const TaskConstMeta(
+        debugName: "verify_user_sig_rs2048",
+        argNames: ["documentsPath"],
       );
 
   RustArcIncrementStrongCountFnType

@@ -11,9 +11,9 @@ import 'package:mopro_flutter_bindings/src/rust/third_party/openac_mobile_app.da
         ProofResult,
         setupKeys,
         proveCertChainRs4096,
-        proveDeviceSigRs2048,
+        proveUserSigRs2048,
         verifyCertChainRs4096,
-        verifyDeviceSigRs2048,
+        verifyUserSigRs2048,
         runCompleteBenchmark,
         linkVerify;
 
@@ -27,20 +27,20 @@ Future<void> main() async {
 /// Copy circuit R1CS files and input data from Flutter assets to documents directory.
 ///
 /// Assets are stored flat in the documents directory:
-///   Documents/cert_chain_rs4096.r1cs        (decompressed from .gz)
-///   Documents/cert_chain_rs4096_input.json  
-///   Documents/device_sig_rs2048.r1cs        (decompressed from .gz)
-///   Documents/device_sig_rs2048_input.json
+///   Documents/certChainRS4096.r1cs        (decompressed from .gz)
+///   Documents/cert_chain_rs4096_input.json
+///   Documents/userSigRS2048.r1cs          (decompressed from .gz)
+///   Documents/user_sig_rs2048_input.json
 Future<void> _copyAssetsToDocuments() async {
   try {
     final documentsDir = await getApplicationDocumentsDirectory();
     final basePath = documentsDir.path;
 
     final assets = {
-      'assets/circom/cert_chain_rs4096.r1cs.gz': 'cert_chain_rs4096.r1cs',
-      'assets/circom/device_sig_rs2048.r1cs.gz': 'device_sig_rs2048.r1cs',
+      'assets/circom/certChainRS4096.r1cs.gz': 'certChainRS4096.r1cs',
+      'assets/circom/userSigRS2048.r1cs.gz': 'userSigRS2048.r1cs',
       'assets/circom/cert_chain_rs4096_input.json': 'cert_chain_rs4096_input.json',
-      'assets/circom/device_sig_rs2048_input.json': 'device_sig_rs2048_input.json',
+      'assets/circom/user_sig_rs2048_input.json': 'user_sig_rs2048_input.json',
     };
 
     for (final entry in assets.entries) {
@@ -172,7 +172,7 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
           final proofResult = await proveCertChainRs4096(
             documentsPath: documentsPath,
           );
-          final deviceSigProofResult = await proveDeviceSigRs2048(
+          final deviceSigProofResult = await proveUserSigRs2048(
             documentsPath: documentsPath,
           );
           result = TaskResult(
@@ -188,7 +188,7 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
           final verifyResult = await verifyCertChainRs4096(
             documentsPath: documentsPath,
           );
-          final deviceSigVerifyResult = await verifyDeviceSigRs2048(
+          final deviceSigVerifyResult = await verifyUserSigRs2048(
             documentsPath: documentsPath,
           );
           final linkVerifyResult = await linkVerify(

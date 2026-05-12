@@ -1612,9 +1612,8 @@
     "0"
   ],
   "issuerTbsLength": 640,
-  "pkBlind": "17405598022388721202130401730959566548879796937273399819728965840989721131181",
+  "pkBlind": "111352434088354435338537960580280771551707468243754501105613923428575469836",
   "serialNumber": "697115914806517888843543469837200412336853924504",
-  "tbsSerialNumberOffset": 11,
   "smtIsOld0": "1",
   "smtOldKey": "0",
   "smtOldValue": "0",
@@ -1749,6 +1748,9 @@
     "0",
     "0"
   ],
+  "tbsModulusOffset": 254,
+  "tbsModulusTagOffset": 249,
+  "tbsSerialNumberOffset": 11,
   "userCertZeroPadded": [
     48,
     130,
@@ -3286,7 +3288,5 @@
     0,
     0,
     0
-  ],
-  "tbsModulusOffset": 254,
-  "tbsModulusTagOffset": 249
+  ]
 }

@@ -47,7 +47,7 @@ impl PathConfig {
     /// Development uses nested paths relative to the current working directory:
     /// - `../circom/inputs/cert_chain_rs2048/default.json`
     /// - `keys/*.key`
-    /// - `../circom/build/cert_chain_rs2048/cert_chain_rs2048_js/cert_chain_rs2048.r1cs`
+    /// - `../circom/build/certChainRS2048/certChainRS2048_js/certChainRS2048.r1cs`
     pub fn development() -> Self {
         Self {
             base_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
@@ -146,8 +146,8 @@ mod tests {
             PathBuf::from("/app/Documents/cert_chain_rs2048_input.json")
         );
         assert_eq!(
-            config.r1cs_path("cert_chain_rs2048"),
-            PathBuf::from("/app/Documents/cert_chain_rs2048.r1cs")
+            config.r1cs_path("certChainRS2048"),
+            PathBuf::from("/app/Documents/certChainRS2048.r1cs")
         );
         assert_eq!(
             config.key_path("cert_chain_rs2048_proving.key"),
