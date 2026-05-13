@@ -89,8 +89,8 @@ template CertChainRSA256(
     // could set issuerTbsLength >> actualIssuerTbsLength and hide arbitrary
     // bytes in issuerTbs[actual..padded) — bytes the MOICA signature covers
     // but VerifyTBSinCert does not bind to userCertZeroPadded.
-    // The padded length exceeds the actual length by at most 64 bytes
-    // (one SHA-256 block), so bound: actual <= padded <= actual + 64.
+    // SHA-256 padding adds between 9 and 72 bytes; use 128 as a safe
+    // power-of-two upper bound: actual <= padded <= actual + 128.
     component tbsLenLB = LessEqThan(13);
     tbsLenLB.in[0] <== actualIssuerTbsLength;
     tbsLenLB.in[1] <== issuerTbsLength;
@@ -98,7 +98,7 @@ template CertChainRSA256(
 
     component tbsLenUB = LessEqThan(14);
     tbsLenUB.in[0] <== issuerTbsLength;
-    tbsLenUB.in[1] <== actualIssuerTbsLength + 64;
+    tbsLenUB.in[1] <== actualIssuerTbsLength + 128;
     tbsLenUB.out === 1;
 
     var modulusBytes = modulusBitsUser \ 8;  // e.g. 2048/8 = 256
