@@ -161,6 +161,9 @@ jobs:
                     gzip -k "${circuit}/${circuit}_js/${circuit}.r1cs"
                     gzip -k "${circuit}/${circuit}_js/${circuit}.wasm"
                   done
+                  # Identical across all three circuits; ship one copy.
+                  cp certChainRS2048/certChainRS2048_js/witness_calculator.js witness_calculator.js
+                  gzip -k witness_calculator.js
                   cd cpp
                   for f in *.cpp *.dat; do
                     gzip -k "$f"
@@ -190,5 +193,6 @@ jobs:
                       wallet-unit-poc/circom/build/certChainRS2048/certChainRS2048_js/certChainRS2048.wasm.gz
                       wallet-unit-poc/circom/build/certChainRS4096/certChainRS4096_js/certChainRS4096.wasm.gz
                       wallet-unit-poc/circom/build/userSigRS2048/userSigRS2048_js/userSigRS2048.wasm.gz
+                      wallet-unit-poc/circom/build/witness_calculator.js.gz
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
