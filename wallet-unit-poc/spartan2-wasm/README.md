@@ -64,18 +64,18 @@ All exports come from the generated `pkg/spartan2_wasm.js`.
 - `verify(proofBytes, vkBytes)` → `{ valid, public_values, error }`. Wasm-side
   verification. Not used by the production web pipeline — present for the
   drift test and local debugging.
-- `link_verify(certPubs, devicePubs)` → `{ ok, cert_pk_commit, device_pk_commit }`.
-  Asserts `pk_commit` equality between a cert-chain and a device-sig proof.
+- `link_verify(certPubs, userSigPubs)` → `{ ok, cert_pk_commit, user_sig_pk_commit }`.
+  Asserts `pk_commit` equality between a cert-chain and a user-sig proof.
   Inputs are the `public_values` arrays returned by `prove`. Not used in
   production — the server-side verifier performs this check.
 - `build_split_inputs(userCertDer, issuerCertDer, userSignatureB64, appIdBytes, serialHex, smtInputs, kIssuer, kUser, challenge)` →
-  `{ cert_chain, user_sig }`. Builds the cert-chain + device-sig circuit
+  `{ cert_chain, user_sig }`. Builds the cert-chain + user-sig circuit
   input JSON from raw card + SMT data. `appIdBytes` must be exactly 31 bytes —
   the relying-party identifier the cardholder signed. `smtInputs` accepts
   `null` (zero defaults) or a snake_case `SmtCircuitInputs` object. `kIssuer`
   is `17` for RSA-2048 issuers and `34` for RSA-4096. `challenge` is the
   decimal field-element string returned by `go-zkid-verifier`'s `/challenge`
-  endpoint, bound into the device-sig proof via a Semaphore-style dummy square.
+  endpoint, bound into the user-sig proof via a Semaphore-style dummy square.
   `pk_blind` is sampled internally each call via `random_pk_blind()`; callers
   do not pass it. Delegates to the shared
   [`zkid-input-builder`](../zkid-input-builder) crate so the browser produces
@@ -118,7 +118,7 @@ extra flags from consumers.
 The web app picks `clamp(navigator.hardwareConcurrency - 1, 2, 8)`. Leaving one
 core for the main thread keeps the UI responsive. The 8-thread cap is
 intentional: wasm32 has a 4 GB linear-memory ceiling, and
-`cert_chain_rs4096` can approach that limit at higher thread counts.
+`certChainRS4096` can approach that limit at higher thread counts.
 
 ## Drift test
 
@@ -129,7 +129,7 @@ The test runs setup locally (so it does not depend on committed PK artifacts),
 calls `prove_core` here to produce a proof and instance, then deserializes
 both into the concrete Spartan2 types exported from `ecdsa-spartan2` and calls
 `verify_circuit_with_loaded_data` to confirm acceptance. It covers at least one
-cert-chain variant and device-sig.
+cert-chain variant and user-sig.
 
 The test runs in CI via `web-tests.yaml` on every PR that touches
 `spartan2-wasm/` or `ecdsa-spartan2/src/prover.rs`, and can be run locally on

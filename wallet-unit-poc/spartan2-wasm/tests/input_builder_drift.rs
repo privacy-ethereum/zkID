@@ -87,7 +87,7 @@ fn assert_split_inputs_match(
     let user_cert = Certificate::from_der(user_der).expect("user parse");
     let issuer_cert = Certificate::from_der(issuer_der).expect("issuer parse");
 
-    let (native_cert, native_device) = generate_split_inputs(
+    let (native_cert, native_user_sig) = generate_split_inputs(
         &user_cert, &issuer_cert, sig_b64, DEFAULT_TBS, serial_hex,
         smt_inputs, k_issuer, 17, MAX_CERT_CHAIN_LENGTH,
         TEST_PK_BLIND, DEFAULT_CHALLENGE,
@@ -107,7 +107,7 @@ fn assert_split_inputs_match(
         "{kind}: cert_chain input JSON drifted between ecdsa-spartan2 and spartan2-wasm"
     );
     assert_eq!(
-        serde_json::to_string(&native_device).unwrap(),
+        serde_json::to_string(&native_user_sig).unwrap(),
         serde_json::to_string(&wasm_out.user_sig).unwrap(),
         "{kind}: user_sig input JSON drifted between ecdsa-spartan2 and spartan2-wasm"
     );

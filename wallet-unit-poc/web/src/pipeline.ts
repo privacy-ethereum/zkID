@@ -145,7 +145,7 @@ export async function runSignPhasePipeline(
   ).then((x) => x.inputs);
   checkAborted(signal);
 
-  const { certJson, deviceJson } = await stage("build", () =>
+  const { certJson, userSigJson } = await stage("build", () =>
     buildInputs({
       card: {
         ...ctx.card,
@@ -162,7 +162,7 @@ export async function runSignPhasePipeline(
 
   const input: ProveInput = {
     certJson,
-    deviceJson,
+    userSigJson,
     certKind: ctx.card.certKind,
     challenge: challenge.challenge,
   };

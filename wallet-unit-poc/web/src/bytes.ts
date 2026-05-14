@@ -1,7 +1,7 @@
 // Byte-array conversion helpers. Tight, shared across clients + pipeline.
 
 /** Encodes the verifier-issued `app_id` (a 31-byte UTF-8 string) into the
- *  exact bytes the card signs and the device-sig circuit consumes as
+ *  exact bytes the card signs and the user-sig circuit consumes as
  *  `app_id_bytes`. Do NOT hex-decode: `app_id` is an opaque UTF-8 string and
  *  may not be valid hex (it is often 31 characters — odd-length). The native
  *  prover uses the same `.as_bytes()` path. */

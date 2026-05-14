@@ -108,7 +108,7 @@ function boot(): void {
         {
           certChainType: state.run.certChainType,
           certChainProofBytes: state.run.certProofBytes,
-          userSigProofBytes: state.run.deviceProofBytes,
+          userSigProofBytes: state.run.userSigProofBytes,
         },
         { signal: mine.signal },
       );
@@ -144,8 +144,8 @@ function logProvingComplete(
     provingMs: Math.round(data.provingMs),
     certWitnessMs: Math.round(data.certWitnessMs),
     certProveMs: Math.round(data.certProveMs),
-    deviceWitnessMs: Math.round(data.deviceWitnessMs),
-    deviceProveMs: Math.round(data.deviceProveMs),
+    userSigWitnessMs: Math.round(data.userSigWitnessMs),
+    userSigProveMs: Math.round(data.userSigProveMs),
   });
 }
 

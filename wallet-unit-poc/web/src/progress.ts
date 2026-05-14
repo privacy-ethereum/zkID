@@ -4,7 +4,6 @@
 // the FSM packages into a ProvingRun for the Review screen.
 
 import { humanBytes } from "./format";
-import type { CircuitKind as Kind } from "./manifest";
 import { $smt, $warmup } from "./setup-state";
 import { dispatch } from "./store";
 import {
@@ -17,12 +16,6 @@ import {
   type Step,
 } from "./ui";
 import type { Progress } from "./worker";
-
-const KIND_LABEL: Record<Kind, string> = {
-  certChainRS2048: "certChainRS2048",
-  certChainRS4096: "certChainRS4096",
-  userSigRS2048: "userSigRS2048",
-};
 
 type WarmupEvent = Extract<Progress, { step: "warmup" }>;
 type WitnessEvent = Extract<Progress, { step: "witness" }>;
@@ -47,7 +40,7 @@ function warmupSublabel(p: WarmupEvent): string {
       return `downloading ${asset}`;
     }
     case "load":
-      return p.kind ? `loading ${KIND_LABEL[p.kind]}` : "loading proving keys";
+      return p.kind ? `loading ${p.kind}` : "loading proving keys";
     default:
       return "";
   }
@@ -65,7 +58,7 @@ export function markPriorStepsDone(step: Step): void {
 
 function applyWitness(p: WitnessEvent): void {
   if (!p.kind) return;
-  const step: Step = p.kind === "userSigRS2048" ? "prove_device" : "prove_cert";
+  const step: Step = p.kind === "userSigRS2048" ? "prove_user_sig" : "prove_cert";
   if (p.status === "in_progress") {
     markPriorStepsDone(step);
     markInProgress(step, "witness");
@@ -76,7 +69,7 @@ function applyWitness(p: WitnessEvent): void {
 
 function applyProve(p: ProveEvent): void {
   if (!p.kind) return;
-  const step: Step = p.kind === "userSigRS2048" ? "prove_device" : "prove_cert";
+  const step: Step = p.kind === "userSigRS2048" ? "prove_user_sig" : "prove_cert";
   if (p.status === "in_progress") {
     markPriorStepsDone(step);
     markInProgress(step, p.phase === "prep" ? "prep" : "proving");
@@ -147,7 +140,7 @@ export function applyProgress(p: Progress): void {
           certChainType:
             done.certKind === "certChainRS4096" ? "rs4096" : "rs2048",
           certProofBytes: done.certProofBytes,
-          deviceProofBytes: done.deviceProofBytes,
+          userSigProofBytes: done.userSigProofBytes,
           certKind: done.certKind,
           provingMs: done.provingMs,
         },

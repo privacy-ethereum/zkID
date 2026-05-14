@@ -11,7 +11,7 @@ const APP_ID_BYTES = 31;
 
 export interface Challenge {
   /** Per-session field-element binding (decimal string). Embedded into the
-   *  device-sig proof; the verifier extracts it from the public signals and
+   *  user-sig proof; the verifier extracts it from the public signals and
    *  normalizes it back to decimal for the store lookup. */
   challenge: string;
   /** 31-byte UTF-8 relying-party identifier. Signed by the card and fed
@@ -85,7 +85,7 @@ export async function createChallenge(
       `POST /challenge: unexpected response shape (got keys: ${Object.keys(body ?? {}).join(", ") || "none"})`,
     );
   }
-  // The device-sig circuit has 31 fixed `app_id_bytes` slots. A drift here
+  // The user-sig circuit has 31 fixed `app_id_bytes` slots. A drift here
   // produces a non-verifying proof many seconds later instead of failing
   // fast; assert it at the wire boundary.
   if (new TextEncoder().encode(body.app_id).byteLength !== APP_ID_BYTES) {

@@ -62,7 +62,7 @@ describe("verifier-client", () => {
 
   it("base64-encodes proofs and POSTs only the proof envelope to /link-verify", async () => {
     const certProof = new Uint8Array([1, 2, 3, 4]);
-    const deviceProof = new Uint8Array([9, 9, 9, 9, 9]);
+    const userSigProof = new Uint8Array([9, 9, 9, 9, 9]);
     const fetchSpy = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       expect(String(url)).toMatch(/\/link-verify$/);
       expect(init?.method).toBe("POST");
@@ -91,7 +91,7 @@ describe("verifier-client", () => {
     const res = await submitLinkVerify({
       certChainType: "rs2048",
       certChainProofBytes: certProof,
-      userSigProofBytes: deviceProof,
+      userSigProofBytes: userSigProof,
     });
     expect(res).toEqual({
       verified: true,

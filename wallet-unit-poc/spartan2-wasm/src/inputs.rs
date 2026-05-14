@@ -63,7 +63,7 @@ fn build_split_inputs_core(
 /// `smt_inputs`: `null`/`undefined` fills zero defaults; otherwise a snake_case
 /// `SmtCircuitInputs` object. `k_issuer` is 17 (RSA-2048) or 34 (RSA-4096);
 /// `k_user` must be 17. `challenge` is the verifier-issued per-session field
-/// element (decimal string) bound into the device-sig proof.
+/// element (decimal string) bound into the user-sig proof.
 #[wasm_bindgen]
 #[allow(clippy::too_many_arguments)]
 pub fn build_split_inputs(
@@ -127,7 +127,7 @@ pub fn build_split_inputs(
 }
 
 /// RSA modulus bit width of the cert's `subjectPublicKey`. Used by the web
-/// app to pick `cert_chain_rs2048` vs `cert_chain_rs4096` from the real
+/// app to pick `certChainRS2048` vs `certChainRS4096` from the real
 /// issuer key, rather than guessing from the issuer DN string.
 #[wasm_bindgen]
 pub fn cert_modulus_bits(cert_der: &[u8]) -> Result<u32, JsError> {

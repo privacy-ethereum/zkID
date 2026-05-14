@@ -1,6 +1,6 @@
 # web — zkID in-browser prover
 
-Vite + TypeScript app that runs cert-chain + device-sig Spartan2 proving fully
+Vite + TypeScript app that runs cert-chain + user-sig Spartan2 proving fully
 in the browser using [`../spartan2-wasm`](../spartan2-wasm). Verification is
 **server-side** via [`go-zkid-verifier`](https://github.com/zkmopro/go-zkid-verifier)
 (`POST /link-verify`). A dedicated Web Worker handles heavy wasm work; the main
@@ -24,7 +24,7 @@ Start    Continue  Start    (auto)    Send     (auto)      Prove again
 - **Ready** is a confirmation gate before proving starts (and before opening
   the HiPKI signing popup).
 - **Proving** runs 6 steps: fetch challenge → sign with card → check
-  revocation locally → build inputs → prove cert-chain → prove device-sig.
+  revocation locally → build inputs → prove cert-chain → prove user-sig.
   Per-step durations appear as each step completes. Cancel returns the
   user to setup. The revocation step queries an SMT that was rebuilt
   in-browser during setup, so the card's serial never leaves the device.
@@ -35,8 +35,8 @@ Start    Continue  Start    (auto)    Send     (auto)      Prove again
 - **Submitting** is a single-spinner screen for the `/link-verify` POST.
 - **Result** shows verified/not-verified with both timings, the
   server-derived nullifier, and an expandable debug block with the
-  parsed public inputs (`nullifier`, `pk_commit`, `smt_root`,
-  `serial_number`, `challenge`, `issuer_rsa_modulus`). **Prove again**
+  parsed public inputs (`nullifier`, `pkCommit`, `smt_root`,
+  `serial_number`, `challenge`, `issuerRsaModulus`). **Prove again**
   routes back to setup for PIN re-verify; card + warm runtime stay green
   so only the PIN panel needs a fresh entry.
 
@@ -73,7 +73,7 @@ later runs reuse the cache.
 | `src/smt-client.ts`      | Worker-backed SMT proof query → `SmtCircuitInputs` (no network)               |
 | `src/smt-local.ts`       | Worker-side SMT engine: loads Go `smt.wasm`, streams snapshot, serves proofs  |
 | `src/smt-snapshot.ts`    | Binary snapshot parser (header + node chunking); engine-agnostic              |
-| `src/inputs.ts`          | Wraps wasm `build_split_inputs` → `{ certJson, deviceJson }`                   |
+| `src/inputs.ts`          | Wraps wasm `build_split_inputs` → `{ certJson, userSigJson }`                  |
 | `src/pipeline.ts`        | Main-thread sign-phase pipeline on /: challenge → sign → SMT → build → `ProveInput` |
 | `src/pin.ts`             | Single-use PIN wrapper; redacts on every observable surface                    |
 | `src/worker.ts`          | Two Worker modes: `warmup` (download + load PKs) and `prove` (witness + prove) |
@@ -89,7 +89,7 @@ later runs reuse the cache.
 Pipeline (mirrors `src/ui.ts::Step`):
 
 ```
-challenge → sign → smt → build → prove_cert → prove_device → proving_complete
+challenge → sign → smt → build → prove_cert → prove_user_sig → proving_complete
                                                                 │
                                                                 ▼
                                                     review → send → submitting → result

@@ -1,7 +1,7 @@
 // Reactive step-indicator store + DOM renderer for the proving screen.
 //
 // Six steps (challenge → sign → smt → build → prove cert-chain →
-// prove device-sig). Steps 1–4 are main-thread pipeline stages; steps 5–6
+// prove user-sig). Steps 1–4 are main-thread pipeline stages; steps 5–6
 // are Worker progress events. Per-step durations are recorded between the
 // first `in_progress` and the `done` transition so the row can display them.
 
@@ -15,7 +15,7 @@ export type Step =
   | "smt"
   | "build"
   | "prove_cert"
-  | "prove_device";
+  | "prove_user_sig";
 
 export type StepStatus = "pending" | "in_progress" | "done" | "error";
 
@@ -34,7 +34,7 @@ export const STEP_ORDER: Step[] = [
   "smt",
   "build",
   "prove_cert",
-  "prove_device",
+  "prove_user_sig",
 ];
 
 const STEP_TITLES: Record<Step, string> = {
@@ -43,7 +43,7 @@ const STEP_TITLES: Record<Step, string> = {
   smt: "Check revocation locally",
   build: "Build circuit inputs",
   prove_cert: "Prove cert-chain",
-  prove_device: "Prove device-sig",
+  prove_user_sig: "Prove user-sig",
 };
 
 export const steps: Record<Step, StepAtom> = {
@@ -52,7 +52,7 @@ export const steps: Record<Step, StepAtom> = {
   smt: atom<StepState>({ status: "pending" }),
   build: atom<StepState>({ status: "pending" }),
   prove_cert: atom<StepState>({ status: "pending" }),
-  prove_device: atom<StepState>({ status: "pending" }),
+  prove_user_sig: atom<StepState>({ status: "pending" }),
 };
 
 export type ResultState =

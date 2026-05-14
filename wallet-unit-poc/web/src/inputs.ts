@@ -23,17 +23,17 @@ export interface BuildInputsParams {
   /** Raw PKCS#1 v1.5 signature from HiPKI, base64-encoded. */
   userSignatureB64: string;
   /** 31-byte UTF-8 `app_id` from the verifier — the bytes the card signed
-   *  and the device-sig circuit consumes as `app_id_bytes`. */
+   *  and the user-sig circuit consumes as `app_id_bytes`. */
   appIdBytes: Uint8Array;
   smtInputs: SmtCircuitInputs | null;
   /** Verifier-issued per-session field element (decimal string), bound into
-   *  the device-sig proof via a Semaphore-style dummy square. */
+   *  the user-sig proof via a Semaphore-style dummy square. */
   challenge: string;
 }
 
 export interface SplitInputs {
   certJson: string;
-  deviceJson: string;
+  userSigJson: string;
 }
 
 /**
@@ -60,6 +60,6 @@ export async function buildInputs(
   ) as { cert_chain: unknown; user_sig: unknown };
   return {
     certJson: JSON.stringify(out.cert_chain),
-    deviceJson: JSON.stringify(out.user_sig),
+    userSigJson: JSON.stringify(out.user_sig),
   };
 }

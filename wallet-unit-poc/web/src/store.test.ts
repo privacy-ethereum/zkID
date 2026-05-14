@@ -7,7 +7,7 @@ function makeRun(overrides: Partial<ProvingRun> = {}): ProvingRun {
     challenge: "215078321887317284868454961554019057364",
     certChainType: "rs2048",
     certProofBytes: new Uint8Array([1, 2, 3]),
-    deviceProofBytes: new Uint8Array([4, 5, 6]),
+    userSigProofBytes: new Uint8Array([4, 5, 6]),
     certKind: "certChainRS2048",
     provingMs: 1234,
     ...overrides,

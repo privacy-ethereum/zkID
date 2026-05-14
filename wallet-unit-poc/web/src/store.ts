@@ -23,7 +23,7 @@ export interface ProvingRun {
   challenge: string;
   certChainType: "rs2048" | "rs4096";
   certProofBytes: Uint8Array;
-  deviceProofBytes: Uint8Array;
+  userSigProofBytes: Uint8Array;
   certKind: CircuitKind;
   provingMs: number;
 }

@@ -158,13 +158,13 @@ impl SpartanCircuit<E> for WasmCircuit {
 type PkCell = Mutex<Option<<R1CSSNARK<E> as R1CSSNARKTrait<E>>::ProverKey>>;
 static PK_CERT_2048: PkCell = Mutex::new(None);
 static PK_CERT_4096: PkCell = Mutex::new(None);
-static PK_DEVICE_2048: PkCell = Mutex::new(None);
+static PK_USER_SIG_2048: PkCell = Mutex::new(None);
 
 fn pk_slot(kind: CircuitKind) -> &'static PkCell {
     match kind {
         CircuitKind::CertChainRs2048 => &PK_CERT_2048,
         CircuitKind::CertChainRs4096 => &PK_CERT_4096,
-        CircuitKind::UserSigRs2048 => &PK_DEVICE_2048,
+        CircuitKind::UserSigRs2048 => &PK_USER_SIG_2048,
     }
 }
 
@@ -256,19 +256,19 @@ pub fn verify(proof_bytes: &[u8], vk_bytes: &[u8]) -> Result<JsValue, JsError> {
 }
 
 /// Assert pk_commit equality between a cert-chain proof's public values and a
-/// device-sig proof's public values. Both are passed as Vec<String> (debug-printed
+/// user-sig proof's public values. Both are passed as Vec<String> (debug-printed
 /// scalars) to match what `prove()` and `verify()` return to JS.
 #[wasm_bindgen]
-pub fn link_verify(cert_pubs: Vec<String>, device_pubs: Vec<String>) -> Result<JsValue, JsError> {
+pub fn link_verify(cert_pubs: Vec<String>, user_sig_pubs: Vec<String>) -> Result<JsValue, JsError> {
     let cert_pk = cert_pubs.get(CircuitKind::CertChainRs2048.pk_commit_index())
         .ok_or_else(|| JsError::new("cert public values missing pkCommit"))?;
-    let device_pk = device_pubs.get(CircuitKind::UserSigRs2048.pk_commit_index())
-        .ok_or_else(|| JsError::new("device public values missing pkCommit"))?;
-    let ok = cert_pk == device_pk;
+    let user_sig_pk = user_sig_pubs.get(CircuitKind::UserSigRs2048.pk_commit_index())
+        .ok_or_else(|| JsError::new("user-sig public values missing pkCommit"))?;
+    let ok = cert_pk == user_sig_pk;
     #[derive(Serialize)]
-    struct LinkJs { ok: bool, cert_pk_commit: String, device_pk_commit: String }
+    struct LinkJs { ok: bool, cert_pk_commit: String, user_sig_pk_commit: String }
     serde_wasm_bindgen::to_value(&LinkJs {
-        ok, cert_pk_commit: cert_pk.clone(), device_pk_commit: device_pk.clone(),
+        ok, cert_pk_commit: cert_pk.clone(), user_sig_pk_commit: user_sig_pk.clone(),
     }).map_err(|e| JsError::new(&e.to_string()))
 }
 

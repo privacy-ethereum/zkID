@@ -21,8 +21,8 @@ export function mountReview(root: HTMLElement): () => void {
   const run: ProvingRun = state.run;
 
   const certBytes = run.certProofBytes.byteLength;
-  const deviceBytes = run.deviceProofBytes.byteLength;
-  const totalBytes = certBytes + deviceBytes;
+  const userSigBytes = run.userSigProofBytes.byteLength;
+  const totalBytes = certBytes + userSigBytes;
   const overBudget = totalBytes > SAFE_THRESHOLD;
 
   root.innerHTML = `
@@ -47,8 +47,8 @@ export function mountReview(root: HTMLElement): () => void {
           <span class="review-value" data-testid="review-cert-size"></span>
         </div>
         <div class="review-row">
-          <span class="review-label">Device-sig proof</span>
-          <span class="review-value" data-testid="review-device-size"></span>
+          <span class="review-label">User-sig proof</span>
+          <span class="review-value" data-testid="review-user-sig-size"></span>
         </div>
         <div class="review-row">
           <span class="review-label">Proving time</span>
@@ -73,7 +73,7 @@ export function mountReview(root: HTMLElement): () => void {
   const challengeEl = root.querySelector<HTMLElement>('[data-testid="review-challenge"]')!;
   const chainEl = root.querySelector<HTMLElement>('[data-testid="review-chain"]')!;
   const certSizeEl = root.querySelector<HTMLElement>('[data-testid="review-cert-size"]')!;
-  const deviceSizeEl = root.querySelector<HTMLElement>('[data-testid="review-device-size"]')!;
+  const userSigSizeEl = root.querySelector<HTMLElement>('[data-testid="review-user-sig-size"]')!;
   const provingMsEl = root.querySelector<HTMLElement>('[data-testid="review-proving-ms"]')!;
   const guardrailEl = root.querySelector<HTMLElement>('[data-testid="review-guardrail"]')!;
   const retryBtn = root.querySelector<HTMLButtonElement>('[data-testid="review-retry"]')!;
@@ -82,7 +82,7 @@ export function mountReview(root: HTMLElement): () => void {
   challengeEl.textContent = shortId(run.challenge);
   chainEl.textContent = run.certChainType.toUpperCase();
   certSizeEl.textContent = humanBytes(certBytes, "0 B");
-  deviceSizeEl.textContent = humanBytes(deviceBytes, "0 B");
+  userSigSizeEl.textContent = humanBytes(userSigBytes, "0 B");
   provingMsEl.textContent = formatDuration(run.provingMs);
   guardrailEl.hidden = !overBudget;
 

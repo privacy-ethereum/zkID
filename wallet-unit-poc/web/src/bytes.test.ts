@@ -49,7 +49,7 @@ describe("bytesToHex", () => {
 
 describe("appIdToBytes", () => {
   // Byte-for-byte parity with the native Rust prover's `app_id_str.as_bytes()`.
-  // Diverging here desynchronizes the device-sig public signal from the
+  // Diverging here desynchronizes the user-sig public signal from the
   // verifier's `APP_ID` env var and `/link-verify` rejects every proof.
   it("encodes ASCII app_id as UTF-8 bytes", () => {
     expect(appIdToBytes("deadbeef")).toEqual(
