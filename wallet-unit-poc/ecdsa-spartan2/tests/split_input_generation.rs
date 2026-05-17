@@ -1,6 +1,6 @@
 //! Tests for `generate_split_inputs` — verifies the split input JSONs have
 //! correct structure and that pk_blind is shared between cert-chain and
-//! device-sig outputs.
+//! user-sig outputs.
 
 use ecdsa_spartan2::{
     generate_split_inputs,
@@ -75,11 +75,7 @@ fn split_inputs_have_expected_structure() {
 
     // cert_chain JSON must have all expected keys
     for key in [
-        "userCertZeroPadded",
-        "actualUserCertLength",
-        "tbsModulusOffset",
         "tbsModulusTagOffset",
-        "tbsSerialNumberOffset",
         "issuerTbs",
         "issuerTbsLength",
         "actualIssuerTbsLength",
@@ -101,7 +97,7 @@ fn split_inputs_have_expected_structure() {
 
     // user_sig JSON must have all expected keys; app_id_bytes is gone
     // (recovered in-circuit by packing tbs[0..31]).
-    for key in ["tbs", "tbsLength", "userPkLimbs", "userRsaSignature", "pkBlind", "challenge"] {
+    for key in ["tbs", "userPkLimbs", "userRsaSignature", "pkBlind", "challenge"] {
         assert!(
             user_sig.get(key).is_some(),
             "user_sig missing key: {key}"
@@ -118,11 +114,6 @@ fn split_inputs_have_expected_structure() {
     );
 
     // Array dimensions
-    assert_eq!(
-        cert_chain["userCertZeroPadded"].as_array().unwrap().len(),
-        1536,
-        "userCertZeroPadded length"
-    );
     assert_eq!(
         cert_chain["issuerTbs"].as_array().unwrap().len(),
         1536,
@@ -199,7 +190,7 @@ fn split_inputs_share_pk_blind() {
     let ds_blind = user_sig["pkBlind"].as_str().expect("user_sig pkBlind not a string");
     assert_eq!(
         cc_blind, ds_blind,
-        "pkBlind must be identical across cert-chain and device-sig outputs"
+        "pkBlind must be identical across cert-chain and user-sig outputs"
     );
 }
 
@@ -224,11 +215,7 @@ fn split_inputs_rs4096_have_expected_structure() {
 
     // cert_chain JSON must have all expected keys
     for key in [
-        "userCertZeroPadded",
-        "actualUserCertLength",
-        "tbsModulusOffset",
         "tbsModulusTagOffset",
-        "tbsSerialNumberOffset",
         "issuerTbs",
         "issuerTbsLength",
         "actualIssuerTbsLength",
@@ -249,7 +236,7 @@ fn split_inputs_rs4096_have_expected_structure() {
     }
 
     // user_sig JSON must have all expected keys
-    for key in ["tbs", "tbsLength", "userPkLimbs", "userRsaSignature", "pkBlind", "challenge"] {
+    for key in ["tbs", "userPkLimbs", "userRsaSignature", "pkBlind", "challenge"] {
         assert!(
             user_sig.get(key).is_some(),
             "user_sig (RS4096) missing key: {key}"
@@ -261,11 +248,6 @@ fn split_inputs_rs4096_have_expected_structure() {
     );
 
     // Array dimensions — 4096 params: cert padding=1536, k_issuer=34, k_user=17
-    assert_eq!(
-        cert_chain["userCertZeroPadded"].as_array().unwrap().len(),
-        1536,
-        "userCertZeroPadded length (MAX_CERT_CHAIN_LENGTH)"
-    );
     assert_eq!(
         cert_chain["issuerTbs"].as_array().unwrap().len(),
         1536,
@@ -326,6 +308,6 @@ fn split_inputs_rs4096_share_pk_blind() {
     let ds_blind = user_sig["pkBlind"].as_str().expect("user_sig pkBlind not a string");
     assert_eq!(
         cc_blind, ds_blind,
-        "pkBlind must be identical across cert-chain and device-sig outputs (RS4096)"
+        "pkBlind must be identical across cert-chain and user-sig outputs (RS4096)"
     );
 }

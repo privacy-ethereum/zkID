@@ -72,7 +72,7 @@ Confirmed: 2 · Advisory: 3 · Dropped near-misses: 4
 
 ---
 
-### [CRITICAL] Revocation bypass via `tbsSerialNumberOffset` pointing at non-serial INTEGER fields — SPEC_MISMATCH + COMPOSITION_FLAW
+### [CRITICAL — FIXED 2026-05-14] Revocation bypass via `tbsSerialNumberOffset` pointing at non-serial INTEGER fields — SPEC_MISMATCH + COMPOSITION_FLAW
 
 **Location:**
 - `CertChainRSA256` in `circuits/certChain.circom:45` — `tbsSerialNumberOffset` is a private input.
@@ -240,7 +240,7 @@ Both fixes close the gap because the offset is no longer a free witness the prov
 
 ---
 
-### [HIGH] Sybil bypass on `nullifier` via unconstrained `tbs[31..tbsLength]` — SPEC_MISMATCH
+### [HIGH — FIXED 2026-05-14] Sybil bypass on `nullifier` via unconstrained `tbs[31..tbsLength]` — SPEC_MISMATCH
 
 **Location:**
 - `UserSigRSA256` in `circuits/userSig.circom:21-81`. Specifically:
@@ -344,7 +344,7 @@ This closes the gap because once `tbs` is a deterministic function of `app_id_by
 
 ---
 
-### [LOW] `tbsModulusOffset` and `tbsModulusTagOffset` not bound to a fixed DER offset — SPEC_MISMATCH (advisory)
+### [LOW — FIXED 2026-05-14] `tbsModulusOffset` and `tbsModulusTagOffset` not bound to a fixed DER offset — SPEC_MISMATCH (advisory)
 
 **Location:**
 - `circuits/certChain.circom:40-41, 108-109`. `tbsModulusOffset` and `tbsModulusTagOffset` are independent private inputs.
@@ -398,7 +398,7 @@ tbsModulusOffset === tbsModulusTagOffset + 5;
 
 ---
 
-### [LOW] `VerifyTBSinCert` and `userCertZeroPadded` are redundant after the refactor — SPEC_MISMATCH (advisory)
+### [LOW — FIXED 2026-05-14] `VerifyTBSinCert` and `userCertZeroPadded` are redundant after the refactor — SPEC_MISMATCH (advisory)
 
 **Location:**
 - `circuits/certChain.circom:34, 71-79`. `userCertZeroPadded`, `actualUserCertLength`, `VerifyTBSinCert(...)`, and `AssertZeroPadding(...)` together account for ≈ 1530 byte-equality constraints plus the zero-padding check.
@@ -426,7 +426,7 @@ If a full-cert binding is desired later, it must include outer-SEQUENCE header v
 
 ---
 
-### [INFO] Poseidon round counts target 128-bit security — CRYPTO_MISUSE (informational)
+### [INFO — ACKNOWLEDGED 2026-05-14] Poseidon round counts target 128-bit security — CRYPTO_MISUSE (informational)
 
 **Location:** `circuits/components/poseidonP256.circom:26-28` — `var N_ROUNDS_P[2] = [57, 56]; var nRoundsF = 8;`.
 

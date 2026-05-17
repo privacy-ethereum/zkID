@@ -1,7 +1,7 @@
 # zkid-input-builder
 
 Shared circuit-input builder for the zkID split RS256 pipeline. Produces
-cert-chain (Circuit A) and device-sig (Circuit B) input JSON from card + SMT data.
+cert-chain (Circuit A) and user-sig (Circuit B) input JSON from card + SMT data.
 
 Consumed by two callers:
 

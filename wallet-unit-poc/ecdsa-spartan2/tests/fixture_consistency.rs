@@ -105,7 +105,6 @@ fn fixture_user_sig_input_is_valid_json() {
 
     for key in [
         "tbs",
-        "tbsLength",
         "userPkLimbs",
         "userRsaSignature",
         "pkBlind",

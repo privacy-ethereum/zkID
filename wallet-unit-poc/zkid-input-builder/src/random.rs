@@ -4,7 +4,7 @@
 use num_bigint::BigUint;
 
 /// Returns a uniformly random 248-bit field element (decimal string), suitable
-/// as the `pk_blind` input to both cert-chain and device-sig circuits.
+/// as the `pk_blind` input to both cert-chain and user-sig circuits.
 ///
 /// 248 bits is below the secq256r1 scalar-field modulus (≈ 2^256), so the value
 /// passes through circom without modular reduction.

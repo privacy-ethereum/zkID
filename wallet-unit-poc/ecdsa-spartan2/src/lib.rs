@@ -1,7 +1,7 @@
 //! RS256 (RSA-SHA256) certificate circuits using Spartan2.
 //!
 //! Zero-knowledge proofs for X.509 certificate verification (split cert-chain and
-//! device-signature circuits) using Spartan2 with Hyrax polynomial commitments.
+//! user-signature circuits) using Spartan2 with Hyrax polynomial commitments.
 
 use spartan2::{provider::T256HyraxEngine, traits::Engine};
 

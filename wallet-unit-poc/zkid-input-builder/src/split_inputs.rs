@@ -1,11 +1,11 @@
-//! Canonical reference implementation for the cert-chain + device-sig circuit
+//! Canonical reference implementation for the cert-chain + user-sig circuit
 //! input JSON. Native (`ecdsa-spartan2`) and in-browser (`spartan2-wasm`)
 //! provers both call through here; `spartan2-wasm/tests/input_builder_drift.rs`
 //! pins the two callers to byte-identical output.
 
 use crate::cert::parse_cert_offsets;
 use crate::encoding::{
-    bigint_to_chunks, sha256_pad, sha256_padded_length, smt_fields_from_option, zero_pad_to_u64,
+    bigint_to_chunks, sha256_pad, sha256_padded_length, smt_fields_from_option,
 };
 use crate::types::SmtCircuitInputs;
 use base64::Engine as _;
@@ -23,11 +23,11 @@ const MAX_MESSAGE_LENGTH: usize = 1536;
 const SMT_DEPTH: usize = 128;
 pub const APP_ID_LEN: usize = 31;
 
-/// Build the cert-chain + device-sig circuit input JSONs.
+/// Build the cert-chain + user-sig circuit input JSONs.
 ///
 /// `pk_blind` is the per-session linking blind shared between Circuits A and B.
 /// `challenge` is the per-session field element from the verifier's
-/// `/challenge` endpoint, bound into the device-sig proof via a Semaphore-style
+/// `/challenge` endpoint, bound into the user-sig proof via a Semaphore-style
 /// dummy square. Both are decimal field-element strings.
 pub fn generate_split_inputs(
     user_cert: &Certificate,
@@ -81,7 +81,6 @@ pub fn generate_split_inputs(
         .iter()
         .map(|b| b.to_string())
         .collect();
-    let tbs_padded_len = sha256_padded_length(app_id_bytes.len());
     let issuer_tbs_padded: Vec<String> =
         sha256_pad(&user_cert_tbs_der, max_cert_length)
             .iter()
@@ -97,11 +96,7 @@ pub fn generate_split_inputs(
         smt_fields_from_option(smt_inputs, serial_decimal, SMT_DEPTH);
 
     let cert_chain_json = serde_json::json!({
-        "userCertZeroPadded": zero_pad_to_u64(&user_cert_der, max_cert_length),
-        "actualUserCertLength": user_cert_der.len(),
-        "tbsModulusOffset": user_offsets.modulus_offset - TBS_OFFSET,
         "tbsModulusTagOffset": user_offsets.modulus_tag_offset - TBS_OFFSET,
-        "tbsSerialNumberOffset": user_offsets.serial_number_offset - TBS_OFFSET,
         "issuerTbs": issuer_tbs_padded,
         "issuerTbsLength": issuer_tbs_padded_len,
         "actualIssuerTbsLength": user_cert_tbs_der.len(),
@@ -118,7 +113,6 @@ pub fn generate_split_inputs(
 
     let user_sig_json = serde_json::json!({
         "tbs": tbs_padded,
-        "tbsLength": tbs_padded_len,
         "userPkLimbs": user_pk_limbs,
         "userRsaSignature": user_rsa_signature,
         "pkBlind": pk_blind,

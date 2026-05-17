@@ -4,7 +4,7 @@ import { loadInput } from "../common/fixtures";
 
 describe("UserSigRSA256 (rs2048)", function () {
   let circuit: WitnessTester<
-    ["tbs", "tbsLength", "userPkLimbs", "userRsaSignature", "pkBlind", "challenge"],
+    ["tbs", "userPkLimbs", "userRsaSignature", "pkBlind", "challenge"],
     ["pkCommit", "nullifier", "appIdPacked"]
   >;
   let input: Record<string, any>;

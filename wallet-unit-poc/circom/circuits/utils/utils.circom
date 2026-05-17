@@ -33,28 +33,6 @@ template AssertSliceInTBS() {
     bnd.out === 1;
 }
 
-template VerifyTBSinCert(MAX_CERT_LEN, MAX_TBS_LEN) {
-    var TBS_OFFSET = 4;
-
-    signal input user_cert[MAX_CERT_LEN];
-    signal input tbs[MAX_TBS_LEN];
-    signal input issuerTbsLength;          // actual length, runtime
-
-    component isLt[MAX_TBS_LEN];
-    signal diff[MAX_TBS_LEN];
-
-    for (var i = 0; i < MAX_TBS_LEN - TBS_OFFSET; i++) {
-        isLt[i] = LessThan(12);
-        isLt[i].in[0] <== i;
-        isLt[i].in[1] <== issuerTbsLength;
-
-        // only enforce if i < issuerTbsLength
-        // (user_cert[4+i] - tbs[i]) * isLt[i].out === 0
-        diff[i] <== user_cert[TBS_OFFSET + i] - tbs[i];
-        diff[i] * isLt[i].out === 0;
-    }
-}
-
 /// Extracts cert[subject_dn_offset .. +length] and asserts it equals subject_dn.
 template VerifySubjectDN(MAX_CERT_LEN, MAX_SUBJECT_LEN) {
     signal input cert[MAX_CERT_LEN];

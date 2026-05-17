@@ -3,17 +3,13 @@
 use crate::types::Pkcs11InfoResponse;
 use base64::Engine as _;
 use der::{Decode, Encode};
-use x509_cert::{
-    der::{Length, Reader, SliceReader, Tag, TagNumber},
-    Certificate,
-};
+use x509_cert::Certificate;
 
 /// DER byte offsets for in-circuit modulus extraction.
 #[derive(Debug)]
 pub struct CertOffsets {
-    pub modulus_offset: usize,       // first real modulus byte (after sign byte)
-    pub modulus_tag_offset: usize,   // where 0x02 INTEGER tag is
-    pub serial_number_offset: usize, // where serial number starts
+    pub modulus_offset: usize,     // first real modulus byte (after sign byte)
+    pub modulus_tag_offset: usize, // where 0x02 INTEGER tag is
 }
 
 /// Strip leading zero bytes from a DER INTEGER before hex-encoding.
@@ -25,7 +21,7 @@ pub fn serial_bytes_to_hex_trimmed(serial_bytes: &[u8]) -> String {
     }
 }
 
-/// Find the RSA modulus and serial number byte offsets in a DER-encoded certificate.
+/// Find the RSA modulus byte offsets in a DER-encoded certificate.
 pub fn parse_cert_offsets(der: &[u8]) -> Result<CertOffsets, Box<dyn std::error::Error>> {
     let (modulus_offset, modulus_tag_offset) = find_modulus_offset(der)?;
 
@@ -37,15 +33,9 @@ pub fn parse_cert_offsets(der: &[u8]) -> Result<CertOffsets, Box<dyn std::error:
         .into());
     }
 
-    let cert = Certificate::from_der(der)?;
-    let tbs_der = cert.tbs_certificate.to_der()?;
-    let tbs_start = find_subslice(der, &tbs_der).ok_or("TBS not found in cert DER")?;
-    let serial_offset = tbs_start + find_serial_offset_in_tbs(&tbs_der)?;
-
     Ok(CertOffsets {
         modulus_offset,
         modulus_tag_offset,
-        serial_number_offset: serial_offset,
     })
 }
 
@@ -117,50 +107,6 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         return Some(0);
     }
     haystack.windows(needle.len()).position(|w| w == needle)
-}
-
-fn header_len(header: &der::Header) -> usize {
-    let tag_len = 1usize;
-    let length_val: usize = header.length.try_into().unwrap();
-    let length_encoding = if length_val < 128 {
-        1 // short form
-    } else if length_val < 256 {
-        2 // 0x81 + 1 byte
-    } else {
-        3 // 0x82 + 2 bytes
-    };
-    tag_len + length_encoding
-}
-
-fn find_serial_offset_in_tbs(tbs_der: &[u8]) -> Result<usize, Box<dyn std::error::Error>> {
-    let mut r = SliceReader::new(tbs_der)?;
-
-    // 1. Consume the outer SEQUENCE header (tag + length bytes)
-    let seq_header = r.peek_header()?;
-    assert_eq!(seq_header.tag, Tag::Sequence);
-    let seq_header_len = header_len(&seq_header);
-    r.read_slice(seq_header_len.try_into()?)?;
-
-    // 2. Skip optional [0] EXPLICIT version (tag 0xa0) if present
-    let next = r.peek_header()?;
-    if next.tag
-        == (Tag::ContextSpecific {
-            constructed: true,
-            number: TagNumber::N0,
-        })
-    {
-        let skip: usize = header_len(&next) + usize::try_from(next.length)?;
-        r.read_slice(Length::new(skip as u16))?;
-    }
-
-    // 3. Now must be at INTEGER (serial number)
-    let serial_header = r.peek_header()?;
-    assert_eq!(serial_header.tag, Tag::Integer);
-
-    let serial_header_len = header_len(&serial_header);
-    let tag_pos: usize = r.position().try_into()?;
-
-    Ok(tag_pos + serial_header_len)
 }
 
 /// Pull the "CA Cert"-labelled issuer certificate from the first slot's token.

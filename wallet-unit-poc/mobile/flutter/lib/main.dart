@@ -101,10 +101,10 @@ class TaskResult {
   final bool success;
   final String? error;
   final ProofResult? proofResult;
-  final ProofResult? deviceSigProofResult;
+  final ProofResult? userSigProofResult;
   final String? message;
   final bool? verifyResult;
-  final bool? deviceSigVerifyResult;
+  final bool? userSigVerifyResult;
   final bool? linkVerifyResult;
   final int? clientTimingMs;
 
@@ -113,10 +113,10 @@ class TaskResult {
     required this.success,
     this.error,
     this.proofResult,
-    this.deviceSigProofResult,
+    this.userSigProofResult,
     this.message,
     this.verifyResult,
-    this.deviceSigVerifyResult,
+    this.userSigVerifyResult,
     this.linkVerifyResult,
     this.clientTimingMs,
   });
@@ -172,14 +172,14 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
           final proofResult = await proveCertChainRs4096(
             documentsPath: documentsPath,
           );
-          final deviceSigProofResult = await proveUserSigRs2048(
+          final userSigProofResult = await proveUserSigRs2048(
             documentsPath: documentsPath,
           );
           result = TaskResult(
             taskType: taskType,
             success: true,
             proofResult: proofResult,
-            deviceSigProofResult: deviceSigProofResult,
+            userSigProofResult: userSigProofResult,
           );
           break;
 
@@ -188,7 +188,7 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
           final verifyResult = await verifyCertChainRs4096(
             documentsPath: documentsPath,
           );
-          final deviceSigVerifyResult = await verifyUserSigRs2048(
+          final userSigVerifyResult = await verifyUserSigRs2048(
             documentsPath: documentsPath,
           );
           final linkVerifyResult = await linkVerify(
@@ -199,7 +199,7 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
             taskType: taskType,
             success: verifyResult,
             verifyResult: verifyResult,
-            deviceSigVerifyResult: deviceSigVerifyResult,
+            userSigVerifyResult: userSigVerifyResult,
             linkVerifyResult: linkVerifyResult,
             clientTimingMs: elapsed,
           );

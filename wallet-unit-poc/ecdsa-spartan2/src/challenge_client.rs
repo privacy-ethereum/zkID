@@ -8,7 +8,7 @@ const DEFAULT_SERVER_URL: &str = "http://localhost:8080";
 const MAX_RETRIES: usize = 3;
 
 /// `POST /challenge` response. `challenge` is the decimal field element the
-/// prover folds into the device-sig proof and submits back at /link-verify.
+/// prover folds into the user-sig proof and submits back at /link-verify.
 #[derive(Debug, serde::Deserialize)]
 pub struct ChallengeResponse {
     pub challenge: String,

@@ -4,7 +4,7 @@
 // Parameters: sbox=x^5, RF=8
 //   t=3: RP=57 (for Poseidon(2))
 //   t=4: RP=56 (for Poseidon(3))
-// RF=8, RP={57,56} targets 128-bit security per the Hadeshash/Poseidon paper.
+// RF=8, RP={57,56} targets 128-bit security per the Hadeshash/Poseidon paper §5.3 (α=5, |F|≈256 bits).
 
 pragma circom 2.2.3;
 

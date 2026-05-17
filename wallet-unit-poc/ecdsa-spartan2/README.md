@@ -4,13 +4,13 @@ Spartan2-based proving tooling for the zkID wallet proof of concept.
 
 Two linked circuits prove certificate ownership without revealing personal data:
 - **cert-chain** (Circuit A): certificate chain verification + SMT revocation + pk_commit
-- **device-sig** (Circuit B): device signature verification + pk_commit + nullifier + app_id binding
+- **user-sig** (Circuit B): user RSA signature verification + pk_commit + nullifier + app_id binding
 
 Proofs are bound via `pk_commit = ChunkedPoseidonP256(user_pk_limbs ‖ pk_blind)` — computed identically in both circuits so the verifier can check `pk_commit_A == pk_commit_B`. `pk_blind` is a per-session 248-bit uniform sample; see [`circom/SPEC.md`](../circom/SPEC.md#why-per-session-randomness-for-pk_blind) for the threat model.
 
 Circuit B also emits `nullifier = ChunkedPoseidonP256(user_rsa_signature)`, which is deterministic per `(card, app_id)` and unforgeable without the card's private key. A per-session `challenge` field element from the verifier's `/challenge` endpoint is bound into the proof via a Semaphore-style dummy square so a precomputed proof cannot be replayed against a different session.
 
-Device-sig public-output layout: `[pk_commit, nullifier, app_id_packed, challenge]` (4 signals). `app_id_packed` is `tbs[0..31]` packed little-endian into one field element; the verifier matches it against the configured `APP_ID` after the same packing.
+User-sig public-output layout: `[pk_commit, nullifier, app_id_packed, challenge]` (4 signals). `app_id_packed` is `tbs[0..31]` packed little-endian into one field element; the verifier matches it against the configured `APP_ID` after the same packing.
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ Device-sig public-output layout: `[pk_commit, nullifier, app_id_packed, challeng
 |---|---|---|---|---|
 | `cert_chain_rs2048` | cert-chain (A) | RSA-2048 | MOICA-G2 | no |
 | `cert_chain_rs4096` | cert-chain (A) | RSA-4096 | 4096-bit CA | no |
-| `user_sig_rs2048` | device-sig (B) | RSA-2048 | (user key) | **yes** |
+| `user_sig_rs2048` | user-sig (B) | RSA-2048 | (user key) | **yes** |
 
 ## E2E Flow with Test Fixtures (no card reader needed)
 
@@ -35,12 +35,12 @@ RUST_LOG=info cargo run --release -- generate-split-input
 
 # 2. Setup proving keys (one-time per circuit)
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain setup
-RUST_LOG=info cargo run --release -- device-sig setup
+RUST_LOG=info cargo run --release -- user-sig setup
 
 # 3. Generate proofs
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain prove \
   --input ../circom/inputs/cert_chain_rs2048/input.json
-RUST_LOG=info cargo run --release -- device-sig prove \
+RUST_LOG=info cargo run --release -- user-sig prove \
   --input ../circom/inputs/user_sig_rs2048/input.json
 
 # 4. Link-verify: check pk_commit equality across both proofs
@@ -57,11 +57,11 @@ RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain pro
   --cert-chain-4096 --input ../circom/inputs/cert_chain_rs4096/input.json
 RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain verify --cert-chain-4096
 
-# device-sig is always rs2048 (user keys are 2048-bit)
-RUST_LOG=info cargo run --release -- device-sig setup
-RUST_LOG=info cargo run --release -- device-sig prove \
+# user-sig is always rs2048 (user keys are 2048-bit)
+RUST_LOG=info cargo run --release -- user-sig setup
+RUST_LOG=info cargo run --release -- user-sig prove \
   --input ../circom/inputs/user_sig_rs2048_chain_rs4096/input.json
-RUST_LOG=info cargo run --release -- device-sig verify
+RUST_LOG=info cargo run --release -- user-sig verify
 
 RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 ```
@@ -89,12 +89,12 @@ RUST_LOG=info cargo run --release -- generate-split-input \
 
 # 2. Setup proving keys (skip if already generated)
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain setup
-RUST_LOG=info cargo run --release -- device-sig setup
+RUST_LOG=info cargo run --release -- user-sig setup
 
 # 3. Generate proofs
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain prove \
   --input ../circom/inputs/cert_chain_rs2048/input.json
-RUST_LOG=info cargo run --release -- device-sig prove \
+RUST_LOG=info cargo run --release -- user-sig prove \
   --input ../circom/inputs/user_sig_rs2048/input.json
 
 # 4. link-verify
@@ -108,11 +108,11 @@ RUST_LOG=info cargo run --release -- generate-split-input \
   --cert-chain-4096 --pin <YOUR_PIN>
 
 RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain setup --cert-chain-4096
-RUST_LOG=info cargo run --release -- device-sig setup
+RUST_LOG=info cargo run --release -- user-sig setup
 
 RUST_LOG=info cargo run --release --features cert_chain_rs4096 -- cert-chain prove \
   --cert-chain-4096 --input ../circom/inputs/cert_chain_rs4096/input.json
-RUST_LOG=info cargo run --release -- device-sig prove \
+RUST_LOG=info cargo run --release -- user-sig prove \
   --input ../circom/inputs/user_sig_rs2048_chain_rs4096/input.json
 
 RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
@@ -134,7 +134,7 @@ RUST_LOG=info cargo run --release -- link-verify --cert-chain-4096
 RUST_LOG=info cargo run --release --features cert_chain_rs2048 -- cert-chain benchmark \
   --input ../circom/inputs/cert_chain_rs2048/input.json
 
-RUST_LOG=info cargo run --release -- device-sig benchmark \
+RUST_LOG=info cargo run --release -- user-sig benchmark \
   --input ../circom/inputs/user_sig_rs2048/input.json
 ```
 

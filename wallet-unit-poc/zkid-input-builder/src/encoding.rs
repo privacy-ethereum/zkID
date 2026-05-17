@@ -39,18 +39,6 @@ pub(crate) fn smt_fields_from_option(
     }
 }
 
-pub(crate) fn zero_pad_to_u64(bytes: &[u8], length: usize) -> Vec<u64> {
-    assert!(
-        bytes.len() <= length,
-        "byte length {} exceeds maximum {}",
-        bytes.len(),
-        length
-    );
-    let mut v: Vec<u64> = bytes.iter().map(|&b| b as u64).collect();
-    v.resize(length, 0);
-    v
-}
-
 pub(crate) fn bigint_to_chunks(n: &BigUint, count: usize, chunk_bits: usize) -> Vec<String> {
     let mask = (BigUint::from(1u64) << chunk_bits) - BigUint::from(1u64);
     let mut chunks = Vec::new();

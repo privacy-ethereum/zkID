@@ -8,7 +8,7 @@ user cert against an SMT root, and (c) possession of the user private key —
 without revealing personal data from the cert. The `nullifier` is
 `Poseidon(user_rsa_signature)`: deterministic per `(card, app_id)`, and
 unforgeable without the card's private key. A per-session `challenge` field
-element from the verifier is bound into the device-sig proof via a
+element from the verifier is bound into the user-sig proof via a
 Semaphore-style dummy square (`challengeSquared <== challenge * challenge`),
 so a precomputed proof cannot be replayed against a different session.
 
@@ -59,20 +59,20 @@ Prereqs: Rust stable, `yarn` for circom, system libs listed in
 cd wallet-unit-poc/circom && yarn install && yarn compile:all
 cd ../ecdsa-spartan2
 
-# Generate cert-chain + device-sig inputs from bundled fixtures.
+# Generate cert-chain + user-sig inputs from bundled fixtures.
 RUST_LOG=info cargo run --release -- generate-split-input
 
 # Setup → prove → verify (cert-chain, RSA-2048 issuer / MOICA-G2).
-cargo run --release --features certChainRS2048 -- cert-chain setup
-cargo run --release --features certChainRS2048 -- cert-chain prove \
-  --input ../circom/inputs/certChainRS2048/input.json
-cargo run --release --features certChainRS2048 -- cert-chain verify
+cargo run --release --features cert_chain_rs2048 -- cert-chain setup
+cargo run --release --features cert_chain_rs2048 -- cert-chain prove \
+  --input ../circom/inputs/cert_chain_rs2048/input.json
+cargo run --release --features cert_chain_rs2048 -- cert-chain verify
 
-# Setup → prove → verify (device-sig, always RSA-2048).
-cargo run --release -- device-sig setup
-cargo run --release -- device-sig prove \
-  --input ../circom/inputs/userSigRS2048/input.json
-cargo run --release -- device-sig verify
+# Setup → prove → verify (user-sig, always RSA-2048; default feature).
+cargo run --release -- user-sig setup
+cargo run --release -- user-sig prove \
+  --input ../circom/inputs/user_sig_rs2048/input.json
+cargo run --release -- user-sig verify
 
 # Cross-proof link-verify (pk_commit equality).
 RUST_LOG=info cargo run --release -- link-verify
@@ -103,7 +103,7 @@ cd wallet-unit-poc/web && pnpm install && pnpm test && pnpm lint
 
 CI wires these up across five workflows (`circom-tests`, `rust-tests`,
 `web-tests`, `mobile-tests`, plus reusable `compile-circuits`). The full split
-E2E (RS2048 + RS4096 cert-chain + device-sig + link-verify) runs on PRs that
+E2E (RS2048 + RS4096 cert-chain + user-sig + link-verify) runs on PRs that
 touch relevant paths. See [`CLAUDE.md`](../CLAUDE.md#ci-workflows) for the full matrix.
 
 ## Repo layout

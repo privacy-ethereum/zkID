@@ -5,11 +5,7 @@ import { loadInput } from "../common/fixtures";
 describe("CertChainRSA256 (rs2048)", function () {
   let circuit: WitnessTester<
     [
-      "userCertZeroPadded",
-      "actualUserCertLength",
-      "tbsModulusOffset",
       "tbsModulusTagOffset",
-      "tbsSerialNumberOffset",
       "issuerTbs",
       "issuerTbsLength",
       "actualIssuerTbsLength",

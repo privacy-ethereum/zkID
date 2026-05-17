@@ -1,12 +1,10 @@
 /**
  * Audit v2 regression suite — see `wallet-unit-poc/circom/audit_report_v2.md`.
  *
- * Each describe block isolates one finding from the audit and demonstrates
- * the gap at the template level by exercising the bypassable component
- * directly with circomkit's `WitnessTester`. The full-circuit positive
- * baselines (`should accept valid cert chain inputs`, etc.) stay in the
- * per-circuit test files; everything that proves an audit-finding-specific
- * constraint gap lives here.
+ * Each describe block locks in the fix for one finding: the bypass scenario
+ * the audit recreates is asserted to be rejected by the wrapper circuit.
+ * A test passes when the corresponding constraint holds; it fails when the
+ * fix regresses. Baselines guard against over-tightening.
  */
 import { WitnessTester } from "circomkit";
 import { circomkit } from "../common";
@@ -29,13 +27,33 @@ const MAX_SERIAL_LEN = 20;
 const N_BITS = 121;
 const K_LIMBS_USER = 17;
 const USER_MODULUS_BITS = 2048;
+const CHAIN_PARAMS = [
+  MAX_MESSAGE_LENGTH,
+  N_BITS,
+  K_LIMBS_USER,
+  USER_MODULUS_BITS,
+  K_LIMBS_USER,
+  USER_MODULUS_BITS,
+  128,
+  MAX_SERIAL_LEN,
+];
 
-/**
- * Scan a TBS buffer for every ASN.1 INTEGER tag whose length byte lies in
- * (0, MAX_SERIAL_LEN] — the same local checks `VerifySerialNumber` performs
- * on (cert[offset-2], cert[offset-1]). Returns the (offset, decoded value)
- * pairs the prover could supply to `tbsSerialNumberOffset`/`serialNumber`.
- */
+type ChainInputs = [
+  "tbsModulusTagOffset",
+  "issuerTbs",
+  "issuerTbsLength",
+  "actualIssuerTbsLength",
+  "issuerRsaModulus",
+  "issuerRsaSignature",
+  "smtRoot",
+  "serialNumber",
+  "smtSiblings",
+  "smtOldKey",
+  "smtOldValue",
+  "smtIsOld0",
+  "pkBlind"
+];
+
 function findAlternateSerialOffsets(
   tbs: readonly bigint[],
   tbsLen: number
@@ -53,74 +71,53 @@ function findAlternateSerialOffsets(
   return out;
 }
 
-/**
- * Compute the canonical serial-INTEGER offset (first byte of the serial
- * value) inside a MOICA TBS by walking the outer SEQUENCE + optional
- * [0] EXPLICIT version block, mirroring the DER walk the audit's
- * recommended Fix (a) performs in-circuit.
- */
 function canonicalSerialOffset(tbs: readonly bigint[]): number {
   const hasVersion = Number(tbs[4]) === 0xa0;
   return 4 + (hasVersion ? 5 : 0) + 2;
 }
 
 describe("Audit v2 regression suite", function () {
-  /**
-   * Finding 1 (CRITICAL) — `tbsSerialNumberOffset` is not pinned to the
-   * canonical serial position. `VerifySerialNumber` only checks
-   *
-   *   cert[offset-2] == 0x02
-   *   0 < cert[offset-1] <= MAX_SERIAL_LEN
-   *
-   * and a real X.509 TBS contains several ASN.1 INTEGERs that satisfy these
-   * checks (version field, RSA exponent, …). A revoked card-holder can
-   * re-aim `tbsSerialNumberOffset` at any of them, supply the decoded value
-   * as `serialNumber`, and build a trivially-valid SMT non-membership proof
-   * — bypassing revocation. This block proves the constraint is bypassable
-   * at the template level. The SMT step is out of scope here: once
-   * `VerifySerialNumber` accepts a forged value, the only remaining defense
-   * is the non-membership proof, which is trivially satisfied for any
-   * integer (like 2 or 65537) that is not on the revocation tree.
-   */
-  describe("[CRITICAL] tbsSerialNumberOffset is not pinned to the canonical serial position", function () {
-    let serialCircuit: WitnessTester<["cert", "offset", "target"], []>;
-    let input: Record<string, any>;
+  let chainCircuit: WitnessTester<ChainInputs, ["pkCommit"]>;
+  let chainInput: Record<string, any>;
+
+  before(async function () {
+    this.timeout(900_000);
+    chainInput = loadInput("cert_chain_rs2048");
+    chainCircuit = await circomkit.WitnessTester("certChainRS2048", {
+      file: "certChain",
+      template: "CertChainRSA256",
+      params: CHAIN_PARAMS,
+    });
+  });
+
+  // Finding 1 (CRITICAL) — see audit_report_v2.md.
+  describe("[CRITICAL] forged serialNumber is rejected by CertChainRSA256", function () {
     let alternates: { offset: number; target: bigint }[];
 
-    before(async function () {
-      this.timeout(900_000);
-      input = loadInput("cert_chain_rs2048");
-      serialCircuit = await circomkit.WitnessTester(
-        "VerifySerialNumberFixture",
-        {
-          file: "utils/utils",
-          template: "VerifySerialNumber",
-          params: [MAX_MESSAGE_LENGTH, MAX_SERIAL_LEN],
-        }
-      );
-      const tbsLen = Number(input.actualIssuerTbsLength as bigint);
+    before(function () {
+      const tbsLen = Number(chainInput.actualIssuerTbsLength as bigint);
       alternates = findAlternateSerialOffsets(
-        input.issuerTbs as bigint[],
+        chainInput.issuerTbs as bigint[],
         tbsLen
       );
     });
 
-    it("fixture's TBS contains more than one ASN.1 INTEGER offset satisfying the local tag/length checks", function () {
-      const realSerial = input.serialNumber as bigint;
-      const realOffset = canonicalSerialOffset(input.issuerTbs as bigint[]);
+    it("fixture's TBS contains alternate ASN.1 INTEGER offsets the audit warned about", function () {
+      const realSerial = chainInput.serialNumber as bigint;
+      const realOffset = canonicalSerialOffset(chainInput.issuerTbs as bigint[]);
       const realHit = alternates.find(
         (a) => a.offset === realOffset && a.target === realSerial
       );
       assert.ok(
         realHit !== undefined,
-        `expected the real (offset=${realOffset}, serial=${realSerial}) to appear in the scan`
+        `expected the real (offset=${realOffset}, serial=${realSerial}) in the scan`
       );
       const forged = alternates.filter(
         (a) => !(a.offset === realOffset && a.target === realSerial)
       );
       assert.ok(
         forged.length > 0,
-        `expected at least one alternate (offset, target) the prover could aim at; got ${alternates.length} total hits`
+        `expected at least one alternate (offset, target); got ${alternates.length} hits total`
       );
       console.log(
         "  alternate serial witnesses derived from the real fixture:",
@@ -130,95 +127,45 @@ describe("Audit v2 regression suite", function () {
       );
     });
 
-    it("baseline: VerifySerialNumber accepts the canonical (offset, serial) pair", async function () {
+    it("baseline: CertChainRSA256 accepts the honest witness", async function () {
       this.timeout(900_000);
-      await serialCircuit.expectPass({
-        cert: input.issuerTbs,
-        offset: BigInt(canonicalSerialOffset(input.issuerTbs as bigint[])),
-        target: input.serialNumber,
-      });
+      const witness = await chainCircuit.calculateWitness(chainInput as any);
+      await chainCircuit.expectConstraintPass(witness);
     });
 
-    const attackerWitnesses: {
-      description: string;
-      forgedOffset: bigint;
-      forgedTarget: bigint;
-    }[] = [
-      {
-        description: "version INTEGER (value = 2)",
-        forgedOffset: 8n,
-        forgedTarget: 2n,
-      },
+    const forgedSerials: { description: string; forgedSerial: bigint }[] = [
+      { description: "version INTEGER (value = 2)", forgedSerial: 2n },
       {
         description: "version/serial header overlap (value = 5214)",
-        forgedOffset: 10n,
-        forgedTarget: 5214n,
+        forgedSerial: 5214n,
       },
-      {
-        description: "RSA exponent INTEGER (value = 65537)",
-        forgedOffset: 512n,
-        forgedTarget: 65537n,
-      },
+      { description: "RSA exponent INTEGER (value = 65537)", forgedSerial: 65537n },
     ];
 
-    for (const { description, forgedOffset, forgedTarget } of attackerWitnesses) {
-      it(`BYPASS: VerifySerialNumber accepts forged offset=${forgedOffset} target=${forgedTarget} (${description})`, async function () {
+    for (const { description, forgedSerial } of forgedSerials) {
+      it(`REJECTS forged serialNumber=${forgedSerial} (${description})`, async function () {
         this.timeout(900_000);
-        // Cross-check against the live scan so a fixture rotation can't make
-        // the hardcoded values silently obsolete.
-        const live = alternates.find(
-          (a) => BigInt(a.offset) === forgedOffset && a.target === forgedTarget
-        );
+        const live = alternates.find((a) => a.target === forgedSerial);
         assert.ok(
           live !== undefined,
-          `attacker witness (offset=${forgedOffset}, target=${forgedTarget}) is no longer derivable from the fixture; update the test if the fixture rotated`
+          `forged serial ${forgedSerial} no longer present as an alternate INTEGER in the fixture — update if rotated`
         );
-        await serialCircuit.expectPass({
-          cert: input.issuerTbs,
-          offset: forgedOffset,
-          target: forgedTarget,
-        });
+        const attackInput = { ...chainInput, serialNumber: forgedSerial };
+        await chainCircuit.expectFail(attackInput as any);
       });
     }
   });
 
-  /**
-   * Finding 2 (HIGH) — `nullifier` is malleable for fixed `(card, app_id)`.
-   * The circuit's only constraints on `tbsLength` are `Num2Bits(7)` and
-   * `tbsLength <= 64`. Bytes `tbs[31..tbsLength]` are only byte-range-checked
-   * by SHA-256; `AssertZeroPadding` zero-fills `tbs[tbsLength..1536]` but
-   * says nothing about `tbs[31..tbsLength]`. Since `appIdPacked` is
-   * `PackBytes(31)(tbs[0..31])`, the prover can keep `(userPkLimbs, tbs[0..31])`
-   * fixed and vary `tbs[31..]` + `tbsLength` to mint different signatures
-   * and therefore different nullifiers. Per-`(card, app_id)` uniqueness is
-   * broken.
-   *
-   * This test instantiates a fresh RSA-2048 signing oracle in Node, builds
-   * two valid witnesses that share `(userPkLimbs, tbs[0..31])` but differ in
-   * `tbs[31..]`, and asserts the circuit accepts both with `appIdPacked_A
-   * == appIdPacked_B` and `nullifier_A != nullifier_B`.
-   */
-  describe("[HIGH] nullifier is malleable under fixed (card, app_id)", function () {
+  // Finding 2 (HIGH) — see audit_report_v2.md.
+  describe("[HIGH] non-canonical SHA-256 padding is rejected by UserSigRSA256", function () {
     let userSigCircuit: WitnessTester<
-      [
-        "tbs",
-        "tbsLength",
-        "userPkLimbs",
-        "userRsaSignature",
-        "pkBlind",
-        "challenge"
-      ],
+      ["tbs", "userPkLimbs", "userRsaSignature", "pkBlind", "challenge"],
       ["pkCommit", "nullifier", "appIdPacked"]
     >;
     let testRsaPrivKey: KeyObject;
     let testRsaPubLimbs: string[];
 
-    function signAndLimb(rawMessage: Buffer): string[] {
-      // Sha256Bytes(tbs, tbsLength) inside the circuit consumes a
-      // SHA-256-padded buffer and emits the hash of the ORIGINAL (pre-padded)
-      // message. So the signature must be over the raw message — node:crypto's
-      // sign("sha256", raw, …) does exactly that: PKCS#1 v1.5 RSA over
-      // SHA-256(raw).
+    function signLimbs(rawMessage: Buffer): string[] {
       const sig = cryptoSign("sha256", rawMessage, {
         key: testRsaPrivKey,
         padding: cryptoConstants.RSA_PKCS1_PADDING,
@@ -235,13 +182,12 @@ describe("Audit v2 regression suite", function () {
       );
       assert.ok(
         paddedLen <= 64,
-        `padded length must fit the circuit's tbsLength <= 64 bound; got ${paddedLen}`
+        `padded length must fit the circuit's 64-byte signed window; got ${paddedLen}`
       );
       return {
         tbs: Array.from(padded).map(String),
-        tbsLength: paddedLen.toString(),
         userPkLimbs: testRsaPubLimbs,
-        userRsaSignature: signAndLimb(message),
+        userRsaSignature: signLimbs(message),
         pkBlind: "1",
         challenge: "42",
       };
@@ -264,138 +210,41 @@ describe("Audit v2 regression suite", function () {
       testRsaPubLimbs = bigIntToChunkedBytes(modulus, N_BITS, K_LIMBS_USER);
     });
 
-    it("witness A and witness B share appIdPacked but produce different nullifiers", async function () {
+    it("baseline: canonical 31-byte payload (witness A) is accepted", async function () {
       this.timeout(900_000);
       const appId = Buffer.from("audit-v2-high-test-app-id-fixed", "utf-8");
-      assert.strictEqual(appId.length, 31);
-
-      // Witness A: raw message = appId (31 bytes), sha256Pad fills tbs[31..64]
-      // with the canonical SHA-256 padding for a 31-byte input.
       const witnessA = buildWitness(appId, Buffer.alloc(0));
-
-      // Witness B: raw message = appId ‖ 0x42 (32 bytes). The 0x42 lives at
-      // tbs[31] — outside the appIdPacked window but inside the SHA-256
-      // domain that determines the signature and therefore the nullifier.
-      const witnessB = buildWitness(appId, Buffer.from([0x42]));
-
-      for (let i = 0; i < 31; i++) {
-        assert.strictEqual(
-          witnessA.tbs[i],
-          witnessB.tbs[i],
-          `tbs[${i}] should match across witnesses`
-        );
-      }
-      assert.notStrictEqual(
-        witnessA.tbs[31],
-        witnessB.tbs[31],
-        "tbs[31] should differ to exercise the malleability axis"
-      );
-
       const wA = await userSigCircuit.calculateWitness(witnessA);
       await userSigCircuit.expectConstraintPass(wA);
-      const wB = await userSigCircuit.calculateWitness(witnessB);
-      await userSigCircuit.expectConstraintPass(wB);
+    });
 
-      // The witness vector layout for a circom main is
-      //   witness[0] = 1, witness[1..numOutputs] = outputs in declaration order,
-      // followed by public inputs and intermediate signals. We read outputs by
-      // index directly because the .sym file for UserSigRSA256 exceeds
-      // Node's V8 max-string length and would crash readWitnessSignals.
-      // Output declaration order in userSig.circom: pkCommit, nullifier, appIdPacked.
-      const PK_COMMIT = 1;
-      const NULLIFIER = 2;
-      const APP_ID_PACKED = 3;
-
-      const appIdA = (wA as readonly bigint[])[APP_ID_PACKED];
-      const appIdB = (wB as readonly bigint[])[APP_ID_PACKED];
-      const nullA = (wA as readonly bigint[])[NULLIFIER];
-      const nullB = (wB as readonly bigint[])[NULLIFIER];
-
-      assert.strictEqual(
-        appIdA,
-        appIdB,
-        `appIdPacked must match across witnesses sharing tbs[0..31]; got A=${appIdA} B=${appIdB}`
-      );
+    it("REJECTS witness with appended tail (tbs[31] != 0x80 — Sybil attack vector)", async function () {
+      this.timeout(900_000);
+      // Signing (appId ‖ 0x42) puts 0x42 at tbs[31]; the constraint expects 0x80.
+      const appId = Buffer.from("audit-v2-high-test-app-id-fixed", "utf-8");
+      const witnessB = buildWitness(appId, Buffer.from([0x42]));
       assert.notStrictEqual(
-        nullA,
-        nullB,
-        `nullifier should differ — got identical ${nullA} for both witnesses (HIGH is mitigated?)`
+        witnessB.tbs[31],
+        "128",
+        "expected tbs[31] = 0x42 = '66'; if this fails the fixture changed"
       );
-
-      // Sanity: pkCommit also matches (shared userPkLimbs + pkBlind), so the
-      // protocol-level identity is genuinely the "same card".
-      assert.strictEqual(
-        (wA as readonly bigint[])[PK_COMMIT],
-        (wB as readonly bigint[])[PK_COMMIT],
-        "pkCommit must match across witnesses sharing (userPkLimbs, pkBlind)"
-      );
+      await userSigCircuit.expectFail(witnessB);
     });
   });
 
-  /**
-   * Finding 3 (LOW, advisory) — `ExtractModulus` checks only
-   * `in[modulusTagOffset] == 0x02` and `Multiplexer` in-range. The two
-   * prover-supplied offsets `modulusOffset` and `modulusTagOffset` are not
-   * tied together by a DER length-byte walk, so the prover can aim the tag
-   * at any 0x02 byte in the TBS while pointing the modulus offset wherever
-   * they like. The audit notes this is not exploitable in the current
-   * composition (the surrounding RSA-verify forces `userPkLimbs` to be a
-   * real key the prover holds the secret exponent for), but the soundness
-   * gap is real at the template level. This block serves as a regression
-   * guard against future refactors that would make the gap reachable.
-   */
-  describe("[LOW] ExtractModulus accepts decoupled (modulusOffset, modulusTagOffset)", function () {
-    let modulusCircuit: WitnessTester<
-      ["in", "modulusOffset", "modulusTagOffset"],
-      ["out"]
-    >;
-    let input: Record<string, any>;
-
-    before(async function () {
+  // Finding 3 (LOW, advisory) — see audit_report_v2.md.
+  describe("[LOW] forged tbsModulusTagOffset is rejected by CertChainRSA256", function () {
+    it("baseline: real (modulusTagOffset, modulusOffset) extracts the real modulus", async function () {
       this.timeout(900_000);
-      input = loadInput("cert_chain_rs2048");
-      modulusCircuit = await circomkit.WitnessTester(
-        "ExtractModulusFixture",
-        {
-          file: "utils/utils",
-          template: "ExtractModulus",
-          params: [MAX_MESSAGE_LENGTH, N_BITS, K_LIMBS_USER, USER_MODULUS_BITS],
-        }
-      );
+      const witness = await chainCircuit.calculateWitness(chainInput as any);
+      await chainCircuit.expectConstraintPass(witness);
     });
 
-    it("baseline: real (modulusOffset, modulusTagOffset) extracts the real modulus", async function () {
+    it("REJECTS forged tbsModulusTagOffset pointing at the RSA exponent INTEGER", async function () {
       this.timeout(900_000);
-      await modulusCircuit.expectPass({
-        in: input.issuerTbs,
-        modulusOffset: input.tbsModulusOffset,
-        modulusTagOffset: input.tbsModulusTagOffset,
-      });
-    });
-
-    it("BYPASS: tag at the RSA exponent INTEGER + offset at the real modulus still passes", async function () {
-      this.timeout(900_000);
-      // The exponent INTEGER tag lives at tbs[510] = 0x02 (followed by len=3,
-      // value=65537). Pointing modulusTagOffset there satisfies the tag check
-      // while modulusOffset still indexes the real 256 modulus bytes —
-      // proving the two offsets are not bound together at the template level.
-      await modulusCircuit.expectPass({
-        in: input.issuerTbs,
-        modulusOffset: input.tbsModulusOffset,
-        modulusTagOffset: 510n,
-      });
-    });
-
-    it("BYPASS: real tag + arbitrary modulusOffset extracts non-modulus bytes", async function () {
-      this.timeout(900_000);
-      // Real tag passes (tbs[249] == 0x02) but modulusOffset = 0 makes the
-      // template read tbs[0..256] as "the modulus". The template doesn't
-      // notice the mismatch — only the surrounding RSA-verify would.
-      await modulusCircuit.expectPass({
-        in: input.issuerTbs,
-        modulusOffset: 0n,
-        modulusTagOffset: input.tbsModulusTagOffset,
-      });
+      // tbs[510] = 0x02 (exponent tag), tbs[511] = 0x03 — fails the 0x82 prefix check.
+      const attackInput = { ...chainInput, tbsModulusTagOffset: 510n };
+      await chainCircuit.expectFail(attackInput as any);
     });
   });
 });

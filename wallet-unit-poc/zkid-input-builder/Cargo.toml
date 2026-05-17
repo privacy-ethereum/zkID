@@ -2,7 +2,7 @@
 name = "zkid-input-builder"
 version = "0.1.0"
 edition = "2021"
-description = "Shared cert-chain + device-sig circuit input builder for the zkID RS256 split circuits. Consumed by ecdsa-spartan2 (native prover) and spartan2-wasm (in-browser prover)."
+description = "Shared cert-chain + user-sig circuit input builder for the zkID RS256 split circuits. Consumed by ecdsa-spartan2 (native prover) and spartan2-wasm (in-browser prover)."
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
