@@ -1,3 +1,16 @@
+## Supported Verifiable Credentials
+
+This PoC currently supports the following credential formats:
+
+| Format | Status | Reference |
+| --- | --- | --- |
+| **SD-JWT** (ES256) | Implemented | [openac-sdk](./openac-sdk/README.md) |
+| **mDOC / mDL** (ISO 18013-5) | Implemented | [circom/docs/mdoc-spec.md](./circom/docs/mdoc-spec.md) |
+
+### Call for Feedback
+
+We're actively scoping support for additional credential formats (e.g. W3C VC-JWT, BBS+, EUDI ARF profiles). If your use case needs a format not listed above, please open an issue at [privacy-ethereum/zkID/issues](https://github.com/privacy-ethereum/zkID/issues)
+
 ## Setup
 
 ### Step 1: Compile Circom Circuits
