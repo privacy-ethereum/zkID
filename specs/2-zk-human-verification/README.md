@@ -1,10 +1,10 @@
 ---
 slug: 2
-title: 2/ZK-HUMAN-VERIFICATION
-name: ZK-based Human Verification for Online Forums
+title: 2/ZK-PROOF-OF-PERSONHOOD
+name: ZK-based Proof of Personhood for Online Forums
 status: raw
 category: Standards Track
-tags: zero-knowledge, identity, privacy, anonymous-credentials, human-verification
+tags: zero-knowledge, identity, privacy, anonymous-credentials, proof-of-personhood
 editor: Nicole <nicole@ethereum.org>
 contributors:
   - Moven <moven.tsai@ethereum.org>
@@ -24,7 +24,7 @@ interpreted as described in [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt).
 
 # Abstract
 
-This specification defines a privacy-preserving protocol that allows a user to prove possession of a valid issuer-signed certificate and obtain a one-time "verified human" status on an online forum without disclosing certificate attributes.
+This specification defines a privacy-preserving protocol that allows a user to prove possession of a valid issuer-signed certificate and obtain a one-time "verified personhood" status on an online forum without disclosing certificate attributes.
 
 The protocol prevents duplicate verification via a deterministic nullifier. Off-chain verification is the deployment mode for this version. On-chain verification was evaluated and is deferred (see [On-Chain Verification Status](#on-chain-verification-status)).
 
@@ -34,7 +34,7 @@ This version (v0.1) enforces one verification per certificate instance. If the c
 
 # Motivation
 
-Online forums often require human verification to reduce Sybil attacks and automated abuse. Traditional verification methods require revealing personal information to the platform.
+Online forums often require personhood verification to reduce Sybil attacks and automated abuse. Traditional verification methods require revealing personal information to the platform.
 
 This specification defines a primitive that separates eligibility verification (possession of a valid certificate) from identity disclosure by using a zero-knowledge proof.
 
