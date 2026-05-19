@@ -24,6 +24,25 @@ Plain-language examples of what each sweep models. `n` = number of claim slots i
 | `operator_mix`      | The kind of comparison used in a predicate | "nationality **==** 'ES'" (equality) vs. "age **≤** 65" (range/inequality). Same workload shape, different operator. |
 | `rhs_kind`          | What the predicate compares against | Comparing a claim to a **literal constant** ("age ≥ 18") vs. comparing a claim to **another claim** ("expiry_date ≥ today_field", or "billing_country == shipping_country"). |
 
+## System specifications and software environment
+
+All numbers in this report were collected on a single machine. Re-running on different hardware will shift the absolute timings; the relative slopes and ratios should be stable.
+
+**Hardware**
+
+- Computer: MacBook Pro
+- Chip: Apple M5
+- Memory (RAM): 24 GB
+- Operating System: macOS Tahoe 26.3.1
+
+**Software**
+
+- Node.js: v24.15.0
+- Yarn: 4.13.0
+- Rust: 1.85.1 (cargo 1.85.1)
+- circom: 2.2.3
+- snarkjs: 0.7.5
+
 ## Takeaways
 
 1. **Predicates dominate constraints.** Each extra predicate adds about **1293 constraints** in the m-sweep, while each extra claim only adds about **8** in the n-sweep. The ECDSA verification dominates the absolute baseline (about 11,174 constraints with the smallest workload), so the variable predicate/claim cost rides on top of a large fixed cost.
