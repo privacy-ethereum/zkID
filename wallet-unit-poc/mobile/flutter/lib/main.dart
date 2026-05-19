@@ -31,9 +31,8 @@ Future<void> main() async {
 ///
 ///   {docs}/build/jwt/jwt_js/jwt.r1cs   ← decompressed from jwt.r1cs.gz
 ///   {docs}/build/show/show_js/show.r1cs ← decompressed from show.r1cs.gz
-///   {docs}/jwt_input.json               ← setup_prepare_keys default input
-///   {docs}/prepare_input.json           ← prove_prepare (PREPARE_CIRCUIT_NAME)
-///   {docs}/show_input.json              ← setup_show_keys + prove_show
+///   {docs}/prepare_input.json           ← prove_prepare + run_complete_benchmark
+///   {docs}/show_input.json              ← prove_show + run_complete_benchmark
 Future<void> _copyAssetsToDocuments() async {
   try {
     final documentsDir = await getApplicationDocumentsDirectory();
@@ -46,7 +45,7 @@ Future<void> _copyAssetsToDocuments() async {
 
     // Decompress r1cs files — skip if already extracted (each is ~350MB).
     final compressedAssets = {
-      'assets/circom/jwt.r1cs.gz': '${jwtBuildDir.path}/jwt.r1cs',
+      'assets/circom/prepare.r1cs.gz': '${jwtBuildDir.path}/jwt.r1cs',
       'assets/circom/show.r1cs.gz': '${showBuildDir.path}/show.r1cs',
     };
     for (final entry in compressedAssets.entries) {
@@ -63,12 +62,10 @@ Future<void> _copyAssetsToDocuments() async {
 
     // Always overwrite input JSON files so stale cached versions from a
     // previous app install never cause witness synthesis mismatches.
-    // jwt_input.json is written to two destinations:
-    //   jwt_input.json     → setup_prepare_keys (PathConfig default)
-    //   prepare_input.json → prove_prepare (PREPARE_CIRCUIT_NAME constant)
+    // prepare_input.json is used by both prove_prepare (PREPARE_CIRCUIT_NAME)
+    // and run_complete_benchmark (passed explicitly as inputPath).
     final inputAssets = {
-      'assets/circom/jwt_input.json': [
-        '${circomDir.path}/jwt_input.json',
+      'assets/circom/prepare_input.json': [
         '${circomDir.path}/prepare_input.json',
       ],
       'assets/circom/show_input.json': [
@@ -358,8 +355,10 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
     });
     try {
       final docs = await _getDocumentsPath();
-      final results =
-          await runCompleteBenchmark(documentsPath: docs, inputPath: null);
+      final results = await runCompleteBenchmark(
+        documentsPath: docs,
+        inputPath: '$docs/prepare_input.json',
+      );
       setState(() {
         _benchmarkResults = results;
         _isOperating = false;
