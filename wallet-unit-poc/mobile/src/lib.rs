@@ -11,19 +11,22 @@ use ecdsa_spartan2::{
     },
     save_keys,
     setup::{setup_circuit_keys, setup_circuit_keys_no_save},
-    PathConfig, PrepareCircuit, ShowCircuit, E,
+    CircuitSize, PathConfig, PrepareCircuit, ShowCircuit, E,
 };
 use std::path::PathBuf;
 
 // Initializes the shared UniFFI scaffolding and defines the `MoproError` enum.
 mopro_ffi::app!();
 
+const PREPARE_CIRCUIT_NAME: &str = "prepare";
+const SHOW_CIRCUIT_NAME: &str = "show";
+
 // ============================================================================
 // Core Types
 // ============================================================================
 
 /// Result of a proving operation with timing and proof metadata
-#[cfg_attr(feature = "uniffi", uniffi::record)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct ProofResult {
     pub prep_ms: u64,
     pub prove_ms: u64,
@@ -33,7 +36,7 @@ pub struct ProofResult {
 }
 
 /// Result of a complete benchmark run with timing and size metrics
-#[cfg_attr(feature = "uniffi", uniffi::record)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
 pub struct BenchmarkResults {
     // Timing metrics (milliseconds)
     pub prepare_setup_ms: u64,
@@ -71,7 +74,7 @@ impl BenchmarkResults {
 
 /// Errors that can occur during ZK proof operations
 #[derive(Debug)]
-#[cfg_attr(feature = "uniffi", uniffi::error)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Error))]
 pub enum ZkProofError {
     FileNotFound { message: String },
     ProofGenerationFailed { message: String },
@@ -114,7 +117,11 @@ impl From<std::io::Error> for ZkProofError {
 
 /// Create a PathConfig for the given documents path (mobile environment).
 fn make_config(documents_path: &str) -> PathConfig {
-    PathConfig::mobile(documents_path)
+    PathConfig {
+        base_dir: documents_path.into(),
+        is_mobile: true,
+        circuit_size: CircuitSize::Kb2,
+    }
 }
 
 // ============================================================================
@@ -124,12 +131,9 @@ fn make_config(documents_path: &str) -> PathConfig {
 /// Setup Prepare (JWT) circuit keys
 /// Generates proving and verifying keys for the Prepare circuit
 #[cfg_attr(feature = "uniffi", uniffi::export)]
-pub fn setup_prepare_keys(
-    documents_path: String,
-    input_path: Option<String>,
-) -> Result<String, ZkProofError> {
+pub fn setup_prepare_keys(documents_path: String) -> Result<String, ZkProofError> {
     let config = make_config(&documents_path);
-    let circuit = PrepareCircuit::new(config.clone(), input_path.map(PathBuf::from));
+    let circuit = PrepareCircuit::new(config.clone(), None);
 
     let start = std::time::Instant::now();
     setup_circuit_keys(
@@ -148,12 +152,9 @@ pub fn setup_prepare_keys(
 /// Setup Show circuit keys
 /// Generates proving and verifying keys for the Show circuit
 #[cfg_attr(feature = "uniffi", uniffi::export)]
-pub fn setup_show_keys(
-    documents_path: String,
-    input_path: Option<String>,
-) -> Result<String, ZkProofError> {
+pub fn setup_show_keys(documents_path: String) -> Result<String, ZkProofError> {
     let config = make_config(&documents_path);
-    let circuit = ShowCircuit::new(config.clone(), input_path.map(PathBuf::from));
+    let circuit = ShowCircuit::new(config.clone(), None);
 
     let start = std::time::Instant::now();
     setup_circuit_keys(
@@ -195,12 +196,35 @@ pub fn generate_shared_blinds(documents_path: String) -> Result<String, ZkProofE
 /// Generate Prepare (JWT) circuit proof
 /// Runs prep_prove + prove phases using existing keys
 #[cfg_attr(feature = "uniffi", uniffi::export)]
-pub fn prove_prepare(
-    documents_path: String,
-    input_path: Option<String>,
-) -> Result<ProofResult, ZkProofError> {
+pub fn prove_prepare(documents_path: String) -> Result<ProofResult, ZkProofError> {
     let config = make_config(&documents_path);
-    let circuit = PrepareCircuit::new(config.clone(), input_path.map(PathBuf::from));
+    let input_dir =
+        PathBuf::from(documents_path).join(format!("{}_input.json", PREPARE_CIRCUIT_NAME));
+
+    if !input_dir.exists() {
+        return Err(ZkProofError::FileNotFound {
+            message: format!("{} input file not found", PREPARE_CIRCUIT_NAME),
+        });
+    }
+    println!("input_dir: {}", input_dir.display());
+    println!(
+        "config: {}",
+        config.artifact_path(PREPARE_INSTANCE).display()
+    );
+    println!(
+        "key_path: {}",
+        config.key_path(PREPARE_PROVING_KEY).display()
+    );
+    println!(
+        "witness_path: {}",
+        config.artifact_path(PREPARE_WITNESS).display()
+    );
+    println!(
+        "proof_path: {}",
+        config.artifact_path(PREPARE_PROOF).display()
+    );
+
+    let circuit = PrepareCircuit::new(config.clone(), Some(input_dir));
 
     let start = std::time::Instant::now();
     prove_circuit(
@@ -228,12 +252,35 @@ pub fn prove_prepare(
 /// Generate Show circuit proof
 /// Runs prep_prove + prove phases using existing keys
 #[cfg_attr(feature = "uniffi", uniffi::export)]
-pub fn prove_show(
-    documents_path: String,
-    input_path: Option<String>,
-) -> Result<ProofResult, ZkProofError> {
+pub fn prove_show(documents_path: String) -> Result<ProofResult, ZkProofError> {
     let config = make_config(&documents_path);
-    let circuit = ShowCircuit::new(config.clone(), input_path.map(PathBuf::from));
+    let input_dir = PathBuf::from(documents_path).join(format!("{}_input.json", SHOW_CIRCUIT_NAME));
+
+    if !input_dir.exists() {
+        return Err(ZkProofError::FileNotFound {
+            message: format!("{} input file not found", SHOW_CIRCUIT_NAME),
+        });
+    }
+
+    println!("input_dir: {}", input_dir.display());
+    println!(
+        "config: {}",
+        config.artifact_path(SHOW_INSTANCE).display()
+    );
+    println!(
+        "key_path: {}",
+        config.key_path(SHOW_PROVING_KEY).display()
+    );
+    println!(
+        "witness_path: {}",
+        config.artifact_path(SHOW_WITNESS).display()
+    );
+    println!(
+        "proof_path: {}",
+        config.artifact_path(SHOW_PROOF).display()
+    );
+
+    let circuit = ShowCircuit::new(config.clone(), Some(input_dir));
 
     let start = std::time::Instant::now();
     prove_circuit(
@@ -267,11 +314,9 @@ pub fn prove_show(
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 pub fn reblind_prepare(documents_path: String) -> Result<ProofResult, ZkProofError> {
     let config = make_config(&documents_path);
-    let circuit = PrepareCircuit::new(config.clone(), None);
 
     let start = std::time::Instant::now();
     reblind(
-        circuit,
         config.key_path(PREPARE_PROVING_KEY),
         config.artifact_path(PREPARE_INSTANCE),
         config.artifact_path(PREPARE_WITNESS),
@@ -298,11 +343,9 @@ pub fn reblind_prepare(documents_path: String) -> Result<ProofResult, ZkProofErr
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 pub fn reblind_show(documents_path: String) -> Result<ProofResult, ZkProofError> {
     let config = make_config(&documents_path);
-    let circuit = ShowCircuit::new(config.clone(), None);
 
     let start = std::time::Instant::now();
     reblind(
-        circuit,
         config.key_path(SHOW_PROVING_KEY),
         config.artifact_path(SHOW_INSTANCE),
         config.artifact_path(SHOW_WITNESS),
@@ -648,8 +691,202 @@ mod tests {
     }
 
     #[test]
+    fn test_make_config_uses_2k() {
+        let config = make_config("/docs");
+        assert_eq!(config.circuit_size, CircuitSize::Kb2);
+        assert!(config.is_mobile);
+    }
+
+    #[test]
     fn test_invalid_circuit_type() {
         let result = get_comm_w_shared(".".to_string(), "invalid".to_string());
         assert!(matches!(result, Err(ZkProofError::InvalidInput { .. })));
+    }
+}
+
+// ============================================================================
+// E2E Tests
+// ============================================================================
+
+#[cfg(test)]
+mod e2e_tests {
+    use super::*;
+    use std::fs;
+
+    // Absolute path to this crate, set at compile time.
+    const CRATE_DIR: &str = env!("CARGO_MANIFEST_DIR");
+
+    fn circom_root() -> PathBuf {
+        PathBuf::from(CRATE_DIR)
+            .parent()
+            .expect("CARGO_MANIFEST_DIR has no parent")
+            .join("circom")
+    }
+
+    /// Builds a temp directory tree that matches the mobile app's document structure:
+    ///
+    ///   {temp}/circom/                          ← documents_path passed to Rust FFI
+    ///     build/jwt/jwt_js/jwt.r1cs             ← jwt_2k r1cs, using mobile-style name
+    ///     build/show/show_js/show.r1cs
+    ///     prepare_input.json                    ← 2k JWT inputs (for prove_prepare)
+    ///     show_input.json                       ← show inputs (for prove_show)
+    ///     jwt_input.json                        ← 2k JWT inputs (for run_complete_benchmark default)
+    ///
+    /// Returns the documents_path string.
+    fn setup_mobile_docs(path: &PathBuf) -> String {
+        let docs = path.join("circom");
+        let circom = circom_root();
+
+        let jwt_dir = docs.join("build/jwt/jwt_js");
+        let show_dir = docs.join("build/show/show_js");
+        fs::create_dir_all(&jwt_dir).expect("create jwt dir");
+        fs::create_dir_all(&show_dir).expect("create show dir");
+
+        fs::copy(
+            circom.join("build/jwt_2k/jwt_2k_js/jwt_2k.r1cs"),
+            jwt_dir.join("jwt.r1cs"),
+        )
+        .expect("copy jwt_2k.r1cs -> jwt.r1cs");
+        fs::copy(
+            circom.join("build/show/show_js/show.r1cs"),
+            show_dir.join("show.r1cs"),
+        )
+        .expect("copy show.r1cs");
+
+        let jwt_2k_input = circom.join("inputs/jwt/2k/default.json");
+        let show_input = circom.join("inputs/show/2k/default.json");
+
+        // prove_prepare looks for "{docs}/prepare_input.json" (PREPARE_CIRCUIT_NAME = "prepare")
+        fs::copy(&jwt_2k_input, docs.join("prepare_input.json"))
+            .expect("copy jwt 2k input -> prepare_input.json");
+        // run_complete_benchmark with None falls back to config.input_json("jwt") = "{docs}/jwt_input.json"
+        fs::copy(&jwt_2k_input, docs.join("jwt_input.json"))
+            .expect("copy jwt 2k input -> jwt_input.json");
+        // prove_show looks for "{docs}/show_input.json" (SHOW_CIRCUIT_NAME = "show")
+        fs::copy(&show_input, docs.join("show_input.json"))
+            .expect("copy show 2k input -> show_input.json");
+
+        docs.to_string_lossy().into_owned()
+    }
+
+    /// Full 9-step ZK workflow matching the Flutter app's E2E sequence:
+    ///   setup_prepare → setup_show → generate_blinds →
+    ///   prove_prepare → reblind_prepare → prove_show → reblind_show →
+    ///   verify_prepare → verify_show → comm_W_shared linkage check
+    #[test]
+    #[ignore = "Long-running e2e (~5 min); run with: cargo test -- --ignored e2e_full_workflow"]
+    fn e2e_full_workflow() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+
+        let docs = setup_mobile_docs(&temp);
+
+        // Step 1: Setup Prepare keys
+        let r = setup_prepare_keys(docs.clone());
+        assert!(r.is_ok(), "setup_prepare_keys failed: {:?}", r.err());
+
+        // Step 2: Setup Show keys
+        let r = setup_show_keys(docs.clone());
+        assert!(r.is_ok(), "setup_show_keys failed: {:?}", r.err());
+
+        // Step 3: Generate shared blinds
+        let r = generate_shared_blinds(docs.clone());
+        assert!(r.is_ok(), "generate_shared_blinds failed: {:?}", r.err());
+
+        // Step 4: Prove Prepare
+        let r = prove_prepare(docs.clone());
+        assert!(r.is_ok(), "prove_prepare failed: {:?}", r.err());
+        let pr = r.unwrap();
+        assert!(pr.proof_size_bytes > 0, "proof_size_bytes must be > 0");
+        assert!(
+            !pr.comm_w_shared.is_empty(),
+            "comm_w_shared must be non-empty"
+        );
+
+        // Step 5: Reblind Prepare — new unlinkable proof, same commitment
+        let r = reblind_prepare(docs.clone());
+        assert!(r.is_ok(), "reblind_prepare failed: {:?}", r.err());
+
+        // Step 6: Prove Show
+        let r = prove_show(docs.clone());
+        assert!(r.is_ok(), "prove_show failed: {:?}", r.err());
+        let sr = r.unwrap();
+        assert!(sr.proof_size_bytes > 0, "show proof_size_bytes must be > 0");
+        assert!(
+            !sr.comm_w_shared.is_empty(),
+            "show comm_w_shared must be non-empty"
+        );
+
+        // Step 7: Reblind Show
+        let r = reblind_show(docs.clone());
+        assert!(r.is_ok(), "reblind_show failed: {:?}", r.err());
+
+        // Step 8: Verify Prepare (reblinded proof must pass)
+        let r = verify_prepare(docs.clone());
+        assert!(r.is_ok(), "verify_prepare failed: {:?}", r.err());
+        assert!(r.unwrap(), "prepare proof must verify");
+
+        // Step 9: Verify Show (reblinded proof must pass)
+        let r = verify_show(docs.clone());
+        assert!(r.is_ok(), "verify_show failed: {:?}", r.err());
+        assert!(r.unwrap(), "show proof must verify");
+
+        // Verify get_comm_w_shared works for both circuits.
+        // Note: comm_W_shared equality (linkage) requires end-to-end compatible inputs where
+        // prepare and show share the same deviceKey and claims. The default test inputs are
+        // independent, so we only assert each commitment is readable and non-empty.
+        let prep_comm = get_comm_w_shared(docs.clone(), "prepare".to_string())
+            .expect("get_comm_w_shared(prepare) must succeed");
+        let show_comm = get_comm_w_shared(docs.clone(), "show".to_string())
+            .expect("get_comm_w_shared(show) must succeed");
+        assert!(
+            !prep_comm.is_empty(),
+            "prepare comm_W_shared must be non-empty"
+        );
+        assert!(
+            !show_comm.is_empty(),
+            "show comm_W_shared must be non-empty"
+        );
+    }
+
+    /// Complete benchmark pipeline — exercises all 9 operations with precise timing.
+    #[test]
+    #[ignore = "Long-running e2e (~10 min); run with: cargo test -- --ignored e2e_complete_benchmark"]
+    fn e2e_complete_benchmark() {
+        let temp = tempfile::tempdir().expect("create temp dir");
+        let docs = setup_mobile_docs(&temp);
+
+        // input_path = None → Rust uses mobile defaults: jwt_input.json, show_input.json
+        let r = run_complete_benchmark(docs, None);
+        assert!(r.is_ok(), "run_complete_benchmark failed: {:?}", r.err());
+
+        let b = r.unwrap();
+
+        // Long-running operations must record positive ms timings.
+        // generate_blinds is sub-millisecond so we only assert it doesn't panic.
+        assert!(b.prepare_setup_ms > 0, "prepare_setup_ms must be > 0");
+        assert!(b.show_setup_ms > 0, "show_setup_ms must be > 0");
+        assert!(b.prove_prepare_ms > 0, "prove_prepare_ms must be > 0");
+        assert!(b.reblind_prepare_ms > 0, "reblind_prepare_ms must be > 0");
+        assert!(b.prove_show_ms > 0, "prove_show_ms must be > 0");
+        assert!(b.reblind_show_ms > 0, "reblind_show_ms must be > 0");
+        assert!(b.verify_prepare_ms > 0, "verify_prepare_ms must be > 0");
+        assert!(b.verify_show_ms > 0, "verify_show_ms must be > 0");
+
+        // All artifacts must be non-empty
+        assert!(b.prepare_proof_bytes > 0, "prepare_proof_bytes must be > 0");
+        assert!(b.show_proof_bytes > 0, "show_proof_bytes must be > 0");
+        assert!(
+            b.prepare_proving_key_bytes > 0,
+            "prepare_proving_key_bytes must be > 0"
+        );
+        assert!(
+            b.show_proving_key_bytes > 0,
+            "show_proving_key_bytes must be > 0"
+        );
+        assert!(
+            b.prepare_witness_bytes > 0,
+            "prepare_witness_bytes must be > 0"
+        );
+        assert!(b.show_witness_bytes > 0, "show_witness_bytes must be > 0");
     }
 }

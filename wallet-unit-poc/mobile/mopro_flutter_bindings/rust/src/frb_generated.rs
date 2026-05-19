@@ -238,12 +238,10 @@ fn wire__openac_mobile_app__prove_prepare_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok =
-                        openac_mobile_app::prove_prepare(api_documents_path, api_input_path)?;
+                    let output_ok = openac_mobile_app::prove_prepare(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -273,12 +271,10 @@ fn wire__openac_mobile_app__prove_show_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok =
-                        openac_mobile_app::prove_show(api_documents_path, api_input_path)?;
+                    let output_ok = openac_mobile_app::prove_show(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -411,12 +407,10 @@ fn wire__openac_mobile_app__setup_prepare_keys_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok =
-                        openac_mobile_app::setup_prepare_keys(api_documents_path, api_input_path)?;
+                    let output_ok = openac_mobile_app::setup_prepare_keys(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -446,12 +440,10 @@ fn wire__openac_mobile_app__setup_show_keys_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok =
-                        openac_mobile_app::setup_show_keys(api_documents_path, api_input_path)?;
+                    let output_ok = openac_mobile_app::setup_show_keys(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }

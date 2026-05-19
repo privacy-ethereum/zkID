@@ -12,23 +12,17 @@ Future<void> initApp() => RustLib.instance.api.openacMobileAppInitApp();
 
 /// Setup Prepare (JWT) circuit keys
 /// Generates proving and verifying keys for the Prepare circuit
-Future<String> setupPrepareKeys({
-  required String documentsPath,
-  String? inputPath,
-}) => RustLib.instance.api.openacMobileAppSetupPrepareKeys(
-  documentsPath: documentsPath,
-  inputPath: inputPath,
-);
+Future<String> setupPrepareKeys({required String documentsPath}) => RustLib
+    .instance
+    .api
+    .openacMobileAppSetupPrepareKeys(documentsPath: documentsPath);
 
 /// Setup Show circuit keys
 /// Generates proving and verifying keys for the Show circuit
-Future<String> setupShowKeys({
-  required String documentsPath,
-  String? inputPath,
-}) => RustLib.instance.api.openacMobileAppSetupShowKeys(
-  documentsPath: documentsPath,
-  inputPath: inputPath,
-);
+Future<String> setupShowKeys({required String documentsPath}) => RustLib
+    .instance
+    .api
+    .openacMobileAppSetupShowKeys(documentsPath: documentsPath);
 
 /// Generate shared blinding factors for both circuits
 /// Creates random blinding factors that enable proof reblinding
@@ -39,23 +33,15 @@ Future<String> generateSharedBlinds({required String documentsPath}) => RustLib
 
 /// Generate Prepare (JWT) circuit proof
 /// Runs prep_prove + prove phases using existing keys
-Future<ProofResult> provePrepare({
-  required String documentsPath,
-  String? inputPath,
-}) => RustLib.instance.api.openacMobileAppProvePrepare(
-  documentsPath: documentsPath,
-  inputPath: inputPath,
-);
+Future<ProofResult> provePrepare({required String documentsPath}) => RustLib
+    .instance
+    .api
+    .openacMobileAppProvePrepare(documentsPath: documentsPath);
 
 /// Generate Show circuit proof
 /// Runs prep_prove + prove phases using existing keys
-Future<ProofResult> proveShow({
-  required String documentsPath,
-  String? inputPath,
-}) => RustLib.instance.api.openacMobileAppProveShow(
-  documentsPath: documentsPath,
-  inputPath: inputPath,
-);
+Future<ProofResult> proveShow({required String documentsPath}) =>
+    RustLib.instance.api.openacMobileAppProveShow(documentsPath: documentsPath);
 
 /// Reblind Prepare circuit proof
 /// Generates a new unlinkable proof while preserving comm_W_shared

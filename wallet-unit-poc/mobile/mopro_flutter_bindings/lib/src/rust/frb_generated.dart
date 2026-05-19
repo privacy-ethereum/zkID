@@ -94,13 +94,9 @@ abstract class RustLibApi extends BaseApi {
 
   Future<ProofResult> openacMobileAppProvePrepare({
     required String documentsPath,
-    String? inputPath,
   });
 
-  Future<ProofResult> openacMobileAppProveShow({
-    required String documentsPath,
-    String? inputPath,
-  });
+  Future<ProofResult> openacMobileAppProveShow({required String documentsPath});
 
   Future<ProofResult> openacMobileAppReblindPrepare({
     required String documentsPath,
@@ -117,13 +113,9 @@ abstract class RustLibApi extends BaseApi {
 
   Future<String> openacMobileAppSetupPrepareKeys({
     required String documentsPath,
-    String? inputPath,
   });
 
-  Future<String> openacMobileAppSetupShowKeys({
-    required String documentsPath,
-    String? inputPath,
-  });
+  Future<String> openacMobileAppSetupShowKeys({required String documentsPath});
 
   Future<bool> openacMobileAppVerifyPrepare({required String documentsPath});
 
@@ -306,14 +298,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<ProofResult> openacMobileAppProvePrepare({
     required String documentsPath,
-    String? inputPath,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(documentsPath, serializer);
-          sse_encode_opt_String(inputPath, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -327,7 +317,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
         constMeta: kOpenacMobileAppProvePrepareConstMeta,
-        argValues: [documentsPath, inputPath],
+        argValues: [documentsPath],
         apiImpl: this,
       ),
     );
@@ -336,20 +326,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kOpenacMobileAppProvePrepareConstMeta =>
       const TaskConstMeta(
         debugName: "prove_prepare",
-        argNames: ["documentsPath", "inputPath"],
+        argNames: ["documentsPath"],
       );
 
   @override
   Future<ProofResult> openacMobileAppProveShow({
     required String documentsPath,
-    String? inputPath,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(documentsPath, serializer);
-          sse_encode_opt_String(inputPath, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -363,16 +351,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
         constMeta: kOpenacMobileAppProveShowConstMeta,
-        argValues: [documentsPath, inputPath],
+        argValues: [documentsPath],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kOpenacMobileAppProveShowConstMeta => const TaskConstMeta(
-    debugName: "prove_show",
-    argNames: ["documentsPath", "inputPath"],
-  );
+  TaskConstMeta get kOpenacMobileAppProveShowConstMeta =>
+      const TaskConstMeta(debugName: "prove_show", argNames: ["documentsPath"]);
 
   @override
   Future<ProofResult> openacMobileAppReblindPrepare({
@@ -480,14 +466,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @override
   Future<String> openacMobileAppSetupPrepareKeys({
     required String documentsPath,
-    String? inputPath,
   }) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(documentsPath, serializer);
-          sse_encode_opt_String(inputPath, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -501,7 +485,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
         constMeta: kOpenacMobileAppSetupPrepareKeysConstMeta,
-        argValues: [documentsPath, inputPath],
+        argValues: [documentsPath],
         apiImpl: this,
       ),
     );
@@ -510,20 +494,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kOpenacMobileAppSetupPrepareKeysConstMeta =>
       const TaskConstMeta(
         debugName: "setup_prepare_keys",
-        argNames: ["documentsPath", "inputPath"],
+        argNames: ["documentsPath"],
       );
 
   @override
-  Future<String> openacMobileAppSetupShowKeys({
-    required String documentsPath,
-    String? inputPath,
-  }) {
+  Future<String> openacMobileAppSetupShowKeys({required String documentsPath}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(documentsPath, serializer);
-          sse_encode_opt_String(inputPath, serializer);
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
@@ -537,7 +517,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
         constMeta: kOpenacMobileAppSetupShowKeysConstMeta,
-        argValues: [documentsPath, inputPath],
+        argValues: [documentsPath],
         apiImpl: this,
       ),
     );
@@ -546,7 +526,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   TaskConstMeta get kOpenacMobileAppSetupShowKeysConstMeta =>
       const TaskConstMeta(
         debugName: "setup_show_keys",
-        argNames: ["documentsPath", "inputPath"],
+        argNames: ["documentsPath"],
       );
 
   @override
@@ -613,12 +593,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   RustArcIncrementStrongCountFnType
-  get rust_arc_increment_strong_count_ZkProofError => wire
-      .rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError;
+  get rust_arc_increment_strong_count_ZkProofError =>
+      wire.rust_arc_increment_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError;
 
   RustArcDecrementStrongCountFnType
-  get rust_arc_decrement_strong_count_ZkProofError => wire
-      .rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError;
+  get rust_arc_decrement_strong_count_ZkProofError =>
+      wire.rust_arc_decrement_strong_count_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError;
 
   @protected
   ZkProofError
