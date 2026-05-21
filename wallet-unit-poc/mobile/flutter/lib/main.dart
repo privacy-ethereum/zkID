@@ -62,8 +62,8 @@ Future<void> _copyAssetsToDocuments() async {
 
     // Always overwrite input JSON files so stale cached versions from a
     // previous app install never cause witness synthesis mismatches.
-    // prepare_input.json is used by both prove_prepare (PREPARE_CIRCUIT_NAME)
-    // and run_complete_benchmark (passed explicitly as inputPath).
+    // prepare_input.json is used by prove_prepare; show_input.json by prove_show;
+    // run_complete_benchmark derives both paths from documentsPath automatically.
     final inputAssets = {
       'assets/circom/prepare_input.json': [
         '${circomDir.path}/prepare_input.json',
@@ -357,7 +357,6 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
       final docs = await _getDocumentsPath();
       final results = await runCompleteBenchmark(
         documentsPath: docs,
-        inputPath: '$docs/prepare_input.json',
       );
       setState(() {
         _benchmarkResults = results;

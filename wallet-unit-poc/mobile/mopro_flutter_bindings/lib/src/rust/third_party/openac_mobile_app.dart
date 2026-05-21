@@ -74,10 +74,8 @@ Future<bool> verifyShow({required String documentsPath}) => RustLib.instance.api
 /// Returns comprehensive timing and size metrics
 Future<BenchmarkResults> runCompleteBenchmark({
   required String documentsPath,
-  String? inputPath,
 }) => RustLib.instance.api.openacMobileAppRunCompleteBenchmark(
   documentsPath: documentsPath,
-  inputPath: inputPath,
 );
 
 /// Get the shared witness commitment for a circuit

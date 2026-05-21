@@ -405,9 +405,12 @@ pub fn verify_show(documents_path: String) -> Result<bool, ZkProofError> {
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 pub fn run_complete_benchmark(
     documents_path: String,
-    input_path: Option<String>,
 ) -> Result<BenchmarkResults, ZkProofError> {
     let config = make_config(&documents_path);
+    let prepare_input =
+        PathBuf::from(&documents_path).join(format!("{}_input.json", PREPARE_CIRCUIT_NAME));
+    let show_input =
+        PathBuf::from(&documents_path).join(format!("{}_input.json", SHOW_CIRCUIT_NAME));
 
     // Note: While circuits have 98 shared values (2 keybindings + 96 claim scalars),
     // Hyrax batches all these into a single commitment point.
@@ -415,8 +418,7 @@ pub fn run_complete_benchmark(
     const NUM_SHARED: usize = 1;
 
     // Step 1: Setup Prepare Circuit
-    let prepare_circuit =
-        PrepareCircuit::new(config.clone(), input_path.as_ref().map(PathBuf::from));
+    let prepare_circuit = PrepareCircuit::new(config.clone(), Some(prepare_input.clone()));
     let start = std::time::Instant::now();
     let (prepare_pk, prepare_vk) = setup_circuit_keys_no_save(prepare_circuit);
     let prepare_setup_ms = start.elapsed().as_millis() as u64;
@@ -433,7 +435,7 @@ pub fn run_complete_benchmark(
     })?;
 
     // Step 2: Setup Show Circuit
-    let show_circuit = ShowCircuit::new(config.clone(), input_path.as_ref().map(PathBuf::from));
+    let show_circuit = ShowCircuit::new(config.clone(), Some(show_input.clone()));
     let start = std::time::Instant::now();
     let (show_pk, show_vk) = setup_circuit_keys_no_save(show_circuit);
     let show_setup_ms = start.elapsed().as_millis() as u64;
@@ -456,8 +458,7 @@ pub fn run_complete_benchmark(
 
     // Step 4: Prove Prepare Circuit
     let start = std::time::Instant::now();
-    let prepare_circuit =
-        PrepareCircuit::new(config.clone(), input_path.as_ref().map(PathBuf::from));
+    let prepare_circuit = PrepareCircuit::new(config.clone(), Some(prepare_input));
     prove_circuit_with_pk(
         prepare_circuit,
         &prepare_pk,
@@ -500,7 +501,7 @@ pub fn run_complete_benchmark(
 
     // Step 6: Prove Show Circuit
     let start = std::time::Instant::now();
-    let show_circuit = ShowCircuit::new(config.clone(), input_path.as_ref().map(PathBuf::from));
+    let show_circuit = ShowCircuit::new(config.clone(), Some(show_input));
     prove_circuit_with_pk(
         show_circuit,
         &show_pk,
@@ -728,9 +729,8 @@ mod e2e_tests {
     ///   {temp}/circom/                          ← documents_path passed to Rust FFI
     ///     build/jwt/jwt_js/jwt.r1cs             ← jwt_2k r1cs, using mobile-style name
     ///     build/show/show_js/show.r1cs
-    ///     prepare_input.json                    ← 2k JWT inputs (for prove_prepare)
-    ///     show_input.json                       ← show inputs (for prove_show)
-    ///     jwt_input.json                        ← 2k JWT inputs (for run_complete_benchmark default)
+    ///     prepare_input.json                    ← 2k JWT inputs (for prove_prepare + run_complete_benchmark)
+    ///     show_input.json                       ← show inputs (for prove_show + run_complete_benchmark)
     ///
     /// Returns the documents_path string.
     fn setup_mobile_docs(path: &PathBuf) -> String {
@@ -756,13 +756,8 @@ mod e2e_tests {
         let jwt_2k_input = circom.join("inputs/jwt/2k/default.json");
         let show_input = circom.join("inputs/show/2k/default.json");
 
-        // prove_prepare looks for "{docs}/prepare_input.json" (PREPARE_CIRCUIT_NAME = "prepare")
         fs::copy(&jwt_2k_input, docs.join("prepare_input.json"))
             .expect("copy jwt 2k input -> prepare_input.json");
-        // run_complete_benchmark with None falls back to config.input_json("jwt") = "{docs}/jwt_input.json"
-        fs::copy(&jwt_2k_input, docs.join("jwt_input.json"))
-            .expect("copy jwt 2k input -> jwt_input.json");
-        // prove_show looks for "{docs}/show_input.json" (SHOW_CIRCUIT_NAME = "show")
         fs::copy(&show_input, docs.join("show_input.json"))
             .expect("copy show 2k input -> show_input.json");
 
@@ -855,8 +850,7 @@ mod e2e_tests {
         let temp = tempfile::tempdir().expect("create temp dir");
         let docs = setup_mobile_docs(&temp);
 
-        // input_path = None → Rust uses mobile defaults: jwt_input.json, show_input.json
-        let r = run_complete_benchmark(docs, None);
+        let r = run_complete_benchmark(docs);
         assert!(r.is_ok(), "run_complete_benchmark failed: {:?}", r.err());
 
         let b = r.unwrap();
