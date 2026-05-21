@@ -175,6 +175,27 @@ fn lock_pk_mut(
     pk_slot(kind).lock().unwrap_or_else(|e| e.into_inner())
 }
 
+// ── Streaming PK load: one in-flight buffer per CircuitKind ──────────────────
+// Holds partially-assembled PK bytes between `load_pk_begin` and
+// `load_pk_finish`. Separate from `PK_CERT_*` so a finalize failure leaves
+// a previously loaded PK intact.
+type PendingCell = Mutex<Option<Vec<u8>>>;
+static PENDING_CERT_2048: PendingCell = Mutex::new(None);
+static PENDING_CERT_4096: PendingCell = Mutex::new(None);
+static PENDING_USER_SIG_2048: PendingCell = Mutex::new(None);
+
+fn pending_slot(kind: CircuitKind) -> &'static PendingCell {
+    match kind {
+        CircuitKind::CertChainRs2048 => &PENDING_CERT_2048,
+        CircuitKind::CertChainRs4096 => &PENDING_CERT_4096,
+        CircuitKind::UserSigRs2048 => &PENDING_USER_SIG_2048,
+    }
+}
+
+fn lock_pending(kind: CircuitKind) -> std::sync::MutexGuard<'static, Option<Vec<u8>>> {
+    pending_slot(kind).lock().unwrap_or_else(|e| e.into_inner())
+}
+
 // Core prove path shared by wasm_bindgen and native test entry points.
 // Keep transcript order aligned with `ecdsa-spartan2` and `native_drift`.
 fn prove_core(
@@ -215,6 +236,81 @@ pub fn load_pk(kind: CircuitKind, pk_bytes: &[u8]) -> Result<(), JsError> {
         .map_err(|e| JsError::new(&format!("PK deserialize ({kind:?}): {e}")))?;
     *lock_pk_mut(kind) = Some(pk);
     Ok(())
+}
+
+// Native-callable cores for the streaming PK load. The `#[wasm_bindgen]`
+// entry points below wrap these with `String -> JsError`. Mirrors
+// `prove_core` so unit tests can target the cores directly.
+fn load_pk_begin_core(kind: CircuitKind, total_size: usize) -> Result<(), String> {
+    let mut buf = Vec::new();
+    buf.try_reserve_exact(total_size)
+        .map_err(|e| format!("reserve {total_size} bytes for {kind:?}: {e}"))?;
+    *lock_pending(kind) = Some(buf);
+    Ok(())
+}
+
+fn load_pk_chunk_core(kind: CircuitKind, chunk: &[u8]) -> Result<(), String> {
+    let mut guard = lock_pending(kind);
+    let buf = guard
+        .as_mut()
+        .ok_or_else(|| format!("load_pk_chunk before load_pk_begin for {kind:?}"))?;
+    let next_len = buf.len().saturating_add(chunk.len());
+    if next_len > buf.capacity() {
+        return Err(format!(
+            "chunk exceeds reserved capacity for {kind:?}: would be {}, capacity {}",
+            next_len,
+            buf.capacity(),
+        ));
+    }
+    buf.extend_from_slice(chunk);
+    Ok(())
+}
+
+fn load_pk_finish_core(kind: CircuitKind) -> Result<(), String> {
+    let bytes = lock_pending(kind)
+        .take()
+        .ok_or_else(|| format!("load_pk_finish before load_pk_begin for {kind:?}"))?;
+    let pk = bincode::deserialize(&bytes)
+        .map_err(|e| format!("PK deserialize ({kind:?}): {e}"))?;
+    *lock_pk_mut(kind) = Some(pk);
+    Ok(())
+}
+
+/// Begin a streaming PK load. Reserves a `Vec<u8>` with exactly
+/// `total_size` capacity so subsequent `load_pk_chunk` calls append in
+/// place. Use this triple instead of `load_pk(bytes)` when the caller
+/// can't afford the JS-side allocation: the one-shot variant requires
+/// a JS `Uint8Array` for the whole PK alongside the wasm-side copy,
+/// while the streaming triple keeps the JS heap empty (chunks flow
+/// straight into wasm). The wasm-side deserialize peak is the same on
+/// both paths. See PTT-OpenAC-Web issue #28 for the rs4096 jetsam
+/// trace on iOS WKWebView.
+#[wasm_bindgen]
+pub fn load_pk_begin(kind: CircuitKind, total_size: usize) -> Result<(), JsError> {
+    load_pk_begin_core(kind, total_size).map_err(|e| JsError::new(&e))
+}
+
+/// Append a chunk to the in-flight buffer. The cumulative length is bounded
+/// by the capacity reserved in `load_pk_begin` so a caller cannot quietly
+/// exceed the reservation and force a reallocation.
+#[wasm_bindgen]
+pub fn load_pk_chunk(kind: CircuitKind, chunk: &[u8]) -> Result<(), JsError> {
+    load_pk_chunk_core(kind, chunk).map_err(|e| JsError::new(&e))
+}
+
+/// Deserialize the accumulated bytes into a ProverKey and stash it. The
+/// in-flight buffer is moved out of the static so a finalize failure
+/// leaves no leftover state for the next attempt.
+#[wasm_bindgen]
+pub fn load_pk_finish(kind: CircuitKind) -> Result<(), JsError> {
+    load_pk_finish_core(kind).map_err(|e| JsError::new(&e))
+}
+
+/// Discard the in-flight buffer without finalizing. Safe to call when no
+/// load is in flight.
+#[wasm_bindgen]
+pub fn load_pk_cancel(kind: CircuitKind) {
+    *lock_pending(kind) = None;
 }
 
 #[wasm_bindgen]
@@ -319,5 +415,79 @@ mod tests {
         bytes.extend_from_slice(&2u32.to_le_bytes());
         bytes.extend_from_slice(&u64::MAX.to_le_bytes());
         assert!(parse_witness(&bytes).is_err());
+    }
+
+    /// Reset before/after each streaming test so a prior failure cannot
+    /// leak in-flight state. `load_pk_cancel` itself doesn't construct a
+    /// JsError so it's safe to call from native tests.
+    fn reset_streaming(kind: CircuitKind) {
+        load_pk_cancel(kind);
+    }
+
+    #[test]
+    fn load_pk_chunk_before_begin_errors() {
+        reset_streaming(CircuitKind::UserSigRs2048);
+        assert!(load_pk_chunk_core(CircuitKind::UserSigRs2048, &[1, 2, 3]).is_err());
+    }
+
+    #[test]
+    fn load_pk_finish_before_begin_errors() {
+        reset_streaming(CircuitKind::CertChainRs2048);
+        assert!(load_pk_finish_core(CircuitKind::CertChainRs2048).is_err());
+    }
+
+    #[test]
+    fn load_pk_chunk_capacity_overflow_errors() {
+        reset_streaming(CircuitKind::CertChainRs4096);
+        load_pk_begin_core(CircuitKind::CertChainRs4096, 4).unwrap();
+        load_pk_chunk_core(CircuitKind::CertChainRs4096, &[1, 2, 3]).unwrap();
+        // Next chunk would push len to 6 over capacity 4; must reject.
+        assert!(load_pk_chunk_core(CircuitKind::CertChainRs4096, &[4, 5, 6]).is_err());
+        reset_streaming(CircuitKind::CertChainRs4096);
+    }
+
+    #[test]
+    fn load_pk_cancel_clears_pending() {
+        reset_streaming(CircuitKind::UserSigRs2048);
+        load_pk_begin_core(CircuitKind::UserSigRs2048, 8).unwrap();
+        load_pk_chunk_core(CircuitKind::UserSigRs2048, &[1, 2, 3, 4]).unwrap();
+        load_pk_cancel(CircuitKind::UserSigRs2048);
+        // After cancel, finish must fail because there's nothing pending.
+        assert!(load_pk_finish_core(CircuitKind::UserSigRs2048).is_err());
+        // Chunk-after-cancel must also fail (no in-flight buffer).
+        assert!(load_pk_chunk_core(CircuitKind::UserSigRs2048, &[5]).is_err());
+    }
+
+    #[test]
+    fn load_pk_begin_resets_previous_buffer() {
+        reset_streaming(CircuitKind::CertChainRs2048);
+        load_pk_begin_core(CircuitKind::CertChainRs2048, 16).unwrap();
+        load_pk_chunk_core(CircuitKind::CertChainRs2048, &[0; 8]).unwrap();
+        // A second begin throws away the partially-filled buffer; the
+        // following chunk fits the new capacity rather than the old offset.
+        load_pk_begin_core(CircuitKind::CertChainRs2048, 4).unwrap();
+        load_pk_chunk_core(CircuitKind::CertChainRs2048, &[1, 2, 3, 4]).unwrap();
+        assert!(load_pk_chunk_core(CircuitKind::CertChainRs2048, &[5]).is_err());
+        reset_streaming(CircuitKind::CertChainRs2048);
+    }
+
+    /// Regression: chunks must concatenate in call order with no overlap
+    /// or gap so finalize sees byte-identical input to the one-shot
+    /// `load_pk(kind, &bytes)` path.
+    #[test]
+    fn streaming_chunks_accumulate_bytes_in_order() {
+        reset_streaming(CircuitKind::CertChainRs4096);
+        let original: Vec<u8> = (0u8..=255).cycle().take(1000).collect();
+        load_pk_begin_core(CircuitKind::CertChainRs4096, original.len()).unwrap();
+        for chunk in original.chunks(37) {
+            load_pk_chunk_core(CircuitKind::CertChainRs4096, chunk).unwrap();
+        }
+        let pending = lock_pending(CircuitKind::CertChainRs4096);
+        assert_eq!(
+            pending.as_ref().expect("pending buffer set").as_slice(),
+            original.as_slice(),
+        );
+        drop(pending);
+        reset_streaming(CircuitKind::CertChainRs4096);
     }
 }
