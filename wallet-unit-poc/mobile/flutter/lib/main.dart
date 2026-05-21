@@ -9,14 +9,14 @@ import 'package:mopro_flutter_bindings/src/rust/third_party/openac_mobile_app.da
         BenchmarkResults,
         ProofResult,
         generateSharedBlinds,
-        provePrepare,
+        proveJwt,
         proveShow,
-        reblindPrepare,
+        reblindJwt,
         reblindShow,
         runCompleteBenchmark,
-        setupPrepareKeys,
+        setupJwtKeys,
         setupShowKeys,
-        verifyPrepare,
+        verifyJwt,
         verifyShow;
 
 Future<void> main() async {
@@ -31,7 +31,7 @@ Future<void> main() async {
 ///
 ///   {docs}/build/jwt/jwt_js/jwt.r1cs   ← decompressed from jwt.r1cs.gz
 ///   {docs}/build/show/show_js/show.r1cs ← decompressed from show.r1cs.gz
-///   {docs}/prepare_input.json           ← prove_prepare + run_complete_benchmark
+///   {docs}/jwt_input.json               ← prove_jwt + run_complete_benchmark
 ///   {docs}/show_input.json              ← prove_show + run_complete_benchmark
 Future<void> _copyAssetsToDocuments() async {
   try {
@@ -45,7 +45,7 @@ Future<void> _copyAssetsToDocuments() async {
 
     // Decompress r1cs files — skip if already extracted (each is ~350MB).
     final compressedAssets = {
-      'assets/circom/prepare.r1cs.gz': '${jwtBuildDir.path}/jwt.r1cs',
+      'assets/circom/jwt.r1cs.gz': '${jwtBuildDir.path}/jwt.r1cs',
       'assets/circom/show.r1cs.gz': '${showBuildDir.path}/show.r1cs',
     };
     for (final entry in compressedAssets.entries) {
@@ -62,11 +62,11 @@ Future<void> _copyAssetsToDocuments() async {
 
     // Always overwrite input JSON files so stale cached versions from a
     // previous app install never cause witness synthesis mismatches.
-    // prepare_input.json is used by prove_prepare; show_input.json by prove_show;
+    // jwt_input.json is used by prove_jwt; show_input.json by prove_show;
     // run_complete_benchmark derives both paths from documentsPath automatically.
     final inputAssets = {
-      'assets/circom/prepare_input.json': [
-        '${circomDir.path}/prepare_input.json',
+      'assets/circom/jwt_input.json': [
+        '${circomDir.path}/jwt_input.json',
       ],
       'assets/circom/show_input.json': [
         '${circomDir.path}/show_input.json',
@@ -107,14 +107,14 @@ class E2EProofWorkflowScreen extends StatefulWidget {
 }
 
 enum ProofTaskType {
-  setupPrepare,
+  setupJwt,
   setupShow,
   generateBlinds,
-  provePrepare,
+  proveJwt,
   proveShow,
-  reblindPrepare,
+  reblindJwt,
   reblindShow,
-  verifyPrepare,
+  verifyJwt,
   verifyShow,
 }
 
@@ -166,9 +166,9 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
   Future<TaskResult> _executeStep(
       ProofTaskType taskType, String documentsPath) async {
     switch (taskType) {
-      case ProofTaskType.setupPrepare:
+      case ProofTaskType.setupJwt:
         final t = DateTime.now();
-        final msg = await setupPrepareKeys(documentsPath: documentsPath);
+        final msg = await setupJwtKeys(documentsPath: documentsPath);
         return TaskResult(
           taskType: taskType,
           success: true,
@@ -196,8 +196,8 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
           clientTimingMs: DateTime.now().difference(t).inMilliseconds,
         );
 
-      case ProofTaskType.provePrepare:
-        final pr = await provePrepare(documentsPath: documentsPath);
+      case ProofTaskType.proveJwt:
+        final pr = await proveJwt(documentsPath: documentsPath);
         return TaskResult(
           taskType: taskType,
           success: true,
@@ -212,8 +212,8 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
           proofResult: pr,
         );
 
-      case ProofTaskType.reblindPrepare:
-        final pr = await reblindPrepare(documentsPath: documentsPath);
+      case ProofTaskType.reblindJwt:
+        final pr = await reblindJwt(documentsPath: documentsPath);
         return TaskResult(
           taskType: taskType,
           success: true,
@@ -228,9 +228,9 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
           proofResult: pr,
         );
 
-      case ProofTaskType.verifyPrepare:
+      case ProofTaskType.verifyJwt:
         final t = DateTime.now();
-        final ok = await verifyPrepare(documentsPath: documentsPath);
+        final ok = await verifyJwt(documentsPath: documentsPath);
         return TaskResult(
           taskType: taskType,
           success: ok,
@@ -275,9 +275,9 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
   }
 
   /// Run the full 9-step workflow sequentially, matching e2e_full_workflow in lib.rs:
-  ///   setup_prepare → setup_show → generate_blinds →
-  ///   prove_prepare → reblind_prepare → prove_show → reblind_show →
-  ///   verify_prepare → verify_show
+  ///   setup_jwt → setup_show → generate_blinds →
+  ///   prove_jwt → reblind_jwt → prove_show → reblind_show →
+  ///   verify_jwt → verify_show
   Future<void> _runE2EWorkflow() async {
     setState(() {
       _isOperating = true;
@@ -291,14 +291,14 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
     final docs = await _getDocumentsPath();
 
     const steps = [
-      ProofTaskType.setupPrepare,
+      ProofTaskType.setupJwt,
       ProofTaskType.setupShow,
       ProofTaskType.generateBlinds,
-      ProofTaskType.provePrepare,
-      ProofTaskType.reblindPrepare,
+      ProofTaskType.proveJwt,
+      ProofTaskType.reblindJwt,
       ProofTaskType.proveShow,
       ProofTaskType.reblindShow,
-      ProofTaskType.verifyPrepare,
+      ProofTaskType.verifyJwt,
       ProofTaskType.verifyShow,
     ];
 
@@ -384,14 +384,14 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
 
   String _taskTypeToDisplayName(ProofTaskType type) {
     return switch (type) {
-      ProofTaskType.setupPrepare => 'Setup Prepare Keys',
+      ProofTaskType.setupJwt => 'Setup JWT Keys',
       ProofTaskType.setupShow => 'Setup Show Keys',
       ProofTaskType.generateBlinds => 'Generate Shared Blinds',
-      ProofTaskType.provePrepare => 'Prove Prepare',
+      ProofTaskType.proveJwt => 'Prove JWT',
       ProofTaskType.proveShow => 'Prove Show',
-      ProofTaskType.reblindPrepare => 'Reblind Prepare',
+      ProofTaskType.reblindJwt => 'Reblind JWT',
       ProofTaskType.reblindShow => 'Reblind Show',
-      ProofTaskType.verifyPrepare => 'Verify Prepare',
+      ProofTaskType.verifyJwt => 'Verify JWT',
       ProofTaskType.verifyShow => 'Verify Show',
     };
   }
@@ -591,8 +591,8 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
               children: [
                 Expanded(
                   child: _buildOperationButton(
-                    taskType: ProofTaskType.setupPrepare,
-                    label: 'Setup Prepare',
+                    taskType: ProofTaskType.setupJwt,
+                    label: 'Setup JWT',
                     icon: Icons.key,
                     color: Colors.blue,
                   ),
@@ -624,15 +624,15 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
 
             const SizedBox(height: 24),
 
-            // ── Step 3: Prepare ────────────────────────────────────────────
-            _buildSectionHeader('Step 3: Prepare', Icons.assignment),
+            // ── Step 3: JWT ────────────────────────────────────────────────
+            _buildSectionHeader('Step 3: JWT', Icons.assignment),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: _buildOperationButton(
-                    taskType: ProofTaskType.provePrepare,
-                    label: 'Prove Prepare',
+                    taskType: ProofTaskType.proveJwt,
+                    label: 'Prove JWT',
                     icon: Icons.calculate,
                     color: Colors.green,
                   ),
@@ -640,8 +640,8 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildOperationButton(
-                    taskType: ProofTaskType.reblindPrepare,
-                    label: 'Reblind Prepare',
+                    taskType: ProofTaskType.reblindJwt,
+                    label: 'Reblind JWT',
                     icon: Icons.sync,
                     color: Colors.green,
                   ),
@@ -685,8 +685,8 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
               children: [
                 Expanded(
                   child: _buildOperationButton(
-                    taskType: ProofTaskType.verifyPrepare,
-                    label: 'Verify Prepare',
+                    taskType: ProofTaskType.verifyJwt,
+                    label: 'Verify JWT',
                     icon: Icons.check_circle,
                     color: Colors.teal,
                   ),
@@ -917,14 +917,14 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
               },
               children: [
                 _tableHeader(['Operation', 'Time (ms)']),
-                _timingRow('Prepare Setup', r.prepareSetupMs),
+                _timingRow('JWT Setup', r.jwtSetupMs),
                 _timingRow('Show Setup', r.showSetupMs),
                 _timingRow('Generate Blinds', r.generateBlindsMs),
-                _timingRow('Prove Prepare', r.provePrepareMs),
-                _timingRow('Reblind Prepare', r.reblindPrepareMs),
+                _timingRow('Prove JWT', r.proveJwtMs),
+                _timingRow('Reblind JWT', r.reblindJwtMs),
                 _timingRow('Prove Show', r.proveShowMs),
                 _timingRow('Reblind Show', r.reblindShowMs),
-                _timingRow('Verify Prepare', r.verifyPrepareMs),
+                _timingRow('Verify JWT', r.verifyJwtMs),
                 _timingRow('Verify Show', r.verifyShowMs),
               ],
             ),
@@ -944,13 +944,13 @@ class _E2EProofWorkflowScreenState extends State<E2EProofWorkflowScreen> {
               },
               children: [
                 _tableHeader(['Artifact', 'Size']),
-                _sizeRow('Prepare Proving Key', r.prepareProvingKeyBytes),
-                _sizeRow('Prepare Verifying Key', r.prepareVerifyingKeyBytes),
+                _sizeRow('JWT Proving Key', r.jwtProvingKeyBytes),
+                _sizeRow('JWT Verifying Key', r.jwtVerifyingKeyBytes),
                 _sizeRow('Show Proving Key', r.showProvingKeyBytes),
                 _sizeRow('Show Verifying Key', r.showVerifyingKeyBytes),
-                _sizeRow('Prepare Proof', r.prepareProofBytes),
+                _sizeRow('JWT Proof', r.jwtProofBytes),
                 _sizeRow('Show Proof', r.showProofBytes),
-                _sizeRow('Prepare Witness', r.prepareWitnessBytes),
+                _sizeRow('JWT Witness', r.jwtWitnessBytes),
                 _sizeRow('Show Witness', r.showWitnessBytes),
               ],
             ),

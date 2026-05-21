@@ -64,7 +64,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1257199256;
+  int get rustContentHash => -1383991712;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -92,13 +92,11 @@ abstract class RustLibApi extends BaseApi {
 
   Future<String> openacMobileAppMoproHelloWorld();
 
-  Future<ProofResult> openacMobileAppProvePrepare({
-    required String documentsPath,
-  });
+  Future<ProofResult> openacMobileAppProveJwt({required String documentsPath});
 
   Future<ProofResult> openacMobileAppProveShow({required String documentsPath});
 
-  Future<ProofResult> openacMobileAppReblindPrepare({
+  Future<ProofResult> openacMobileAppReblindJwt({
     required String documentsPath,
   });
 
@@ -110,13 +108,11 @@ abstract class RustLibApi extends BaseApi {
     required String documentsPath,
   });
 
-  Future<String> openacMobileAppSetupPrepareKeys({
-    required String documentsPath,
-  });
+  Future<String> openacMobileAppSetupJwtKeys({required String documentsPath});
 
   Future<String> openacMobileAppSetupShowKeys({required String documentsPath});
 
-  Future<bool> openacMobileAppVerifyPrepare({required String documentsPath});
+  Future<bool> openacMobileAppVerifyJwt({required String documentsPath});
 
   Future<bool> openacMobileAppVerifyShow({required String documentsPath});
 
@@ -295,9 +291,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "mopro_hello_world", argNames: []);
 
   @override
-  Future<ProofResult> openacMobileAppProvePrepare({
-    required String documentsPath,
-  }) {
+  Future<ProofResult> openacMobileAppProveJwt({required String documentsPath}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -315,18 +309,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData:
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
-        constMeta: kOpenacMobileAppProvePrepareConstMeta,
+        constMeta: kOpenacMobileAppProveJwtConstMeta,
         argValues: [documentsPath],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kOpenacMobileAppProvePrepareConstMeta =>
-      const TaskConstMeta(
-        debugName: "prove_prepare",
-        argNames: ["documentsPath"],
-      );
+  TaskConstMeta get kOpenacMobileAppProveJwtConstMeta =>
+      const TaskConstMeta(debugName: "prove_jwt", argNames: ["documentsPath"]);
 
   @override
   Future<ProofResult> openacMobileAppProveShow({
@@ -360,7 +351,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "prove_show", argNames: ["documentsPath"]);
 
   @override
-  Future<ProofResult> openacMobileAppReblindPrepare({
+  Future<ProofResult> openacMobileAppReblindJwt({
     required String documentsPath,
   }) {
     return handler.executeNormal(
@@ -380,18 +371,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData:
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
-        constMeta: kOpenacMobileAppReblindPrepareConstMeta,
+        constMeta: kOpenacMobileAppReblindJwtConstMeta,
         argValues: [documentsPath],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kOpenacMobileAppReblindPrepareConstMeta =>
-      const TaskConstMeta(
-        debugName: "reblind_prepare",
-        argNames: ["documentsPath"],
-      );
+  TaskConstMeta get kOpenacMobileAppReblindJwtConstMeta => const TaskConstMeta(
+    debugName: "reblind_jwt",
+    argNames: ["documentsPath"],
+  );
 
   @override
   Future<ProofResult> openacMobileAppReblindShow({
@@ -461,9 +451,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<String> openacMobileAppSetupPrepareKeys({
-    required String documentsPath,
-  }) {
+  Future<String> openacMobileAppSetupJwtKeys({required String documentsPath}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -481,16 +469,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData:
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
-        constMeta: kOpenacMobileAppSetupPrepareKeysConstMeta,
+        constMeta: kOpenacMobileAppSetupJwtKeysConstMeta,
         argValues: [documentsPath],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kOpenacMobileAppSetupPrepareKeysConstMeta =>
+  TaskConstMeta get kOpenacMobileAppSetupJwtKeysConstMeta =>
       const TaskConstMeta(
-        debugName: "setup_prepare_keys",
+        debugName: "setup_jwt_keys",
         argNames: ["documentsPath"],
       );
 
@@ -527,7 +515,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<bool> openacMobileAppVerifyPrepare({required String documentsPath}) {
+  Future<bool> openacMobileAppVerifyJwt({required String documentsPath}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -545,18 +533,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData:
               sse_decode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerZkProofError,
         ),
-        constMeta: kOpenacMobileAppVerifyPrepareConstMeta,
+        constMeta: kOpenacMobileAppVerifyJwtConstMeta,
         argValues: [documentsPath],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta get kOpenacMobileAppVerifyPrepareConstMeta =>
-      const TaskConstMeta(
-        debugName: "verify_prepare",
-        argNames: ["documentsPath"],
-      );
+  TaskConstMeta get kOpenacMobileAppVerifyJwtConstMeta =>
+      const TaskConstMeta(debugName: "verify_jwt", argNames: ["documentsPath"]);
 
   @override
   Future<bool> openacMobileAppVerifyShow({required String documentsPath}) {
@@ -628,22 +613,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 17)
       throw Exception('unexpected arr length: expect 17 but see ${arr.length}');
     return BenchmarkResults(
-      prepareSetupMs: dco_decode_u_64(arr[0]),
+      jwtSetupMs: dco_decode_u_64(arr[0]),
       showSetupMs: dco_decode_u_64(arr[1]),
       generateBlindsMs: dco_decode_u_64(arr[2]),
-      provePrepareMs: dco_decode_u_64(arr[3]),
-      reblindPrepareMs: dco_decode_u_64(arr[4]),
+      proveJwtMs: dco_decode_u_64(arr[3]),
+      reblindJwtMs: dco_decode_u_64(arr[4]),
       proveShowMs: dco_decode_u_64(arr[5]),
       reblindShowMs: dco_decode_u_64(arr[6]),
-      verifyPrepareMs: dco_decode_u_64(arr[7]),
+      verifyJwtMs: dco_decode_u_64(arr[7]),
       verifyShowMs: dco_decode_u_64(arr[8]),
-      prepareProvingKeyBytes: dco_decode_u_64(arr[9]),
-      prepareVerifyingKeyBytes: dco_decode_u_64(arr[10]),
+      jwtProvingKeyBytes: dco_decode_u_64(arr[9]),
+      jwtVerifyingKeyBytes: dco_decode_u_64(arr[10]),
       showProvingKeyBytes: dco_decode_u_64(arr[11]),
       showVerifyingKeyBytes: dco_decode_u_64(arr[12]),
-      prepareProofBytes: dco_decode_u_64(arr[13]),
+      jwtProofBytes: dco_decode_u_64(arr[13]),
       showProofBytes: dco_decode_u_64(arr[14]),
-      prepareWitnessBytes: dco_decode_u_64(arr[15]),
+      jwtWitnessBytes: dco_decode_u_64(arr[15]),
       showWitnessBytes: dco_decode_u_64(arr[16]),
     );
   }
@@ -733,40 +718,40 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   BenchmarkResults sse_decode_benchmark_results(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_prepareSetupMs = sse_decode_u_64(deserializer);
+    var var_jwtSetupMs = sse_decode_u_64(deserializer);
     var var_showSetupMs = sse_decode_u_64(deserializer);
     var var_generateBlindsMs = sse_decode_u_64(deserializer);
-    var var_provePrepareMs = sse_decode_u_64(deserializer);
-    var var_reblindPrepareMs = sse_decode_u_64(deserializer);
+    var var_proveJwtMs = sse_decode_u_64(deserializer);
+    var var_reblindJwtMs = sse_decode_u_64(deserializer);
     var var_proveShowMs = sse_decode_u_64(deserializer);
     var var_reblindShowMs = sse_decode_u_64(deserializer);
-    var var_verifyPrepareMs = sse_decode_u_64(deserializer);
+    var var_verifyJwtMs = sse_decode_u_64(deserializer);
     var var_verifyShowMs = sse_decode_u_64(deserializer);
-    var var_prepareProvingKeyBytes = sse_decode_u_64(deserializer);
-    var var_prepareVerifyingKeyBytes = sse_decode_u_64(deserializer);
+    var var_jwtProvingKeyBytes = sse_decode_u_64(deserializer);
+    var var_jwtVerifyingKeyBytes = sse_decode_u_64(deserializer);
     var var_showProvingKeyBytes = sse_decode_u_64(deserializer);
     var var_showVerifyingKeyBytes = sse_decode_u_64(deserializer);
-    var var_prepareProofBytes = sse_decode_u_64(deserializer);
+    var var_jwtProofBytes = sse_decode_u_64(deserializer);
     var var_showProofBytes = sse_decode_u_64(deserializer);
-    var var_prepareWitnessBytes = sse_decode_u_64(deserializer);
+    var var_jwtWitnessBytes = sse_decode_u_64(deserializer);
     var var_showWitnessBytes = sse_decode_u_64(deserializer);
     return BenchmarkResults(
-      prepareSetupMs: var_prepareSetupMs,
+      jwtSetupMs: var_jwtSetupMs,
       showSetupMs: var_showSetupMs,
       generateBlindsMs: var_generateBlindsMs,
-      provePrepareMs: var_provePrepareMs,
-      reblindPrepareMs: var_reblindPrepareMs,
+      proveJwtMs: var_proveJwtMs,
+      reblindJwtMs: var_reblindJwtMs,
       proveShowMs: var_proveShowMs,
       reblindShowMs: var_reblindShowMs,
-      verifyPrepareMs: var_verifyPrepareMs,
+      verifyJwtMs: var_verifyJwtMs,
       verifyShowMs: var_verifyShowMs,
-      prepareProvingKeyBytes: var_prepareProvingKeyBytes,
-      prepareVerifyingKeyBytes: var_prepareVerifyingKeyBytes,
+      jwtProvingKeyBytes: var_jwtProvingKeyBytes,
+      jwtVerifyingKeyBytes: var_jwtVerifyingKeyBytes,
       showProvingKeyBytes: var_showProvingKeyBytes,
       showVerifyingKeyBytes: var_showVerifyingKeyBytes,
-      prepareProofBytes: var_prepareProofBytes,
+      jwtProofBytes: var_jwtProofBytes,
       showProofBytes: var_showProofBytes,
-      prepareWitnessBytes: var_prepareWitnessBytes,
+      jwtWitnessBytes: var_jwtWitnessBytes,
       showWitnessBytes: var_showWitnessBytes,
     );
   }
@@ -868,22 +853,22 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     SseSerializer serializer,
   ) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_u_64(self.prepareSetupMs, serializer);
+    sse_encode_u_64(self.jwtSetupMs, serializer);
     sse_encode_u_64(self.showSetupMs, serializer);
     sse_encode_u_64(self.generateBlindsMs, serializer);
-    sse_encode_u_64(self.provePrepareMs, serializer);
-    sse_encode_u_64(self.reblindPrepareMs, serializer);
+    sse_encode_u_64(self.proveJwtMs, serializer);
+    sse_encode_u_64(self.reblindJwtMs, serializer);
     sse_encode_u_64(self.proveShowMs, serializer);
     sse_encode_u_64(self.reblindShowMs, serializer);
-    sse_encode_u_64(self.verifyPrepareMs, serializer);
+    sse_encode_u_64(self.verifyJwtMs, serializer);
     sse_encode_u_64(self.verifyShowMs, serializer);
-    sse_encode_u_64(self.prepareProvingKeyBytes, serializer);
-    sse_encode_u_64(self.prepareVerifyingKeyBytes, serializer);
+    sse_encode_u_64(self.jwtProvingKeyBytes, serializer);
+    sse_encode_u_64(self.jwtVerifyingKeyBytes, serializer);
     sse_encode_u_64(self.showProvingKeyBytes, serializer);
     sse_encode_u_64(self.showVerifyingKeyBytes, serializer);
-    sse_encode_u_64(self.prepareProofBytes, serializer);
+    sse_encode_u_64(self.jwtProofBytes, serializer);
     sse_encode_u_64(self.showProofBytes, serializer);
-    sse_encode_u_64(self.prepareWitnessBytes, serializer);
+    sse_encode_u_64(self.jwtWitnessBytes, serializer);
     sse_encode_u_64(self.showWitnessBytes, serializer);
   }
 
