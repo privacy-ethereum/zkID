@@ -11,7 +11,9 @@ use ecdsa_spartan2::{
     },
     setup::setup_circuit_keys_no_save,
 };
-use spartan2_wasm::{prove_native_for_test, CircuitKind};
+use spartan2_wasm::{
+    load_pk_via_streaming_for_test, prove_native_for_test, CircuitKind,
+};
 
 fn fixture_input(kind: CircuitKind) -> String {
     let path = match kind {
@@ -88,4 +90,47 @@ fn user_sig_rs2048_drift() {
         "user_sig_rs2048 NUM_PUBLIC"
     );
     assert_eq!(pv, public_values);
+}
+
+/// Cross-mode parity: both eager and streaming-bincode storage must
+/// round-trip the input bytes to a `ProverKey` that re-serializes to the
+/// exact same bytes. A divergence means the chunk-drain `Read` adapter has
+/// a chunk-boundary bug. Uses `user_sig_rs2048` because the rs4096 in-test
+/// setup is too heavy for unit-test wall-clock; the parity check does not
+/// depend on which PK shape we feed it.
+#[test]
+fn streaming_load_pk_parity_user_sig_rs2048() {
+    let (pk, _vk) = setup_circuit_keys_no_save::<Sha256RsaCircuit<UserSigRsa2048>>(
+        Sha256RsaCircuit::<UserSigRsa2048>::default(),
+    );
+    let pk_bytes = bincode::serialize(&pk).unwrap();
+
+    // 4 MiB matches the web worker's `PK_LOAD_CHUNK_BYTES`; the small
+    // size stresses chunk-boundary handling when chunks are smaller than
+    // typical bincode reads.
+    for &chunk_size in &[4 * 1024 * 1024usize, 137usize] {
+        let eager_round_trip = load_pk_via_streaming_for_test(
+            CircuitKind::UserSigRs2048,
+            &pk_bytes,
+            chunk_size,
+            false,
+        )
+        .expect("eager load_pk");
+        assert_eq!(
+            eager_round_trip, pk_bytes,
+            "eager re-serialize must match original (chunk_size={chunk_size})",
+        );
+
+        let streaming_round_trip = load_pk_via_streaming_for_test(
+            CircuitKind::UserSigRs2048,
+            &pk_bytes,
+            chunk_size,
+            true,
+        )
+        .expect("streaming load_pk");
+        assert_eq!(
+            streaming_round_trip, pk_bytes,
+            "streaming re-serialize must match original (chunk_size={chunk_size})",
+        );
+    }
 }
