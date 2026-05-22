@@ -101,6 +101,36 @@ Conformance is defined at two layers:
 An implementation claiming OpenAC conformance MUST implement this core
 specification together with at least one concrete profile.
 
+A complete deployment also depends on requirements outside the scope of
+this specification; these are addressed in [Layering](#layering) below as
+`Deployment policy`.
+
+## Layering
+
+Each normative requirement in this specification belongs to exactly one of
+three layers:
+
+- `OPENAC` (core): protocol semantics that hold across all credential
+  profiles — `Prepare` / `Show` structure, linking, proof-bundle handling,
+  versioning semantics, and verifier responsibilities that do not depend
+  on a credential container.
+- `SD-JWT-P256` (profile): credential-format-specific requirements — JOSE
+  validation, ECDSA encoding, claim normalization, challenge encoding,
+  recommended circuit parameterization, and the Show circuit's public
+  outputs.
+- `Deployment policy` (policy): requirements that MUST be enforced by the
+  verifier or deployment but that this specification does not normatively
+  fix — issuer trust resolution, audience or origin binding, challenge
+  replay storage, business authorization.
+
+An implementation claiming OpenAC conformance MUST satisfy `OPENAC` and at
+least one concrete profile. The implementation MUST also surface
+`Deployment policy` inputs to the verifier and MUST fail closed when a
+required policy input is missing. Where this specification cannot do so
+because the relevant control is not yet implemented in the reference
+SDK, the SDK SHOULD emit a verifier-visible warning identifying the
+missing policy input.
+
 ## Roles
 
 An OpenAC deployment involves the following roles:
@@ -238,7 +268,35 @@ The credential MUST be a compact JWS:
 BASE64URL(header) || "." || BASE64URL(payload) || "." || BASE64URL(signature)
 ```
 
-The issuer signature algorithm MUST be `ES256`.
+### JOSE Header and Issuer Trust
+
+The JOSE header MUST satisfy all of the following:
+
+- `alg = ES256`. Any other algorithm MUST be rejected.
+- `alg = none` MUST be rejected unconditionally.
+- Unknown `crit` header parameters MUST cause rejection.
+- If `kid` is present, the verifier MUST resolve it through an explicit
+  issuer-key resolver. Verifiers MUST NOT accept arbitrary issuer public
+  keys without resolving them against a deployment-controlled trust set.
+
+Binding the resolved issuer key to the credential `iss` value and to the
+credential type is a `Deployment policy` responsibility (see
+[Verifier Requirements](#verifier-requirements)).
+
+### ECDSA Signature Encoding
+
+Within this profile, all `P-256` signatures — both the issuer JWT
+signature and the device-binding signature on the verifier challenge —
+MUST be encoded as fixed-width raw `r || s`, 32 bytes each, big-endian.
+DER-encoded signatures MUST be rejected.
+
+Device-binding signatures MUST be low-S. Implementations MUST reject
+high-S device-binding signatures to ensure verifier and circuit behavior
+agree on which presentations are valid.
+
+Issuer signatures MAY be accepted in either low-S or high-S form for
+compatibility with existing issuer infrastructure, but the verifier MUST
+apply the same rule the circuit applies.
 
 ### Disclosures
 
@@ -254,8 +312,47 @@ For this profile, the disclosure digest is:
 BASE64URL( SHA-256( raw_disclosure_string ) )
 ```
 
-The profile requires that disclosed claims used by OpenAC be consistent with
-the SD-JWT payload commitment structure.
+The hash MUST be computed over the exact raw disclosure string bytes
+provided by the issuer. JSON reserialization before hashing is forbidden.
+
+The profile requires that disclosed claims used by OpenAC be consistent
+with the SD-JWT payload commitment structure.
+
+Additional disclosure rules for this profile:
+
+- Disclosures with identical `claim_name` MAY appear in the same
+  credential. A duplicate `claim_name` value MUST NOT by itself cause
+  rejection.
+- Disclosures MUST be presented in a deterministic order fixed by the
+  issuer. Verifiers MUST treat disclosure order as significant for
+  matching disclosures to profile-defined claim slots.
+- Disclosure order MUST NOT affect the digest of an individual
+  disclosure (each digest is over its own raw string).
+- The mapping of disclosed claims to the `Show` relation's claim slots is
+  a verifier-side concern: the verifier knows the credential format and
+  resolves claim names to slots directly. This specification does not
+  define a normative slot-name registry.
+
+### Challenge Encoding
+
+This profile defines three challenge-related values:
+
+```text
+challenge_bytes  := the verifier-provided challenge as UTF-8 bytes
+challenge_digest := SHA-256(challenge_bytes)
+challenge_scalar := OS2IP(challenge_digest) mod q_P256
+```
+
+`challenge_scalar` is the in-circuit field-element encoding consumed by
+the `Show` relation. It MUST NOT be interpreted as the message that
+external ECDSA libraries sign or verify.
+
+`challenge_bytes` (or a deployment-defined transformation thereof) is the
+message signed by the device-binding key.
+
+Verifiers MUST require the same challenge encoding pipeline as the
+circuit. Replay prevention and audience/origin binding are `Deployment
+policy` responsibilities (see [Verifier Requirements](#verifier-requirements)).
 
 ### Device Binding Key Location
 
@@ -291,8 +388,42 @@ Normalization rules are:
 
 Inactive claim slots normalize to `0`.
 
+Implementations MUST reject claim values that fail their declared format:
+
+- `bool`: any value other than the recognized truthy or falsy encodings.
+- `uint`: empty strings, non-decimal characters, leading whitespace, or
+  values exceeding the active `valueBits` range.
+- `iso_date`: values that do not match the exact `YYYY-MM-DD` lexical
+  form, or that resolve to an invalid calendar date.
+- `roc_date`: values that do not match the exact `YYYMMDD` lexical form.
+- `string`: inputs that do not fit within 8 ASCII bytes once packed, or
+  that contain disallowed bytes.
+
 These tags are profile-specific. They do not establish a cross-profile
 normalization registry for OpenAC Core.
+
+### Show Public Outputs
+
+In this profile, the `Show` circuit MUST emit exactly the following
+verifier-observable public output:
+
+- `expression_result`: the Boolean result of the policy expression
+  (required by Core).
+
+The device-binding public key MUST NOT appear in the `Show` circuit's
+verifier-observable public values. The binding between the device key
+extracted in `Prepare` and the device-binding signature verified in
+`Show` is enforced by the shared-witness commitment equality between
+the two relations (see [Linking Requirement](#linking-requirement)).
+The shared-witness commitment is hiding and re-randomized per
+presentation, so the verifier is convinced that the same device key
+was used in both relations without observing a stable identifier
+across sessions.
+
+Note: the issuer still learns the device↔credential association from
+`payload.cnf.jwk` in the SD-JWT cleartext. The `Show` public-value rule
+above closes the verifier-side linkability surface but does not change
+issuer-side linkability.
 
 ## Prepare Relation
 
@@ -336,11 +467,9 @@ public outputs, at least:
 - `expression_result`: the Boolean result of the policy expression.
 
 Profiles MAY define additional verifier-observable public outputs.
-Such outputs SHOULD NOT expose a stable holder identifier unless the profile
-explicitly accepts the resulting linkability tradeoff.
-
-The current `openac-sdk` verifier surface returns `device_key_x` and
-`device_key_y`, but those coordinates are not required OpenAC Core outputs.
+Such outputs MUST NOT expose a stable holder identifier — including a
+stable device-binding public key — unless the profile explicitly accepts
+the resulting linkability tradeoff.
 
 ## Linking Requirement
 
@@ -371,6 +500,20 @@ semantics:
   parameters; and
 - it MUST NOT be interpreted as the holder application's software version.
 
+A conforming verifier MUST bind each accepted `version` value to a tuple
+fixing all of the following:
+
+- `prepare` and `show` verifying keys;
+- circuit parameter set (see [Recommended Circuit Parameters](#recommended-circuit-parameters));
+- profile identifier (e.g. `SD-JWT-P256`);
+- claim normalization rules in effect for that profile;
+- challenge encoding pipeline (see [Challenge Encoding](#challenge-encoding));
+- public-input layout for both relations.
+
+Any change to a member of this tuple MUST be reflected as a new
+`version` identifier. Verifiers MUST reject presentations whose
+`version` is not explicitly bound to a known tuple under local policy.
+
 The current `openac-sdk` implementation writes its SDK semantic-version string
 into this field. This specification treats that behavior as a legacy
 compatibility artifact rather than the normative long-term meaning of the
@@ -390,6 +533,16 @@ Each predicate is encoded as:
   the predicate;
 - `op`: one of the operator codes above;
 - `compareValue`: the scalar comparison target.
+
+Comparisons are unsigned bounded-integer comparisons over `valueBits`
+(see [Recommended Circuit Parameters](#recommended-circuit-parameters)).
+Implementations MUST reject a predicate if any of the following holds:
+
+- `compareValue` is negative;
+- `compareValue >= 2^valueBits`;
+- the active `claimRef` value falls outside `[0, 2^valueBits)`;
+- the `(op, claimFormat)` pair is not supported by this profile (for
+  example, `LE` over a `string` claim).
 
 ## Logic Expression Encoding
 
@@ -515,9 +668,7 @@ Implementations MAY expose a JSON convenience form containing:
   "prepareInstance": "base64",
   "showInstance": "base64",
   "publicValues": {
-    "expressionResult": true,
-    "deviceKeyX": "string",
-    "deviceKeyY": "string"
+    "expressionResult": true
   }
 }
 ```
@@ -545,6 +696,45 @@ A conforming verifier MUST distinguish between:
 
 For authorization decisions, the verifier MUST require `expression_result = 1`.
 
+### Challenge Freshness and Replay
+
+Every presentation MUST be evaluated against a verifier-supplied challenge
+that satisfies the following profile minimums:
+
+- the challenge MUST carry at least 128 bits of unpredictable entropy;
+- each issued challenge MUST be single-use.
+
+The following are `Deployment policy` responsibilities and MUST be
+configured before a deployment is treated as conforming:
+
+- bounded challenge time-to-live (TTL);
+- a replay cache scoped by verifier identity, profile, and nonce;
+- enforcement that an accepted challenge is removed from the issuable
+  pool before the corresponding presentation is accepted.
+
+### Audience Binding
+
+A conforming verifier MUST bind each challenge to an audience scope so
+that a presentation produced for one verifier cannot be relayed to a
+different verifier. The audience scope MAY be a verifier identity,
+origin, session identifier, or policy hash, as established by deployment
+policy.
+
+The reference SDK does not currently enforce audience binding. Until the
+control is implemented, the SDK MUST emit a verifier-visible warning that
+identifies the missing audience input, and deployments MUST either
+provide audience binding via a higher-layer transport (such as a
+challenge wrapper signed by the verifier) or accept the documented
+relay risk.
+
+### Issuer Trust Resolution
+
+Issuer key resolution, issuer allowlist management, and binding of
+issuer keys to credential `iss` values are `Deployment policy`
+responsibilities. The verifier MUST provide an explicit issuer-key
+resolver to the SDK. The SDK MUST refuse to verify presentations whose
+resolver returns no trusted key.
+
 ## Error Handling
 
 Implementations SHOULD expose failure causes that distinguish at least:
@@ -559,6 +749,42 @@ Implementations SHOULD expose failure causes that distinguish at least:
 - proof deserialization failure;
 - proof verification failure;
 - linking failure.
+
+## Conformance Test Vectors
+
+A conforming implementation of this profile SHOULD ship a verifier
+conformance suite covering the following negative cases. The suite makes
+verifier-profile behavior testable rather than implicit, and downstream
+integrators MAY rely on it to confirm fail-closed behavior.
+
+Each case lists a malformed or out-of-policy input and the expected
+verifier outcome.
+
+| Input | Expected outcome |
+| --- | --- |
+| Credential header `alg = none` | rejected: unsupported algorithm |
+| Credential header `alg` other than `ES256` | rejected: unsupported algorithm |
+| Credential header `kid` not resolvable by issuer resolver | rejected: unknown issuer key |
+| Resolved issuer key does not match credential `iss` per policy | rejected: issuer binding failure |
+| Replayed or stale single-use challenge | rejected: replay / TTL policy |
+| Challenge bound to a different audience than the verifier | rejected: audience mismatch |
+| DER-encoded device-binding signature | rejected: signature encoding |
+| High-S device-binding signature | rejected: malleability policy |
+| Duplicate disclosure (identical raw disclosure bytes) | rejected: duplicate disclosure |
+| Disclosure order altered relative to issuer-fixed order | rejected: order mismatch |
+| `iso_date` claim not matching `YYYY-MM-DD` | rejected: normalization failure |
+| `uint` claim with non-decimal characters or leading whitespace | rejected: normalization failure |
+| `string` claim exceeding 8-byte packing budget | rejected: normalization failure |
+| Predicate with negative `compareValue` | rejected: compareValue range |
+| Predicate with `compareValue >= 2^valueBits` | rejected: compareValue range |
+| Unsupported `(op, claimFormat)` pair (e.g. `LE` over `string`) | rejected: operator unsupported |
+| Presentation `version` not bound to any known verifier tuple | rejected: version policy |
+
+These cases are normative for the SDK's validation layer; the layer MUST
+return distinguishable error reasons consistent with
+[Error Handling](#error-handling) above. The full corpus of test vectors
+will be published as a separate artifact and referenced from
+[`SOURCE-MATRIX.md`](./SOURCE-MATRIX.md) when available.
 
 ## Security Considerations
 
@@ -578,18 +804,25 @@ check linking is not conformant.
 
 ### Privacy and Linkability
 
-Stable device-key disclosure is not an intended OpenAC Core protocol property.
-However, the current `openac-sdk` verifier API exposes the device public key
-coordinates as verifier-observable outputs of the `Show` proof.
+A profile MUST NOT expose a stable device-binding public key as a
+verifier-observable output. In `SD-JWT-P256`, the shared-witness
+commitment equality between `Prepare` and `Show` binds the device key
+used in `Prepare` to the device-binding signature verified in `Show`
+without exposing a stable identifier across sessions; see
+[Show Public Outputs](#show-public-outputs).
 
-Implementers MUST treat this as a potential linkability surface. If the same
-device public key is reused across multiple presentations, a verifier can link
-those presentations at the application layer even if the zero-knowledge
-transcripts themselves are freshly randomized.
+Implementers MUST treat any future addition of stable device-derived
+public values as a privacy regression: such values let a verifier link
+presentations at the application layer regardless of how freshly the
+zero-knowledge transcripts are randomized.
 
-Verifiers and profiles SHOULD avoid making stable device identifiers
-semantically required unless the deployment explicitly accepts that privacy
-tradeoff.
+The issuer continues to learn the device↔credential association from
+the SD-JWT cleartext (`payload.cnf.jwk`). Eliminating verifier-side
+linkability does not eliminate issuer-side linkability.
+
+Verifiers and profiles SHOULD avoid making stable holder-derived
+identifiers semantically required unless the deployment explicitly
+accepts that privacy tradeoff.
 
 ### Local Proof Generation
 
