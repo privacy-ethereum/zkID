@@ -17,7 +17,6 @@ import { sha256 } from "@noble/hashes/sha2";
 // Import browser-safe SDK source files directly (avoids NativeBackend / fs deps)
 import { Credential } from "../../openac-sdk/src/credential.js";
 import { WasmBridge } from "../../openac-sdk/src/wasm-bridge.js";
-import type { VcSize } from "../../openac-sdk/src/wasm-bridge.js";
 import { buildJwtCircuitInputs } from "../../openac-sdk/src/inputs/jwt-input-builder.js";
 import {
   buildShowCircuitInputs,
@@ -226,6 +225,17 @@ export async function initWasm(
   const wasmBytes = await wasmResp.arrayBuffer();
   wasmModule.initSync({ module: new WebAssembly.Module(wasmBytes) });
 
+  // Initialize rayon thread pool when the WASM memory is SharedArrayBuffer-backed.
+  // If the binary was built without +atomics shared memory, the postMessage to workers
+  // throws DataCloneError — skip silently and run single-threaded.
+  if (typeof wasmModule.initThreadPool === "function") {
+    try {
+      await wasmModule.initThreadPool(navigator.hardwareConcurrency);
+    } catch {
+      console.warn("initThreadPool skipped — WASM memory is not shared (single-threaded mode)");
+    }
+  }
+
   bridge = new WasmBridge();
   bridge.initWithModule(wasmModule);
   logs.push({ label: "Load WASM module", durationMs: performance.now() - t });
@@ -242,8 +252,7 @@ export async function initWasm(
   // 3. Load keys
   onProgress?.("Loading proving/verifying keys (1k)...");
   t = performance.now();
-  const vcSize: VcSize = "1k";
-  keys = await bridge.loadKeys("/keys", vcSize);
+  keys = await bridge.loadKeys("/keys", "1k");
   logs.push({ label: "Load keys (1k)", durationMs: performance.now() - t });
 
   return logs;
@@ -332,7 +341,7 @@ export async function precompute(
   onProgress?.("Parsing credential...");
   let t = performance.now();
   const credential = Credential.parse(data.jwt, data.disclosures);
-  const birthdayIdx = credential.findBirthdayClaim()!;
+  const birthdayIdx = credential.findBirthdayClaim() ?? -1;
   logs.push({ label: "Parse credential", durationMs: performance.now() - t });
 
   // Build JWT circuit inputs
@@ -342,6 +351,9 @@ export async function precompute(
     c.key === "roc_birthday" ? 1 : 0
   );
   const additionalMatches = credential.disclosureHashes;
+  const claimFormats = data.claims.map((c) =>
+    c.key === "roc_birthday" ? 3 : 4
+  );
 
   const jwtInputs = buildJwtCircuitInputs(
     credential,
@@ -349,7 +361,7 @@ export async function precompute(
     JWT_PARAMS_1K,
     additionalMatches,
     decodeFlags,
-    birthdayIdx
+    claimFormats
   );
   logs.push({
     label: "Build JWT circuit inputs",
@@ -429,16 +441,17 @@ export async function present(
   });
 
   // Build Show circuit inputs
+  // Extract normalized claim values from JWT witness: w[1..maxClaims] = normalizedClaimValues
   onProgress?.("Building Show circuit inputs...");
   t = performance.now();
-  const birthdayClaim = data.disclosures[precomp.birthdayClaimIndex]!;
+  const maxClaims = JWT_PARAMS_1K.maxMatches - 2;
+  const normalizedClaimValues = precomp.jwtWitness.slice(1, 1 + maxClaims);
   const showInputs = buildShowCircuitInputs(
     DEFAULT_SHOW_PARAMS,
     VERIFIER_NONCE,
     deviceSignature,
     data.devicePublicKey,
-    birthdayClaim,
-    { year: 2025, month: 1, day: 1 }
+    { normalizedClaimValues }
   );
   logs.push({
     label: "Build Show circuit inputs",
@@ -488,11 +501,13 @@ export async function present(
     durationMs: performance.now() - t,
   });
 
-  // Cross-circuit consistency check (same as e2e test steps 8-9)
+  // Cross-circuit consistency check
+  // JWT 1k (maxMatches=4, maxClaims=2): w[3]=KeyBindingX, w[4]=KeyBindingY
+  // Show circuit: w[1]=expressionResult, w[2]=deviceKeyX, w[3]=deviceKeyY
   const jwtWitness = precomp.jwtWitness;
-  const keyBindingXMatch = jwtWitness[97] === showWitness[2]; // KeyBindingX
-  const keyBindingYMatch = jwtWitness[98] === showWitness[3]; // KeyBindingY
-  const ageAbove18 = showWitness[1] === 1n;
+  const keyBindingXMatch = jwtWitness[3] === showWitness[2]; // KeyBindingX
+  const keyBindingYMatch = jwtWitness[4] === showWitness[3]; // KeyBindingY
+  const ageAbove18 = showWitness[1] === 1n; // expressionResult
 
   if (!keyBindingXMatch || !keyBindingYMatch) {
     console.warn(

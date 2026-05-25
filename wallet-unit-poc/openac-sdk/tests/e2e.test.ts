@@ -257,7 +257,8 @@ describe("Input Builders via SDK", () => {
     expect(inputs.claimValues.length).toBe(DEFAULT_SHOW_PARAMS.nClaims);
     expect(inputs.predicateClaimRefs.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
     expect(inputs.predicateOps.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
-    expect(inputs.predicateCompareValues.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
+    expect(inputs.predicateRhsIsRef.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
+    expect(inputs.predicateRhsValues.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
     expect(inputs.tokenTypes.length).toBe(DEFAULT_SHOW_PARAMS.maxLogicTokens);
     expect(inputs.tokenValues.length).toBe(DEFAULT_SHOW_PARAMS.maxLogicTokens);
 

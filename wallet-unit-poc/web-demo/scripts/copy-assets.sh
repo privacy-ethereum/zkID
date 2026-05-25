@@ -11,19 +11,39 @@ KEYS_DIR="$WEB_DEMO_DIR/../ecdsa-spartan2/keys"
 
 echo "=== zkID Web Demo: Asset Setup ==="
 
-# 1. Copy WASM JS glue to src/wasm/ (Vite bundles it)
-#    Copy WASM binary to public/ (served as static file)
+# 1. Copy WASM JS glue + type files to src/wasm/ (Vite bundles them)
+#    Copy WASM binary to public/ (served as a static file, fetched at runtime)
+#    Copy snippets/ to src/wasm/snippets/ so Vite resolves the rayon worker
+#    helper via the relative new URL('./snippets/...', import.meta.url) pattern.
 echo "[1/5] Copying openac WASM module..."
 mkdir -p "$WEB_DEMO_DIR/src/wasm"
-cp "$SDK_DIR/wasm/pkg/openac_wasm.js" "$WEB_DEMO_DIR/src/wasm/"
-cp "$SDK_DIR/wasm/pkg/openac_wasm.d.ts" "$WEB_DEMO_DIR/src/wasm/"
-cp "$SDK_DIR/wasm/pkg/openac_wasm_bg.wasm" "$WEB_DEMO_DIR/public/"
+cp "$SDK_DIR/wasm/pkg/openac_wasm.js"        "$WEB_DEMO_DIR/src/wasm/"
+cp "$SDK_DIR/wasm/pkg/openac_wasm.d.ts"      "$WEB_DEMO_DIR/src/wasm/"
+cp "$SDK_DIR/wasm/pkg/openac_wasm_bg.wasm.d.ts" "$WEB_DEMO_DIR/src/wasm/"
+cp "$SDK_DIR/wasm/pkg/openac_wasm_bg.wasm"   "$WEB_DEMO_DIR/public/"
+
+if [ -d "$SDK_DIR/wasm/pkg/snippets" ]; then
+  rm -rf "$WEB_DEMO_DIR/src/wasm/snippets"
+  cp -r "$SDK_DIR/wasm/pkg/snippets" "$WEB_DEMO_DIR/src/wasm/snippets"
+  echo "  Copied snippets/ (rayon worker helpers)"
+fi
 
 # 2. Copy circom circuit WASM files to public/ (must match key size!)
 CIRCOM_DIR="$WEB_DEMO_DIR/../circom/build"
-echo "[2/5] Copying circuit WASM files (1k)..."
-cp "$CIRCOM_DIR/jwt_1k/jwt_1k_js/jwt_1k.wasm" "$WEB_DEMO_DIR/public/jwt.wasm"
-cp "$CIRCOM_DIR/show/show_js/show.wasm" "$WEB_DEMO_DIR/public/show.wasm"
+echo "[2/5] Copying circuit WASM files..."
+if [ -f "$CIRCOM_DIR/jwt_1k/jwt_1k_js/jwt_1k.wasm" ]; then
+  cp "$CIRCOM_DIR/jwt_1k/jwt_1k_js/jwt_1k.wasm" "$WEB_DEMO_DIR/public/jwt.wasm"
+  echo "  Copied jwt_1k.wasm → public/jwt.wasm"
+else
+  echo "  WARNING: jwt_1k.wasm not found — run 'yarn compile:all' in the circom directory first"
+fi
+
+if [ -f "$CIRCOM_DIR/show/show_js/show.wasm" ]; then
+  cp "$CIRCOM_DIR/show/show_js/show.wasm" "$WEB_DEMO_DIR/public/show.wasm"
+  echo "  Copied show.wasm"
+else
+  echo "  WARNING: show.wasm not found — run 'yarn compile:all' in the circom directory first"
+fi
 
 # 3. Copy witness_calculator.js to src/assets/ and patch CJS→ESM export
 echo "[3/5] Copying witness calculator (CJS→ESM patch)..."
@@ -46,5 +66,5 @@ ln -s "$KEYS_DIR" "$WEB_DEMO_DIR/public/keys"
 
 echo ""
 echo "=== Done! ==="
-echo "Verify with: ls -la public/ && ls src/wasm/ && ls src/assets/"
+echo "Verify with: ls -la public/ && ls src/wasm/ && ls src/wasm/snippets/ 2>/dev/null && ls src/assets/"
 echo "Run with:    npm run dev"

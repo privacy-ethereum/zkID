@@ -248,7 +248,8 @@ export interface ShowCircuitInputs {
   claimValues: bigint[];
   predicateClaimRefs: bigint[];
   predicateOps: bigint[];
-  predicateCompareValues: bigint[];
+  predicateRhsIsRef: bigint[];
+  predicateRhsValues: bigint[];
   tokenTypes: bigint[];
   tokenValues: bigint[];
   exprLen: bigint;

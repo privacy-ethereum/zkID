@@ -105,12 +105,14 @@ export function buildShowCircuitInputs(
 
   const predicateClaimRefs: bigint[] = Array(params.maxPredicates).fill(0n);
   const predicateOps: bigint[] = Array(params.maxPredicates).fill(BigInt(PredicateOp.EQ));
-  const predicateCompareValues: bigint[] = Array(params.maxPredicates).fill(claimValues[0] ?? 0n);
+  const predicateRhsIsRef: bigint[] = Array(params.maxPredicates).fill(0n);
+  const predicateRhsValues: bigint[] = Array(params.maxPredicates).fill(claimValues[0] ?? 0n);
 
   for (let i = 0; i < Math.min(params.maxPredicates, predicates.length); i++) {
     predicateClaimRefs[i] = BigInt(predicates[i]!.claimRef);
     predicateOps[i] = BigInt(predicates[i]!.op);
-    predicateCompareValues[i] = predicates[i]!.compareValue;
+    predicateRhsIsRef[i] = 0n; // all predicates use literal RHS values
+    predicateRhsValues[i] = predicates[i]!.compareValue;
   }
 
   // Build logic expression tokens
@@ -142,7 +144,8 @@ export function buildShowCircuitInputs(
     claimValues,
     predicateClaimRefs,
     predicateOps,
-    predicateCompareValues,
+    predicateRhsIsRef,
+    predicateRhsValues,
     tokenTypes,
     tokenValues,
     exprLen,

@@ -1,14 +1,22 @@
 #!/bin/bash
 set -euo pipefail
 
-# Build the Spartan2 WASM module using wasm-pack
-# This compiles the Rust prover to WebAssembly for use in the SDK
+# Build the Spartan2 WASM module using wasm-pack with rayon (multi-threading).
+#
+# Requires:
+#   - nightly Rust with rust-src component (declared in rust-toolchain.toml)
+#   - wasm-pack
+#
+# The +atomics,+bulk-memory,+mutable-globals target features enable SharedArrayBuffer
+# (required for rayon thread pools).  The consuming page must be served with:
+#   Cross-Origin-Opener-Policy: same-origin
+#   Cross-Origin-Embedder-Policy: require-corp
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SDK_DIR="$(dirname "$SCRIPT_DIR")"
 WASM_DIR="$SDK_DIR/wasm"
 
-echo "=== Building OpenAC WASM module ==="
+echo "=== Building OpenAC WASM module (rayon enabled) ==="
 echo "WASM crate: $WASM_DIR"
 
 # Check for wasm-pack
@@ -17,15 +25,19 @@ if ! command -v wasm-pack &> /dev/null; then
     curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 fi
 
-# Build with wasm-pack
-echo "Building WASM module..."
 cd "$WASM_DIR"
-wasm-pack build \
+
+echo "Building WASM module..."
+# Pass '.' explicitly so wasm-pack doesn't misinterpret '-Z' as the crate path.
+# RUSTFLAGS must be an env var — wasm-pack ignores .cargo/config.toml rustflags.
+RUSTUP_TOOLCHAIN=nightly \
+RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals' \
+wasm-pack build . \
     --target web \
     --out-dir pkg \
     --release \
     -- \
-    --features "getrandom/js"
+    -Z build-std=panic_abort,std
 
 echo "=== WASM build complete ==="
 echo "Output: $WASM_DIR/pkg/"
@@ -37,7 +49,6 @@ ASSETS_DIR="$SDK_DIR/assets"
 if [ -d "$CIRCOM_BUILD" ]; then
     echo "Copying circuit artifacts to assets/..."
 
-    # R1CS files
     if [ -f "$CIRCOM_BUILD/jwt/jwt_js/jwt.r1cs" ]; then
         cp "$CIRCOM_BUILD/jwt/jwt_js/jwt.r1cs" "$ASSETS_DIR/jwt.r1cs"
         echo "  Copied jwt.r1cs"
@@ -48,7 +59,6 @@ if [ -d "$CIRCOM_BUILD" ]; then
         echo "  Copied show.r1cs"
     fi
 
-    # Witness calculator WASM files
     if [ -f "$CIRCOM_BUILD/jwt/jwt_js/jwt.wasm" ]; then
         cp "$CIRCOM_BUILD/jwt/jwt_js/jwt.wasm" "$ASSETS_DIR/jwt.wasm"
         echo "  Copied jwt.wasm (witness calculator)"

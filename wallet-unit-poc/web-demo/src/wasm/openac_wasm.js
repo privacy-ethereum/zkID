@@ -1,4 +1,5 @@
 /* @ts-self-types="./openac_wasm.d.ts" */
+import { startWorkers } from './snippets/wasm-bindgen-rayon-38edf6e439f6d70d/src/workerHelpers.no-bundler.js';
 
 /**
  * Compare comm_W_shared between two instances (use verify() instead)
@@ -23,6 +24,15 @@ export function compare_comm_w_shared(instance1_bytes, instance2_bytes) {
  */
 export function init() {
     wasm.init();
+}
+
+/**
+ * @param {number} num_threads
+ * @returns {Promise<any>}
+ */
+export function initThreadPool(num_threads) {
+    const ret = wasm.initThreadPool(num_threads);
+    return ret;
 }
 
 /**
@@ -239,6 +249,58 @@ export function verify_single(proof_bytes, vk_bytes) {
     return takeFromExternrefTable0(ret[0]);
 }
 
+export class wbg_rayon_PoolBuilder {
+    static __wrap(ptr) {
+        ptr = ptr >>> 0;
+        const obj = Object.create(wbg_rayon_PoolBuilder.prototype);
+        obj.__wbg_ptr = ptr;
+        wbg_rayon_PoolBuilderFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        wbg_rayon_PoolBuilderFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_wbg_rayon_poolbuilder_free(ptr, 0);
+    }
+    build() {
+        wasm.wbg_rayon_poolbuilder_build(this.__wbg_ptr);
+    }
+    /**
+     * @returns {string}
+     */
+    mainJS() {
+        const ret = wasm.wbg_rayon_poolbuilder_mainJS(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    numThreads() {
+        const ret = wasm.wbg_rayon_poolbuilder_numThreads(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    receiver() {
+        const ret = wasm.wbg_rayon_poolbuilder_receiver(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+}
+if (Symbol.dispose) wbg_rayon_PoolBuilder.prototype[Symbol.dispose] = wbg_rayon_PoolBuilder.prototype.free;
+
+/**
+ * @param {number} receiver
+ */
+export function wbg_rayon_start_worker(receiver) {
+    wasm.wbg_rayon_start_worker(receiver);
+}
+
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
@@ -270,6 +332,14 @@ function __wbg_get_imports() {
             const ret = arg0 === undefined;
             return ret;
         },
+        __wbg___wbindgen_memory_edb3f01e3930bbf6: function() {
+            const ret = wasm.memory;
+            return ret;
+        },
+        __wbg___wbindgen_module_bf945c07123bafe2: function() {
+            const ret = wasmModule;
+            return ret;
+        },
         __wbg___wbindgen_throw_6ddd609b62940d55: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
@@ -295,6 +365,16 @@ function __wbg_get_imports() {
         __wbg_getRandomValues_c44a50d8cfdaebeb: function() { return handleError(function (arg0, arg1) {
             arg0.getRandomValues(arg1);
         }, arguments); },
+        __wbg_instanceof_Window_23e677d2c6843922: function(arg0) {
+            let result;
+            try {
+                result = arg0 instanceof Window;
+            } catch (_) {
+                result = false;
+            }
+            const ret = result;
+            return ret;
+        },
         __wbg_length_ea16607d7b61445b: function(arg0) {
             const ret = arg0.length;
             return ret;
@@ -366,6 +446,10 @@ function __wbg_get_imports() {
             getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
+        __wbg_startWorkers_622cedd0d351664e: function(arg0, arg1, arg2) {
+            const ret = startWorkers(arg0, arg1, wbg_rayon_PoolBuilder.__wrap(arg2));
+            return ret;
+        },
         __wbg_static_accessor_GLOBAL_8adb955bd33fac2f: function() {
             const ret = typeof global === 'undefined' ? null : global;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
@@ -378,12 +462,20 @@ function __wbg_get_imports() {
             const ret = typeof self === 'undefined' ? null : self;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
+        __wbg_static_accessor_URL_151cb8815849ce83: function() {
+            const ret = import.meta.url;
+            return ret;
+        },
         __wbg_static_accessor_WINDOW_bb9f1ba69d61b386: function() {
             const ret = typeof window === 'undefined' ? null : window;
             return isLikeNone(ret) ? 0 : addToExternrefTable0(ret);
         },
         __wbg_subarray_a068d24e39478a8a: function(arg0, arg1, arg2) {
             const ret = arg0.subarray(arg1 >>> 0, arg2 >>> 0);
+            return ret;
+        },
+        __wbg_timeOrigin_f3d5cb4f4a06c2b7: function(arg0) {
+            const ret = arg0.timeOrigin;
             return ret;
         },
         __wbg_versions_276b2795b1c6a219: function(arg0) {
@@ -430,6 +522,10 @@ function __wbg_get_imports() {
         "./openac_wasm_bg.js": import0,
     };
 }
+
+const wbg_rayon_PoolBuilderFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_wbg_rayon_poolbuilder_free(ptr >>> 0, 1));
 
 function addToExternrefTable0(obj) {
     const idx = wasm.__externref_table_alloc();

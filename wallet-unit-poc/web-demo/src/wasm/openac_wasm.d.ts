@@ -11,6 +11,8 @@ export function compare_comm_w_shared(instance1_bytes: Uint8Array, instance2_byt
  */
 export function init(): void;
 
+export function initThreadPool(num_threads: number): Promise<any>;
+
 /**
  * Prove the Prepare circuit and return proof/instance/witness for storage.
  * This is called once when a credential is added to the wallet.
@@ -105,12 +107,23 @@ export function verify(prepare_proof_bytes: Uint8Array, prepare_vk_bytes: Uint8A
  */
 export function verify_single(proof_bytes: Uint8Array, vk_bytes: Uint8Array): any;
 
+export class wbg_rayon_PoolBuilder {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    build(): void;
+    mainJS(): string;
+    numThreads(): number;
+    receiver(): number;
+}
+
+export function wbg_rayon_start_worker(receiver: number): void;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly compare_comm_w_shared: (a: number, b: number, c: number, d: number) => [number, number, number];
-    readonly init: () => void;
     readonly precompute: (a: number, b: number) => [number, number, number];
     readonly precompute_from_witness: (a: number, b: number, c: number, d: number) => [number, number, number];
     readonly precompute_show_from_witness: (a: number, b: number, c: number, d: number) => [number, number, number];
@@ -120,6 +133,14 @@ export interface InitOutput {
     readonly setup_show: () => [number, number, number];
     readonly verify: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number, number];
     readonly verify_single: (a: number, b: number, c: number, d: number) => [number, number, number];
+    readonly init: () => void;
+    readonly __wbg_wbg_rayon_poolbuilder_free: (a: number, b: number) => void;
+    readonly initThreadPool: (a: number) => any;
+    readonly wbg_rayon_poolbuilder_build: (a: number) => void;
+    readonly wbg_rayon_poolbuilder_mainJS: (a: number) => any;
+    readonly wbg_rayon_poolbuilder_numThreads: (a: number) => number;
+    readonly wbg_rayon_poolbuilder_receiver: (a: number) => number;
+    readonly wbg_rayon_start_worker: (a: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
