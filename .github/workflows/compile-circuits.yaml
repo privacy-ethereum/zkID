@@ -12,6 +12,9 @@ on:
 jobs:
     compile-circuits:
         runs-on: macos-latest
+        permissions:
+            contents: write
+            pull-requests: write
         steps:
             - uses: actions/checkout@v5
 
@@ -39,6 +42,48 @@ jobs:
 
             - name: Compile all circuits
               run: cd wallet-unit-poc/circom && yarn compile:all
+
+            - name: Check circuit artifacts against committed version
+              id: check-artifacts
+              run: |
+                  set -euo pipefail
+                  BUILD_CPP="wallet-unit-poc/circom/build/cpp"
+                  CIRCUITS_DIR="wallet-unit-poc/ecdsa-spartan2/circuits"
+                  changed=false
+                  for file in certChainRS2048.cpp certChainRS2048.dat certChainRS4096.cpp certChainRS4096.dat userSigRS2048.cpp userSigRS2048.dat; do
+                    built="$BUILD_CPP/$file"
+                    committed="$CIRCUITS_DIR/$file"
+                    if [ ! -f "$built" ]; then
+                      echo "Warning: compiled file $file not found, skipping"
+                      continue
+                    fi
+                    if ! diff -q "$built" "$committed" > /dev/null 2>&1; then
+                      echo "  changed: $file"
+                      cp "$built" "$committed"
+                      changed=true
+                    fi
+                  done
+                  echo "circuits_changed=$changed" >> "$GITHUB_OUTPUT"
+
+            - name: Open PR to update circuit artifacts
+              if: steps.check-artifacts.outputs.circuits_changed == 'true'
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH="${{ github.head_ref || github.ref_name }}"
+                  UPDATE_BRANCH="ci/update-circuits-$(date +%Y%m%d-%H%M%S)"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git config user.name "github-actions[bot]"
+                  git checkout -b "$UPDATE_BRANCH"
+                  git add wallet-unit-poc/ecdsa-spartan2/circuits/
+                  git commit -m "chore(circuits): update cpp/dat artifacts to current compiled version"
+                  git push origin "$UPDATE_BRANCH"
+                  gh pr create \
+                    --title "chore(circuits): update circuit cpp/dat artifacts" \
+                    --body "Automated update: \`wallet-unit-poc/ecdsa-spartan2/circuits/\` cpp/dat files are out of sync with the current compiled output. This PR brings them up to date." \
+                    --base "$TARGET_BRANCH" \
+                    --head "$UPDATE_BRANCH"
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Upload circuit C++ artifacts
               uses: actions/upload-artifact@v4

@@ -20,7 +20,3 @@ ff = { version = "0.13.0", features = ["derive"] }
 spartan2 = { git = "https://github.com/0xVikasRushi/Spartan2.git", branch = "openac-sdk", default-features = false }
 console_error_panic_hook = "0.1"
 rand = "0.8"
-
-[profile.release]
-opt-level = "s"
-lto = true

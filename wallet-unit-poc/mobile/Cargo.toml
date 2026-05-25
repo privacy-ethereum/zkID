@@ -55,10 +55,3 @@ mopro-ffi = { version = "0.3.5", features = ["uniffi-tests"] }
 
 [build-dependencies]
 spartan2 = { git = "https://github.com/0xVikasRushi/Spartan2.git", branch = "openac-sdk", default-features = false }
-
-[profile.release]
-opt-level = 3       # Optimize for performance
-lto = "thin"        # Enable thin Link-Time Optimization for better cross-crate optimization
-strip = "debuginfo" # Strip debug info only; keep symbol table (required for uniffi metadata extraction)
-debug = false       # Disable debug info in release builds
-codegen-units = 1   # Better optimization at the cost of longer compile time

@@ -53,6 +53,3 @@ rsa = { version = "0.9", features = ["sha2"] }
 [build-dependencies]
 witnesscalc-adapter = { git = "https://github.com/zkmopro/witnesscalc_adapter.git", branch = "secq256r1-support" }
 chkstk_stub = { version = "0.1.0" }
-
-[profile.release]
-debug = true

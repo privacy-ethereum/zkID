@@ -19,10 +19,24 @@ fn main() {
     chkstk_stub::build();
 
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
-    let circuits_dir = std::path::PathBuf::from(&manifest_dir)
+    let circom_build_dir = std::path::PathBuf::from(&manifest_dir)
         .parent()
         .expect("Failed to get parent directory")
         .join("circom/build/cpp");
+    let local_circuits_dir = std::path::PathBuf::from(&manifest_dir).join("circuits");
+    let circuits_dir = if circom_build_dir.exists() {
+        println!(
+            "cargo:warning=Using compiled circuits from: {}",
+            circom_build_dir.display()
+        );
+        circom_build_dir
+    } else {
+        println!(
+            "cargo:warning=circom build not found; falling back to local circuits dir: {}",
+            local_circuits_dir.display()
+        );
+        local_circuits_dir
+    };
 
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
 
@@ -87,7 +101,7 @@ fn stage_circuit(circuits_dir: &Path, staging_dir: &Path, circuit_name: &str) {
             });
         } else {
             panic!(
-                "Required circuit file not found: {}. Run `yarn compile:{}` in the circom directory first.",
+                "Required circuit file not found: {}. Either run `yarn compile:{}` in the circom directory, or add the file to the local circuits/ folder.",
                 src.display(),
                 circuit_name
             );

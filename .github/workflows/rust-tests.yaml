@@ -24,6 +24,9 @@ on:
 jobs:
     compile-circuits:
         uses: ./.github/workflows/compile-circuits.yaml
+        permissions:
+            contents: write
+            pull-requests: write
 
     rust-tests:
         needs: compile-circuits

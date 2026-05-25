@@ -33,6 +33,9 @@ env:
 jobs:
     compile-circuits:
         uses: ./.github/workflows/compile-circuits.yaml
+        permissions:
+            contents: write
+            pull-requests: write
 
     wasm-crate-tests:
         needs: compile-circuits
@@ -121,7 +124,7 @@ jobs:
               run: |
                   cd wallet-unit-poc/spartan2-wasm
                   wasm-bindgen --target web --out-dir pkg \
-                    target/wasm32-unknown-unknown/release/spartan2_wasm.wasm
+                    ../../target/wasm32-unknown-unknown/release/spartan2_wasm.wasm
 
             - name: Upload spartan2-wasm pkg artifact
               uses: actions/upload-artifact@v4

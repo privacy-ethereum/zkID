@@ -16,7 +16,8 @@
     "compile:certChainRS2048": "bash scripts/compile.sh certChainRS2048",
     "compile:certChainRS4096": "bash scripts/compile.sh certChainRS4096",
     "compile:userSigRS2048": "bash scripts/compile.sh userSigRS2048",
-    "compile:all": "bash scripts/compile.sh all"
+    "compile:all": "bash scripts/compile.sh all",
+    "copy:circuits": "bash scripts/compile.sh copy"
   },
   "dependencies": {
     "@aws-crypto/sha256-js": "^5.2.0",

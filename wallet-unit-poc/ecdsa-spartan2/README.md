@@ -15,7 +15,8 @@ User-sig public-output layout: `[pk_commit, nullifier, app_id_packed, challenge]
 ## Prerequisites
 
 - **Rust** (stable toolchain)
-- **Compiled circuits** — run `cd ../circom && yarn install && yarn compile:all` once
+- **Compiled circuits** — run `cd ../circom && yarn install && yarn compile:all` once; if you skip this the build falls back to the pre-committed files in `circuits/`
+- To update the committed `circuits/` folder after recompiling: `cd ../circom && yarn copy:circuits`
 - **Default mode**: no other prerequisites (uses bundled test fixtures)
 - **Live mode**: [HiPKI LocalSignServer](https://publicca.hinet.net/HiPKI-01.htm) running on `localhost:61161`, a card reader, a valid Citizen Digital Certificate, and optionally [go-zkid-verifier](https://github.com/user/go-zkid-verifier) for challenge serving
 

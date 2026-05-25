@@ -73,6 +73,9 @@ jobs:
 
     compile-circuits:
         uses: ./.github/workflows/compile-circuits.yaml
+        permissions:
+            contents: write
+            pull-requests: write
 
     build-ios:
         needs: compile-circuits

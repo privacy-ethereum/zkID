@@ -1,0 +1,31 @@
+[workspace]
+members = [
+    "wallet-unit-poc/ecdsa-spartan2",
+    "wallet-unit-poc/zkid-input-builder",
+    "wallet-unit-poc/spartan2-wasm",
+    "wallet-unit-poc/mobile",
+    "wallet-unit-poc/openac-sdk/wasm",
+]
+exclude = [
+    "wallet-unit-poc/mobile/mopro_flutter_bindings/rust",
+]
+resolver = "2"
+
+[profile.release]
+# lto and codegen-units apply globally and cannot be overridden per-package;
+# omitted here to preserve current effective behaviour (both were already ignored
+# by Cargo while the workspace root lacked a profile section).
+
+[profile.release.package.ecdsa-spartan2]
+debug = true                # preserve symbols for profiling / backtraces
+
+[profile.release.package.openac-mobile-app]
+opt-level = 3
+strip = "debuginfo"         # keep symbol table for uniffi metadata extraction
+debug = false
+
+[profile.release.package.spartan2-wasm]
+opt-level = 3
+
+[profile.release.package.openac-wasm]
+opt-level = "s"             # optimise for wasm binary size

@@ -29,7 +29,3 @@ rsa = "0.9"
 # For native-target drift tests ONLY — never compiled for wasm32.
 ecdsa-spartan2 = { path = "../ecdsa-spartan2", features = ["cert_chain_rs2048", "cert_chain_rs4096", "user_sig_rs2048"] }
 hex = "0.4"
-
-[profile.release]
-opt-level = 3
-lto = true
