@@ -10,25 +10,19 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 Future<void> initApp() => RustLib.instance.api.openacMobileAppInitApp();
 
-/// Setup Prepare (JWT) circuit keys
-/// Generates proving and verifying keys for the Prepare circuit
-Future<String> setupPrepareKeys({
-  required String documentsPath,
-  String? inputPath,
-}) => RustLib.instance.api.openacMobileAppSetupPrepareKeys(
-  documentsPath: documentsPath,
-  inputPath: inputPath,
-);
+/// Setup JWT circuit keys
+/// Generates proving and verifying keys for the JWT circuit
+Future<String> setupJwtKeys({required String documentsPath}) => RustLib
+    .instance
+    .api
+    .openacMobileAppSetupJwtKeys(documentsPath: documentsPath);
 
 /// Setup Show circuit keys
 /// Generates proving and verifying keys for the Show circuit
-Future<String> setupShowKeys({
-  required String documentsPath,
-  String? inputPath,
-}) => RustLib.instance.api.openacMobileAppSetupShowKeys(
-  documentsPath: documentsPath,
-  inputPath: inputPath,
-);
+Future<String> setupShowKeys({required String documentsPath}) => RustLib
+    .instance
+    .api
+    .openacMobileAppSetupShowKeys(documentsPath: documentsPath);
 
 /// Generate shared blinding factors for both circuits
 /// Creates random blinding factors that enable proof reblinding
@@ -37,32 +31,22 @@ Future<String> generateSharedBlinds({required String documentsPath}) => RustLib
     .api
     .openacMobileAppGenerateSharedBlinds(documentsPath: documentsPath);
 
-/// Generate Prepare (JWT) circuit proof
+/// Generate JWT circuit proof
 /// Runs prep_prove + prove phases using existing keys
-Future<ProofResult> provePrepare({
-  required String documentsPath,
-  String? inputPath,
-}) => RustLib.instance.api.openacMobileAppProvePrepare(
-  documentsPath: documentsPath,
-  inputPath: inputPath,
-);
+Future<ProofResult> proveJwt({required String documentsPath}) =>
+    RustLib.instance.api.openacMobileAppProveJwt(documentsPath: documentsPath);
 
 /// Generate Show circuit proof
 /// Runs prep_prove + prove phases using existing keys
-Future<ProofResult> proveShow({
-  required String documentsPath,
-  String? inputPath,
-}) => RustLib.instance.api.openacMobileAppProveShow(
-  documentsPath: documentsPath,
-  inputPath: inputPath,
-);
+Future<ProofResult> proveShow({required String documentsPath}) =>
+    RustLib.instance.api.openacMobileAppProveShow(documentsPath: documentsPath);
 
-/// Reblind Prepare circuit proof
+/// Reblind JWT circuit proof
 /// Generates a new unlinkable proof while preserving comm_W_shared
-Future<ProofResult> reblindPrepare({required String documentsPath}) => RustLib
+Future<ProofResult> reblindJwt({required String documentsPath}) => RustLib
     .instance
     .api
-    .openacMobileAppReblindPrepare(documentsPath: documentsPath);
+    .openacMobileAppReblindJwt(documentsPath: documentsPath);
 
 /// Reblind Show circuit proof
 /// Generates a new unlinkable proof while preserving comm_W_shared
@@ -71,31 +55,27 @@ Future<ProofResult> reblindShow({required String documentsPath}) => RustLib
     .api
     .openacMobileAppReblindShow(documentsPath: documentsPath);
 
-/// Verify Prepare circuit proof
+/// Verify JWT circuit proof
 /// Verifies the proof using the verifying key
-Future<bool> verifyPrepare({required String documentsPath}) => RustLib
-    .instance
-    .api
-    .openacMobileAppVerifyPrepare(documentsPath: documentsPath);
+Future<bool> verifyJwt({required String documentsPath}) =>
+    RustLib.instance.api.openacMobileAppVerifyJwt(documentsPath: documentsPath);
 
 /// Verify Show circuit proof
 /// Verifies the proof using the verifying key
 Future<bool> verifyShow({required String documentsPath}) => RustLib.instance.api
     .openacMobileAppVerifyShow(documentsPath: documentsPath);
 
-/// Run complete benchmark pipeline for both Prepare and Show circuits
+/// Run complete benchmark pipeline for both JWT and Show circuits
 /// Executes all 9 steps: setup, prove, reblind, and verify for both circuits
 /// Returns comprehensive timing and size metrics
 Future<BenchmarkResults> runCompleteBenchmark({
   required String documentsPath,
-  String? inputPath,
 }) => RustLib.instance.api.openacMobileAppRunCompleteBenchmark(
   documentsPath: documentsPath,
-  inputPath: inputPath,
 );
 
 /// Get the shared witness commitment for a circuit
-/// Returns hex-encoded commitment that links Prepare and Show proofs
+/// Returns hex-encoded commitment that links JWT and Show proofs
 Future<String> getCommWShared({
   required String documentsPath,
   required String circuitType,
@@ -113,41 +93,41 @@ abstract class ZkProofError implements RustOpaqueInterface {}
 
 /// Result of a complete benchmark run with timing and size metrics
 class BenchmarkResults {
-  final BigInt prepareSetupMs;
+  final BigInt jwtSetupMs;
   final BigInt showSetupMs;
   final BigInt generateBlindsMs;
-  final BigInt provePrepareMs;
-  final BigInt reblindPrepareMs;
+  final BigInt proveJwtMs;
+  final BigInt reblindJwtMs;
   final BigInt proveShowMs;
   final BigInt reblindShowMs;
-  final BigInt verifyPrepareMs;
+  final BigInt verifyJwtMs;
   final BigInt verifyShowMs;
-  final BigInt prepareProvingKeyBytes;
-  final BigInt prepareVerifyingKeyBytes;
+  final BigInt jwtProvingKeyBytes;
+  final BigInt jwtVerifyingKeyBytes;
   final BigInt showProvingKeyBytes;
   final BigInt showVerifyingKeyBytes;
-  final BigInt prepareProofBytes;
+  final BigInt jwtProofBytes;
   final BigInt showProofBytes;
-  final BigInt prepareWitnessBytes;
+  final BigInt jwtWitnessBytes;
   final BigInt showWitnessBytes;
 
   const BenchmarkResults({
-    required this.prepareSetupMs,
+    required this.jwtSetupMs,
     required this.showSetupMs,
     required this.generateBlindsMs,
-    required this.provePrepareMs,
-    required this.reblindPrepareMs,
+    required this.proveJwtMs,
+    required this.reblindJwtMs,
     required this.proveShowMs,
     required this.reblindShowMs,
-    required this.verifyPrepareMs,
+    required this.verifyJwtMs,
     required this.verifyShowMs,
-    required this.prepareProvingKeyBytes,
-    required this.prepareVerifyingKeyBytes,
+    required this.jwtProvingKeyBytes,
+    required this.jwtVerifyingKeyBytes,
     required this.showProvingKeyBytes,
     required this.showVerifyingKeyBytes,
-    required this.prepareProofBytes,
+    required this.jwtProofBytes,
     required this.showProofBytes,
-    required this.prepareWitnessBytes,
+    required this.jwtWitnessBytes,
     required this.showWitnessBytes,
   });
 
@@ -159,22 +139,22 @@ class BenchmarkResults {
 
   @override
   int get hashCode =>
-      prepareSetupMs.hashCode ^
+      jwtSetupMs.hashCode ^
       showSetupMs.hashCode ^
       generateBlindsMs.hashCode ^
-      provePrepareMs.hashCode ^
-      reblindPrepareMs.hashCode ^
+      proveJwtMs.hashCode ^
+      reblindJwtMs.hashCode ^
       proveShowMs.hashCode ^
       reblindShowMs.hashCode ^
-      verifyPrepareMs.hashCode ^
+      verifyJwtMs.hashCode ^
       verifyShowMs.hashCode ^
-      prepareProvingKeyBytes.hashCode ^
-      prepareVerifyingKeyBytes.hashCode ^
+      jwtProvingKeyBytes.hashCode ^
+      jwtVerifyingKeyBytes.hashCode ^
       showProvingKeyBytes.hashCode ^
       showVerifyingKeyBytes.hashCode ^
-      prepareProofBytes.hashCode ^
+      jwtProofBytes.hashCode ^
       showProofBytes.hashCode ^
-      prepareWitnessBytes.hashCode ^
+      jwtWitnessBytes.hashCode ^
       showWitnessBytes.hashCode;
 
   @override
@@ -182,22 +162,22 @@ class BenchmarkResults {
       identical(this, other) ||
       other is BenchmarkResults &&
           runtimeType == other.runtimeType &&
-          prepareSetupMs == other.prepareSetupMs &&
+          jwtSetupMs == other.jwtSetupMs &&
           showSetupMs == other.showSetupMs &&
           generateBlindsMs == other.generateBlindsMs &&
-          provePrepareMs == other.provePrepareMs &&
-          reblindPrepareMs == other.reblindPrepareMs &&
+          proveJwtMs == other.proveJwtMs &&
+          reblindJwtMs == other.reblindJwtMs &&
           proveShowMs == other.proveShowMs &&
           reblindShowMs == other.reblindShowMs &&
-          verifyPrepareMs == other.verifyPrepareMs &&
+          verifyJwtMs == other.verifyJwtMs &&
           verifyShowMs == other.verifyShowMs &&
-          prepareProvingKeyBytes == other.prepareProvingKeyBytes &&
-          prepareVerifyingKeyBytes == other.prepareVerifyingKeyBytes &&
+          jwtProvingKeyBytes == other.jwtProvingKeyBytes &&
+          jwtVerifyingKeyBytes == other.jwtVerifyingKeyBytes &&
           showProvingKeyBytes == other.showProvingKeyBytes &&
           showVerifyingKeyBytes == other.showVerifyingKeyBytes &&
-          prepareProofBytes == other.prepareProofBytes &&
+          jwtProofBytes == other.jwtProofBytes &&
           showProofBytes == other.showProofBytes &&
-          prepareWitnessBytes == other.prepareWitnessBytes &&
+          jwtWitnessBytes == other.jwtWitnessBytes &&
           showWitnessBytes == other.showWitnessBytes;
 }
 

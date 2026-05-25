@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1257199256;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1383991712;
 
 // Section: executor
 
@@ -215,7 +215,7 @@ fn wire__openac_mobile_app__mopro_hello_world_impl(
         },
     )
 }
-fn wire__openac_mobile_app__prove_prepare_impl(
+fn wire__openac_mobile_app__prove_jwt_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -223,7 +223,7 @@ fn wire__openac_mobile_app__prove_prepare_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "prove_prepare",
+            debug_name: "prove_jwt",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -238,12 +238,10 @@ fn wire__openac_mobile_app__prove_prepare_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok =
-                        openac_mobile_app::prove_prepare(api_documents_path, api_input_path)?;
+                    let output_ok = openac_mobile_app::prove_jwt(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -273,19 +271,17 @@ fn wire__openac_mobile_app__prove_show_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok =
-                        openac_mobile_app::prove_show(api_documents_path, api_input_path)?;
+                    let output_ok = openac_mobile_app::prove_show(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
         },
     )
 }
-fn wire__openac_mobile_app__reblind_prepare_impl(
+fn wire__openac_mobile_app__reblind_jwt_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -293,7 +289,7 @@ fn wire__openac_mobile_app__reblind_prepare_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "reblind_prepare",
+            debug_name: "reblind_jwt",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -311,7 +307,7 @@ fn wire__openac_mobile_app__reblind_prepare_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok = openac_mobile_app::reblind_prepare(api_documents_path)?;
+                    let output_ok = openac_mobile_app::reblind_jwt(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -374,21 +370,17 @@ fn wire__openac_mobile_app__run_complete_benchmark_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok = openac_mobile_app::run_complete_benchmark(
-                        api_documents_path,
-                        api_input_path,
-                    )?;
+                    let output_ok = openac_mobile_app::run_complete_benchmark(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
         },
     )
 }
-fn wire__openac_mobile_app__setup_prepare_keys_impl(
+fn wire__openac_mobile_app__setup_jwt_keys_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -396,7 +388,7 @@ fn wire__openac_mobile_app__setup_prepare_keys_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "setup_prepare_keys",
+            debug_name: "setup_jwt_keys",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -411,12 +403,10 @@ fn wire__openac_mobile_app__setup_prepare_keys_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok =
-                        openac_mobile_app::setup_prepare_keys(api_documents_path, api_input_path)?;
+                    let output_ok = openac_mobile_app::setup_jwt_keys(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -446,19 +436,17 @@ fn wire__openac_mobile_app__setup_show_keys_impl(
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_documents_path = <String>::sse_decode(&mut deserializer);
-            let api_input_path = <Option<String>>::sse_decode(&mut deserializer);
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok =
-                        openac_mobile_app::setup_show_keys(api_documents_path, api_input_path)?;
+                    let output_ok = openac_mobile_app::setup_show_keys(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
         },
     )
 }
-fn wire__openac_mobile_app__verify_prepare_impl(
+fn wire__openac_mobile_app__verify_jwt_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -466,7 +454,7 @@ fn wire__openac_mobile_app__verify_prepare_impl(
 ) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "verify_prepare",
+            debug_name: "verify_jwt",
             port: Some(port_),
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
@@ -484,7 +472,7 @@ fn wire__openac_mobile_app__verify_prepare_impl(
             deserializer.end();
             move |context| {
                 transform_result_sse::<_, ZkProofError>((move || {
-                    let output_ok = openac_mobile_app::verify_prepare(api_documents_path)?;
+                    let output_ok = openac_mobile_app::verify_jwt(api_documents_path)?;
                     Ok(output_ok)
                 })())
             }
@@ -531,22 +519,22 @@ fn wire__openac_mobile_app__verify_show_impl(
 const _: fn() = || {
     {
         let BenchmarkResults = None::<openac_mobile_app::BenchmarkResults>.unwrap();
-        let _: u64 = BenchmarkResults.prepare_setup_ms;
+        let _: u64 = BenchmarkResults.jwt_setup_ms;
         let _: u64 = BenchmarkResults.show_setup_ms;
         let _: u64 = BenchmarkResults.generate_blinds_ms;
-        let _: u64 = BenchmarkResults.prove_prepare_ms;
-        let _: u64 = BenchmarkResults.reblind_prepare_ms;
+        let _: u64 = BenchmarkResults.prove_jwt_ms;
+        let _: u64 = BenchmarkResults.reblind_jwt_ms;
         let _: u64 = BenchmarkResults.prove_show_ms;
         let _: u64 = BenchmarkResults.reblind_show_ms;
-        let _: u64 = BenchmarkResults.verify_prepare_ms;
+        let _: u64 = BenchmarkResults.verify_jwt_ms;
         let _: u64 = BenchmarkResults.verify_show_ms;
-        let _: u64 = BenchmarkResults.prepare_proving_key_bytes;
-        let _: u64 = BenchmarkResults.prepare_verifying_key_bytes;
+        let _: u64 = BenchmarkResults.jwt_proving_key_bytes;
+        let _: u64 = BenchmarkResults.jwt_verifying_key_bytes;
         let _: u64 = BenchmarkResults.show_proving_key_bytes;
         let _: u64 = BenchmarkResults.show_verifying_key_bytes;
-        let _: u64 = BenchmarkResults.prepare_proof_bytes;
+        let _: u64 = BenchmarkResults.jwt_proof_bytes;
         let _: u64 = BenchmarkResults.show_proof_bytes;
-        let _: u64 = BenchmarkResults.prepare_witness_bytes;
+        let _: u64 = BenchmarkResults.jwt_witness_bytes;
         let _: u64 = BenchmarkResults.show_witness_bytes;
     }
     {
@@ -598,40 +586,40 @@ impl SseDecode for String {
 impl SseDecode for openac_mobile_app::BenchmarkResults {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        let mut var_prepareSetupMs = <u64>::sse_decode(deserializer);
+        let mut var_jwtSetupMs = <u64>::sse_decode(deserializer);
         let mut var_showSetupMs = <u64>::sse_decode(deserializer);
         let mut var_generateBlindsMs = <u64>::sse_decode(deserializer);
-        let mut var_provePrepareMs = <u64>::sse_decode(deserializer);
-        let mut var_reblindPrepareMs = <u64>::sse_decode(deserializer);
+        let mut var_proveJwtMs = <u64>::sse_decode(deserializer);
+        let mut var_reblindJwtMs = <u64>::sse_decode(deserializer);
         let mut var_proveShowMs = <u64>::sse_decode(deserializer);
         let mut var_reblindShowMs = <u64>::sse_decode(deserializer);
-        let mut var_verifyPrepareMs = <u64>::sse_decode(deserializer);
+        let mut var_verifyJwtMs = <u64>::sse_decode(deserializer);
         let mut var_verifyShowMs = <u64>::sse_decode(deserializer);
-        let mut var_prepareProvingKeyBytes = <u64>::sse_decode(deserializer);
-        let mut var_prepareVerifyingKeyBytes = <u64>::sse_decode(deserializer);
+        let mut var_jwtProvingKeyBytes = <u64>::sse_decode(deserializer);
+        let mut var_jwtVerifyingKeyBytes = <u64>::sse_decode(deserializer);
         let mut var_showProvingKeyBytes = <u64>::sse_decode(deserializer);
         let mut var_showVerifyingKeyBytes = <u64>::sse_decode(deserializer);
-        let mut var_prepareProofBytes = <u64>::sse_decode(deserializer);
+        let mut var_jwtProofBytes = <u64>::sse_decode(deserializer);
         let mut var_showProofBytes = <u64>::sse_decode(deserializer);
-        let mut var_prepareWitnessBytes = <u64>::sse_decode(deserializer);
+        let mut var_jwtWitnessBytes = <u64>::sse_decode(deserializer);
         let mut var_showWitnessBytes = <u64>::sse_decode(deserializer);
         return openac_mobile_app::BenchmarkResults {
-            prepare_setup_ms: var_prepareSetupMs,
+            jwt_setup_ms: var_jwtSetupMs,
             show_setup_ms: var_showSetupMs,
             generate_blinds_ms: var_generateBlindsMs,
-            prove_prepare_ms: var_provePrepareMs,
-            reblind_prepare_ms: var_reblindPrepareMs,
+            prove_jwt_ms: var_proveJwtMs,
+            reblind_jwt_ms: var_reblindJwtMs,
             prove_show_ms: var_proveShowMs,
             reblind_show_ms: var_reblindShowMs,
-            verify_prepare_ms: var_verifyPrepareMs,
+            verify_jwt_ms: var_verifyJwtMs,
             verify_show_ms: var_verifyShowMs,
-            prepare_proving_key_bytes: var_prepareProvingKeyBytes,
-            prepare_verifying_key_bytes: var_prepareVerifyingKeyBytes,
+            jwt_proving_key_bytes: var_jwtProvingKeyBytes,
+            jwt_verifying_key_bytes: var_jwtVerifyingKeyBytes,
             show_proving_key_bytes: var_showProvingKeyBytes,
             show_verifying_key_bytes: var_showVerifyingKeyBytes,
-            prepare_proof_bytes: var_prepareProofBytes,
+            jwt_proof_bytes: var_jwtProofBytes,
             show_proof_bytes: var_showProofBytes,
-            prepare_witness_bytes: var_prepareWitnessBytes,
+            jwt_witness_bytes: var_jwtWitnessBytes,
             show_witness_bytes: var_showWitnessBytes,
         };
     }
@@ -653,17 +641,6 @@ impl SseDecode for Vec<u8> {
             ans_.push(<u8>::sse_decode(deserializer));
         }
         return ans_;
-    }
-}
-
-impl SseDecode for Option<String> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<String>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
     }
 }
 
@@ -739,16 +716,16 @@ fn pde_ffi_dispatcher_primary_impl(
         3 => wire__openac_mobile_app__get_comm_w_shared_impl(port, ptr, rust_vec_len, data_len),
         4 => wire__openac_mobile_app__init_app_impl(port, ptr, rust_vec_len, data_len),
         5 => wire__openac_mobile_app__mopro_hello_world_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__openac_mobile_app__prove_prepare_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__openac_mobile_app__prove_jwt_impl(port, ptr, rust_vec_len, data_len),
         7 => wire__openac_mobile_app__prove_show_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__openac_mobile_app__reblind_prepare_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__openac_mobile_app__reblind_jwt_impl(port, ptr, rust_vec_len, data_len),
         9 => wire__openac_mobile_app__reblind_show_impl(port, ptr, rust_vec_len, data_len),
         10 => {
             wire__openac_mobile_app__run_complete_benchmark_impl(port, ptr, rust_vec_len, data_len)
         }
-        11 => wire__openac_mobile_app__setup_prepare_keys_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__openac_mobile_app__setup_jwt_keys_impl(port, ptr, rust_vec_len, data_len),
         12 => wire__openac_mobile_app__setup_show_keys_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__openac_mobile_app__verify_prepare_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__openac_mobile_app__verify_jwt_impl(port, ptr, rust_vec_len, data_len),
         14 => wire__openac_mobile_app__verify_show_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
@@ -787,28 +764,22 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<ZkProofError>> for ZkProofErro
 impl flutter_rust_bridge::IntoDart for FrbWrapper<openac_mobile_app::BenchmarkResults> {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
-            self.0.prepare_setup_ms.into_into_dart().into_dart(),
+            self.0.jwt_setup_ms.into_into_dart().into_dart(),
             self.0.show_setup_ms.into_into_dart().into_dart(),
             self.0.generate_blinds_ms.into_into_dart().into_dart(),
-            self.0.prove_prepare_ms.into_into_dart().into_dart(),
-            self.0.reblind_prepare_ms.into_into_dart().into_dart(),
+            self.0.prove_jwt_ms.into_into_dart().into_dart(),
+            self.0.reblind_jwt_ms.into_into_dart().into_dart(),
             self.0.prove_show_ms.into_into_dart().into_dart(),
             self.0.reblind_show_ms.into_into_dart().into_dart(),
-            self.0.verify_prepare_ms.into_into_dart().into_dart(),
+            self.0.verify_jwt_ms.into_into_dart().into_dart(),
             self.0.verify_show_ms.into_into_dart().into_dart(),
-            self.0
-                .prepare_proving_key_bytes
-                .into_into_dart()
-                .into_dart(),
-            self.0
-                .prepare_verifying_key_bytes
-                .into_into_dart()
-                .into_dart(),
+            self.0.jwt_proving_key_bytes.into_into_dart().into_dart(),
+            self.0.jwt_verifying_key_bytes.into_into_dart().into_dart(),
             self.0.show_proving_key_bytes.into_into_dart().into_dart(),
             self.0.show_verifying_key_bytes.into_into_dart().into_dart(),
-            self.0.prepare_proof_bytes.into_into_dart().into_dart(),
+            self.0.jwt_proof_bytes.into_into_dart().into_dart(),
             self.0.show_proof_bytes.into_into_dart().into_dart(),
-            self.0.prepare_witness_bytes.into_into_dart().into_dart(),
+            self.0.jwt_witness_bytes.into_into_dart().into_dart(),
             self.0.show_witness_bytes.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -878,22 +849,22 @@ impl SseEncode for String {
 impl SseEncode for openac_mobile_app::BenchmarkResults {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <u64>::sse_encode(self.prepare_setup_ms, serializer);
+        <u64>::sse_encode(self.jwt_setup_ms, serializer);
         <u64>::sse_encode(self.show_setup_ms, serializer);
         <u64>::sse_encode(self.generate_blinds_ms, serializer);
-        <u64>::sse_encode(self.prove_prepare_ms, serializer);
-        <u64>::sse_encode(self.reblind_prepare_ms, serializer);
+        <u64>::sse_encode(self.prove_jwt_ms, serializer);
+        <u64>::sse_encode(self.reblind_jwt_ms, serializer);
         <u64>::sse_encode(self.prove_show_ms, serializer);
         <u64>::sse_encode(self.reblind_show_ms, serializer);
-        <u64>::sse_encode(self.verify_prepare_ms, serializer);
+        <u64>::sse_encode(self.verify_jwt_ms, serializer);
         <u64>::sse_encode(self.verify_show_ms, serializer);
-        <u64>::sse_encode(self.prepare_proving_key_bytes, serializer);
-        <u64>::sse_encode(self.prepare_verifying_key_bytes, serializer);
+        <u64>::sse_encode(self.jwt_proving_key_bytes, serializer);
+        <u64>::sse_encode(self.jwt_verifying_key_bytes, serializer);
         <u64>::sse_encode(self.show_proving_key_bytes, serializer);
         <u64>::sse_encode(self.show_verifying_key_bytes, serializer);
-        <u64>::sse_encode(self.prepare_proof_bytes, serializer);
+        <u64>::sse_encode(self.jwt_proof_bytes, serializer);
         <u64>::sse_encode(self.show_proof_bytes, serializer);
-        <u64>::sse_encode(self.prepare_witness_bytes, serializer);
+        <u64>::sse_encode(self.jwt_witness_bytes, serializer);
         <u64>::sse_encode(self.show_witness_bytes, serializer);
     }
 }
@@ -911,16 +882,6 @@ impl SseEncode for Vec<u8> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
-        }
-    }
-}
-
-impl SseEncode for Option<String> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <String>::sse_encode(value, serializer);
         }
     }
 }
