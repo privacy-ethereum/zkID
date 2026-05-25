@@ -28,6 +28,19 @@ if [ -d "$SDK_DIR/wasm/pkg/snippets" ]; then
   echo "  Copied snippets/ (rayon worker helpers)"
 fi
 
+# The bundler-mode workerHelpers.js does `import('../../..')` expecting to land
+# at the package root (pkg/ in a normal npm install).  Copied into src/wasm/,
+# that path resolves to the bare directory src/wasm/ — Vite needs an index.js
+# there to know which file to load.
+cat > "$WEB_DEMO_DIR/src/wasm/index.js" <<'EOF'
+// Entry point for the wasm-bindgen-rayon bundler-mode worker helper.
+// workerHelpers.js does `import('../../..')` which resolves to this directory;
+// Vite picks up index.js and re-exports the real WASM glue module.
+export * from './openac_wasm.js';
+export { default } from './openac_wasm.js';
+EOF
+echo "  Created src/wasm/index.js (barrel for workerHelpers.js '../../..' import)"
+
 # 2. Copy circom circuit WASM files to public/ (must match key size!)
 CIRCOM_DIR="$WEB_DEMO_DIR/../circom/build"
 echo "[2/5] Copying circuit WASM files..."
