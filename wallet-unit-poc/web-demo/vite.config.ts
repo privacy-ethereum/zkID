@@ -5,6 +5,11 @@ export default defineConfig({
   // BigInt support requires ES2020+
   build: {
     target: "es2020",
+    rollupOptions: {
+      output: {
+        format: "es", // Use "es" (ES Modules) format to fix the error
+      },
+    },
   },
   optimizeDeps: {
     esbuildOptions: {
