@@ -136,6 +136,9 @@ jobs:
 
             - name: Type check
               run: npm run lint
+            
+            - name: Setup web-demo assets
+              run: npm run setup
 
             - name: Build (Vite)
               run: npm run build
