@@ -1,0 +1,44 @@
+name: openac-sdk
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'wallet-unit-poc/openac-sdk/**'
+      - '.github/workflows/openac-sdk.yml'
+  pull_request:
+    paths:
+      - 'wallet-unit-poc/openac-sdk/**'
+      - '.github/workflows/openac-sdk.yml'
+
+jobs:
+  lint-build-test:
+    name: Lint, Build & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: wallet-unit-poc/openac-sdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: wallet-unit-poc/openac-sdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run lint
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+        env:
+          # Increase heap for circom witness generation (SHA-256 chains)
+          NODE_OPTIONS: --max-old-space-size=4096
