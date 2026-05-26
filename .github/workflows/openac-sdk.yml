@@ -41,8 +41,41 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             wallet-unit-poc/openac-sdk/wasm/target
-          key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('wallet-unit-poc/openac-sdk/wasm/Cargo.lock') }}
+            wallet-unit-poc/ecdsa-spartan2/target
+          key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('wallet-unit-poc/openac-sdk/wasm/Cargo.lock', 'wallet-unit-poc/ecdsa-spartan2/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-nightly-
+
+      - name: Build ecdsa-spartan2 binary
+        working-directory: wallet-unit-poc/ecdsa-spartan2
+        run: cargo build --release --no-default-features
+
+      - name: Install circom system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            build-essential \
+            libgmp-dev \
+            libsodium-dev \
+            nasm \
+            nlohmann-json3-dev
+
+      - name: Install circom binary
+        run: |
+          wget -qO /tmp/circom https://github.com/iden3/circom/releases/download/v2.2.3/circom-linux-amd64
+          chmod +x /tmp/circom
+          sudo mv /tmp/circom /bin/circom
+
+      - name: Install circom JS dependencies
+        working-directory: wallet-unit-poc/circom
+        run: yarn --frozen-lockfile
+
+      - name: Compile Show circuit
+        working-directory: wallet-unit-poc/circom
+        run: yarn compile:show
+
+      - name: Compile JWT circuit (1k)
+        working-directory: wallet-unit-poc/circom
+        run: yarn compile:jwt:1k
 
       - name: Install dependencies
         run: npm ci

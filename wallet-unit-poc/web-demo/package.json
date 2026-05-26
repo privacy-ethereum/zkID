@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "openac-sdk": "file:../openac-sdk",
     "@noble/curves": "^1.8.1",
     "@noble/hashes": "^1.7.1"
   },

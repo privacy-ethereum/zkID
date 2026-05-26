@@ -11,11 +11,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "allowImportingTsExtensions": true,
-    "paths": {
-      "@noble/hashes/*": ["./node_modules/@noble/hashes/*"],
-      "@noble/curves/*": ["./node_modules/@noble/curves/*"]
-    }
+    "allowImportingTsExtensions": true
   },
   "include": ["src"]
 }

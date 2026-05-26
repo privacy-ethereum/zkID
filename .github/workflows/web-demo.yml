@@ -30,6 +30,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: wallet-unit-poc/web-demo/package-lock.json
 
+      - name: Install openac-sdk dependencies
+        working-directory: wallet-unit-poc/openac-sdk
+        run: npm ci
+
       - name: Install dependencies
         run: npm ci
 
