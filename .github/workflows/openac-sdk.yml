@@ -47,10 +47,9 @@ jobs:
                   key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('wallet-unit-poc/openac-sdk/wasm/Cargo.lock', 'wallet-unit-poc/ecdsa-spartan2/Cargo.lock') }}
                   restore-keys: ${{ runner.os }}-cargo-nightly-
 
-            - name: Build ecdsa-spartan2 binary
-              working-directory: wallet-unit-poc/ecdsa-spartan2
-              run: cargo build --release --no-default-features
-
+            # Circom circuits must be compiled before cargo build so that
+            # witnesscalc-adapter (native-witness feature) can find the C++ files
+            # in circom/build/cpp/ at compile time.
             - name: Install circom system dependencies
               run: |
                   sudo apt-get update
@@ -78,6 +77,10 @@ jobs:
             - name: Compile JWT circuit (1k)
               working-directory: wallet-unit-poc/circom
               run: yarn compile:jwt:1k
+
+            - name: Build ecdsa-spartan2 binary
+              working-directory: wallet-unit-poc/ecdsa-spartan2
+              run: cargo build --release
 
             - name: Install dependencies
               run: npm ci
@@ -113,6 +116,25 @@ jobs:
                   # Increase heap for circom witness generation (SHA-256 chains)
                   NODE_OPTIONS: --max-old-space-size=4096
 
+            # Run after tests so NativeBackend tests still skip fast (keys don't
+            # exist during the test run). Keys are only needed for web-demo.
+            - name: Run prepare setup
+              working-directory: wallet-unit-poc/ecdsa-spartan2
+              run: cargo run --release -- prepare setup --size 1k --input ../circom/inputs/jwt/1k/default.json
+              timeout-minutes: 30
+
+            - name: Run show setup
+              working-directory: wallet-unit-poc/ecdsa-spartan2
+              run: cargo run --release -- show setup --size 1k --input ../circom/inputs/show/default.json
+              timeout-minutes: 15
+
+            - name: Upload keys artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ecdsa-spartan2-keys
+                  path: wallet-unit-poc/ecdsa-spartan2/keys
+                  retention-days: 1
+
     web-demo:
         name: Web Demo — Type Check & Build
         runs-on: ubuntu-latest
@@ -142,6 +164,12 @@ jobs:
                   name: circom-build
                   path: wallet-unit-poc/circom/build
 
+            - name: Download keys artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: ecdsa-spartan2-keys
+                  path: wallet-unit-poc/ecdsa-spartan2/keys
+
             - name: Install openac-sdk dependencies
               working-directory: wallet-unit-poc/openac-sdk
               run: npm ci
@@ -151,7 +179,7 @@ jobs:
 
             - name: Type check
               run: npm run lint
-            
+
             - name: Setup web-demo assets
               run: npm run setup
 

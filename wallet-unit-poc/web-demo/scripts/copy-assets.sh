@@ -68,7 +68,7 @@ sed -i.bak 's/^module\.exports = async function builder/export default async fun
   "$WEB_DEMO_DIR/src/assets/witness_calculator.js"
 rm -f "$WEB_DEMO_DIR/src/assets/witness_calculator.js.bak"
 
-# 4. Symlink keys directory
+# 4. Symlink keys directory (local dev only — keys are not committed)
 echo "[4/5] Symlinking keys directory..."
 if [ -L "$WEB_DEMO_DIR/public/keys" ]; then
   rm "$WEB_DEMO_DIR/public/keys"
@@ -76,7 +76,12 @@ fi
 if [ -d "$WEB_DEMO_DIR/public/keys" ]; then
   rm -rf "$WEB_DEMO_DIR/public/keys"
 fi
-ln -s "$KEYS_DIR" "$WEB_DEMO_DIR/public/keys"
+if [ -d "$KEYS_DIR" ]; then
+  ln -s "$KEYS_DIR" "$WEB_DEMO_DIR/public/keys"
+  echo "  Linked public/keys → $KEYS_DIR"
+else
+  echo "  WARNING: keys directory not found at $KEYS_DIR — skipping symlink (run 'cargo run -- setup' in ecdsa-spartan2 first)"
+fi
 
 echo ""
 echo "=== Done! ==="
