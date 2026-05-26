@@ -27,6 +27,13 @@ export default defineConfig({
       },
     ],
   },
+  // rayon's workerHelpers.js is bundled as a separate Worker entry by Vite.
+  // Vite defaults to IIFE for workers, but IIFE is incompatible with
+  // code-splitting builds (dynamic imports in the main bundle trigger splitting).
+  // "es" format workers are module workers (type="module") and support both.
+  worker: {
+    format: "es",
+  },
   server: {
     headers: {
       // Required for SharedArrayBuffer (rayon thread pool) and WASM
