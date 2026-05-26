@@ -28,8 +28,27 @@ jobs:
           cache: 'npm'
           cache-dependency-path: wallet-unit-poc/openac-sdk/package-lock.json
 
+      - name: Install Rust nightly + wasm target
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            wallet-unit-poc/openac-sdk/wasm/target
+          key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('wallet-unit-poc/openac-sdk/wasm/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-nightly-
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Build WASM
+        run: npm run build:wasm
 
       - name: Type check
         run: npm run lint
