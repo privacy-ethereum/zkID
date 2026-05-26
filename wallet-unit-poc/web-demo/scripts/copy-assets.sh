@@ -64,8 +64,9 @@ mkdir -p "$WEB_DEMO_DIR/src/assets"
 cp "$SDK_DIR/assets/witness_calculator.js" "$WEB_DEMO_DIR/src/assets/"
 # Vite only does CJS→ESM for node_modules, not src/ files.
 # Patch the CJS module.exports to an ESM default export.
-sed -i '' 's/^module\.exports = async function builder/export default async function builder/' \
+sed -i.bak 's/^module\.exports = async function builder/export default async function builder/' \
   "$WEB_DEMO_DIR/src/assets/witness_calculator.js"
+rm -f "$WEB_DEMO_DIR/src/assets/witness_calculator.js.bak"
 
 # 4. Symlink keys directory
 echo "[4/5] Symlinking keys directory..."

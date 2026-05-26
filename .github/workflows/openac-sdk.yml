@@ -92,6 +92,15 @@ jobs:
                   path: wallet-unit-poc/openac-sdk/wasm/pkg
                   retention-days: 1
 
+            - name: Upload circom build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: circom-build
+                  path: |
+                      wallet-unit-poc/circom/build/jwt_1k
+                      wallet-unit-poc/circom/build/show
+                  retention-days: 1
+
             - name: Type check
               run: npm run lint
 
@@ -126,6 +135,12 @@ jobs:
               with:
                   name: openac-wasm-pkg
                   path: wallet-unit-poc/openac-sdk/wasm/pkg
+
+            - name: Download circom build artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  name: circom-build
+                  path: wallet-unit-poc/circom/build
 
             - name: Install openac-sdk dependencies
               working-directory: wallet-unit-poc/openac-sdk
