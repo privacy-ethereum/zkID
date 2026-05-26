@@ -85,6 +85,13 @@ jobs:
             - name: Build WASM
               run: npm run build:wasm
 
+            - name: Upload wasm/pkg artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: openac-wasm-pkg
+                  path: wallet-unit-poc/openac-sdk/wasm/pkg
+                  retention-days: 1
+
             - name: Type check
               run: npm run lint
 
@@ -113,6 +120,12 @@ jobs:
                   node-version: "20"
                   cache: "npm"
                   cache-dependency-path: wallet-unit-poc/web-demo/package-lock.json
+
+            - name: Download wasm/pkg artifact
+              uses: actions/download-artifact@v4
+              with:
+                  name: openac-wasm-pkg
+                  path: wallet-unit-poc/openac-sdk/wasm/pkg
 
             - name: Install openac-sdk dependencies
               working-directory: wallet-unit-poc/openac-sdk
