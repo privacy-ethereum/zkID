@@ -1,7 +1,7 @@
 ---
 slug: 3
-title: 3/ZK-AGE-ELIGIBILITY
-name: Wallet-Based Age Eligibility Verification for Third-Party Services
+title: 3/ZK-AGE-VERIFICATION
+name: Wallet-Based Age Verification for Third-Party Services
 status: raw
 category: Standards Track
 tags: zero-knowledge, age-verification, privacy, anonymous-credentials, openac, alcohol-purchase
@@ -22,7 +22,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 # Abstract
 
-This specification defines an OpenAC-based privacy-preserving age-eligibility verification protocol for wallet-based proof presentation to third-party services.
+This specification defines an OpenAC-based privacy-preserving age-verification protocol for wallet-based proof presentation to third-party services.
 
 In the MVP scope, the holder proves possession of a valid Driver License verifiable credential without disclosing raw identity attributes to the merchant.
 
@@ -34,11 +34,11 @@ The protocol adopts the OpenAC prepare-reblind-show model and includes device bi
 
 Online alcohol purchase flows require age gating, while minimizing unnecessary disclosure of identity data to merchants.
 
-This specification defines a primitive that separates eligibility verification from raw identity disclosure by using an OpenAC-based zero-knowledge proof flow integrated with a wallet-based user experience.
+This specification defines a primitive that separates age verification from raw identity disclosure by using an OpenAC-based zero-knowledge proof flow integrated with a wallet-based user experience.
 
 # OpenAC Profile
 
-This specification defines an application profile of OpenAC for age-eligibility verification.
+This specification defines an application profile of OpenAC for age verification.
 
 Conforming implementations MUST:
 
@@ -545,7 +545,7 @@ Specific toolchains such as mobile native bindings, WASM verifier bindings, `mop
 - [RFC 2119](https://www.ietf.org/rfc/rfc2119.txt)
 - [1/OPENAC](../1-openac/README.md)
 - [OpenAC: Open Design for Transparent and Lightweight Anonymous Credentials](https://github.com/privacy-ethereum/zkID)
-- [2/ZK-HUMAN-VERIFICATION](../2-zk-human-verification/README.md)
+- [2/ZK-PROOF-OF-PERSONHOOD](../2-zk-proof-of-personhood/README.md)
 - [TWDIW-integration](https://github.com/zkmopro/TWDIW-integration)
 - [TWDIW Official App](https://github.com/moda-gov-tw/TWDIW-official-app)
 
