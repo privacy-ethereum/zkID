@@ -1,0 +1,465 @@
+// Public-API e2e tests for the OpenAC SDK.
+// Set OPENAC_KEYS_URL=https://pub-<hash>.r2.dev to additionally exercise R2 fetch.
+
+import { describe, it, expect, beforeAll } from "vitest";
+import { existsSync, readFileSync } from "fs";
+import { readFile } from "fs/promises";
+import { createHash } from "crypto";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+import { OpenAC } from "../src/index.js";
+import { generateDummyCredential } from "../src/testing/index.js";
+import type { VcSize } from "../src/sizing.js";
+import type { KeySet, VerifyingKeys } from "../src/types.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ASSETS_DIR = join(__dirname, "..", "assets");
+const KEYS_DIR = join(__dirname, "..", "..", "ecdsa-spartan2", "keys");
+const WASM_PKG_DIR = join(__dirname, "..", "wasm", "pkg");
+
+const R2_BASE_URL = (process.env.OPENAC_KEYS_URL ?? "").trim();
+const HAS_R2 = R2_BASE_URL.startsWith("https://");
+const HAS_LOCAL_1K = existsSync(join(KEYS_DIR, "1k_show_proving.key"));
+const HAS_LOCAL_2K = existsSync(join(KEYS_DIR, "2k_show_proving.key"));
+
+async function loadWasmModule() {
+  const mod = await import(
+    /* webpackIgnore: true */ join(WASM_PKG_DIR, "openac_wasm.js")
+  );
+  const bin = await readFile(join(WASM_PKG_DIR, "openac_wasm_bg.wasm"));
+  mod.initSync({ module: bin });
+  return mod;
+}
+
+function loadLocalKeySet(size: VcSize): KeySet {
+  const prepareProvingKey = new Uint8Array(
+    readFileSync(join(KEYS_DIR, `${size}_prepare_proving.key`)),
+  );
+  const prepareVerifyingKey = new Uint8Array(
+    readFileSync(join(KEYS_DIR, `${size}_prepare_verifying.key`)),
+  );
+  const showProvingKey = new Uint8Array(
+    readFileSync(join(KEYS_DIR, `${size}_show_proving.key`)),
+  );
+  const showVerifyingKey = new Uint8Array(
+    readFileSync(join(KEYS_DIR, `${size}_show_verifying.key`)),
+  );
+  return {
+    prepareProvingKey,
+    prepareVerifyingKey,
+    showProvingKey,
+    showVerifyingKey,
+    verifyingKeys(): VerifyingKeys {
+      return { prepareVerifyingKey, showVerifyingKey };
+    },
+    serialize() {
+      return {
+        prepareProvingKey,
+        prepareVerifyingKey,
+        showProvingKey,
+        showVerifyingKey,
+      };
+    },
+  };
+}
+
+function sha256Hex(buf: Uint8Array): string {
+  return createHash("sha256").update(buf).digest("hex");
+}
+
+function makeDummy1k() {
+  return generateDummyCredential({
+    size: "1k",
+    claims: [
+      { key: "roc_birthday", value: "0900101" },
+      { key: "roc_max", value: "0950101" },
+    ],
+  });
+}
+
+const claimToClaimPredicate = {
+  claim: "roc_birthday",
+  op: "<=" as const,
+  compareTo: { claim: "roc_max" },
+};
+
+describe("OpenAC: initialization", () => {
+  it("init() returns an OpenAC instance reporting isReady=true", async () => {
+    const wasmModule = await loadWasmModule();
+    const openac = await OpenAC.init({ assetsDir: ASSETS_DIR, wasmModule });
+    expect(openac).toBeInstanceOf(OpenAC);
+    expect(openac.isReady).toBe(true);
+  });
+
+  it("init() accepts keysBaseUrl in OpenACConfig", async () => {
+    const wasmModule = await loadWasmModule();
+    const openac = await OpenAC.init({
+      assetsDir: ASSETS_DIR,
+      wasmModule,
+      keysBaseUrl: "https://example.invalid/keys",
+    });
+    expect(openac.isReady).toBe(true);
+  });
+});
+
+describe("OpenAC.loadBundledShowVerifyingKey", () => {
+  let openac: OpenAC;
+  const BUNDLED_SIZES: VcSize[] = ["1k", "2k", "4k", "8k"];
+
+  beforeAll(async () => {
+    const wasmModule = await loadWasmModule();
+    openac = await OpenAC.init({ assetsDir: ASSETS_DIR, wasmModule });
+  });
+
+  for (const size of BUNDLED_SIZES) {
+    it(`returns a non-empty Uint8Array for size ${size}`, async () => {
+      const vk = await openac.loadBundledShowVerifyingKey(size);
+      expect(vk).toBeInstanceOf(Uint8Array);
+      expect(vk.length).toBeGreaterThan(1_000_000); // ~3 MB
+    });
+  }
+
+  it.skipIf(!HAS_LOCAL_1K)(
+    "bundled show VK SHA-matches local ecdsa-spartan2 key",
+    async () => {
+      const bundled = await openac.loadBundledShowVerifyingKey("1k");
+      const local = new Uint8Array(
+        readFileSync(join(KEYS_DIR, "1k_show_verifying.key")),
+      );
+      expect(sha256Hex(bundled)).toBe(sha256Hex(local));
+    },
+  );
+});
+
+describe.skipIf(!HAS_LOCAL_1K)("OpenAC.loadKeys (in-memory)", () => {
+  let openac: OpenAC;
+
+  beforeAll(async () => {
+    const wasmModule = await loadWasmModule();
+    openac = await OpenAC.init({ assetsDir: ASSETS_DIR, wasmModule });
+  });
+
+  it("constructs a KeySet that round-trips through serialize()", async () => {
+    const local = loadLocalKeySet("1k");
+    const keys = await openac.loadKeys(local.serialize());
+
+    expect(keys.prepareProvingKey).toBe(local.prepareProvingKey);
+    expect(keys.prepareVerifyingKey).toBe(local.prepareVerifyingKey);
+    expect(keys.showProvingKey).toBe(local.showProvingKey);
+    expect(keys.showVerifyingKey).toBe(local.showVerifyingKey);
+
+    const vks = keys.verifyingKeys();
+    expect(vks.prepareVerifyingKey).toBe(local.prepareVerifyingKey);
+    expect(vks.showVerifyingKey).toBe(local.showVerifyingKey);
+
+    const re = keys.serialize();
+    expect(re.prepareProvingKey).toBe(local.prepareProvingKey);
+    expect(sha256Hex(re.showVerifyingKey)).toBe(sha256Hex(local.showVerifyingKey));
+  });
+});
+
+describe.skipIf(!HAS_R2)("OpenAC.loadKeysFromUrl (R2)", () => {
+  let openac: OpenAC;
+
+  beforeAll(async () => {
+    const wasmModule = await loadWasmModule();
+    openac = await OpenAC.init({ assetsDir: ASSETS_DIR, wasmModule });
+  });
+
+  it("fetches a complete 1k key bundle via explicit baseUrl", async () => {
+    const keys = await openac.loadKeysFromUrl("1k", R2_BASE_URL);
+    expect(keys.prepareProvingKey.length).toBeGreaterThan(10_000_000);
+    expect(keys.prepareVerifyingKey.length).toBeGreaterThan(10_000_000);
+    expect(keys.showProvingKey.length).toBeGreaterThan(1_000_000);
+    expect(keys.showVerifyingKey.length).toBeGreaterThan(1_000_000);
+  }, 1_800_000);
+
+  it.skipIf(!HAS_LOCAL_1K)(
+    "remote keys SHA-match local source-of-truth keys",
+    async () => {
+      const keys = await openac.loadKeysFromUrl("1k", R2_BASE_URL);
+      const localShowVk = new Uint8Array(
+        readFileSync(join(KEYS_DIR, "1k_show_verifying.key")),
+      );
+      const localShowPk = new Uint8Array(
+        readFileSync(join(KEYS_DIR, "1k_show_proving.key")),
+      );
+      expect(sha256Hex(keys.showVerifyingKey)).toBe(sha256Hex(localShowVk));
+      expect(sha256Hex(keys.showProvingKey)).toBe(sha256Hex(localShowPk));
+    },
+    1_800_000,
+  );
+
+  it("uses keysBaseUrl from OpenACConfig when no URL arg passed", async () => {
+    const wasmModule = await loadWasmModule();
+    const configured = await OpenAC.init({
+      assetsDir: ASSETS_DIR,
+      wasmModule,
+      keysBaseUrl: R2_BASE_URL,
+    });
+    const keys = await configured.loadKeysFromUrl("1k");
+    expect(keys.showVerifyingKey.length).toBeGreaterThan(0);
+  }, 1_800_000);
+
+  it("rejects when a key file is missing from the bucket", async () => {
+    await expect(
+      openac.loadKeysFromUrl("1k", `${R2_BASE_URL}/nonexistent-prefix`),
+    ).rejects.toThrow();
+  }, 60_000);
+});
+
+describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
+  let openac: OpenAC;
+
+  beforeAll(async () => {
+    const wasmModule = await loadWasmModule();
+    openac = await OpenAC.init({ assetsDir: ASSETS_DIR, wasmModule });
+  });
+
+  it("proves a claim-to-claim predicate by claim name", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+    expect(precomputed.normalizedClaimValues.length).toBeGreaterThan(0);
+    expect(precomputed.deviceKey.x).toBe(cred.devicePublicKey.x);
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "typed-dsl-c2c-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const result = await openac.verify(proof, keys.verifyingKeys());
+    expect(result.valid).toBe(true);
+    expect(result.expressionResult).toBe(true);
+    expect(result.deviceKey).toBeNull();
+  }, 600_000);
+
+  it("proves an age threshold with value: Date", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+    const cutoff = new Date(Date.UTC(2010, 0, 1));
+    const predicate = {
+      claim: "roc_birthday",
+      op: "<=" as const,
+      value: cutoff,
+    };
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: predicate,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "typed-dsl-age-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: predicate,
+    });
+
+    const result = await openac.verify(proof, keys.verifyingKeys());
+    expect(result.valid).toBe(true);
+    expect(result.expressionResult).toBe(true);
+  }, 600_000);
+
+  it("compiles `all` (AND) combinator into a single proof", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+
+    const expr = {
+      all: [
+        claimToClaimPredicate,
+        { claim: "roc_birthday", op: "<=" as const, value: new Date(Date.UTC(2010, 0, 1)) },
+      ],
+    };
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: expr,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "typed-dsl-all-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: expr,
+    });
+
+    const result = await openac.verify(proof, keys.verifyingKeys());
+    expect(result.valid).toBe(true);
+    expect(result.expressionResult).toBe(true);
+  }, 600_000);
+
+  it("verifyComponents verifies pre-split proofs", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "verifyComponents-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const result = await openac.verifyComponents(
+      proof.prepareProof,
+      proof.showProof,
+      keys.verifyingKeys(),
+      proof.prepareInstance,
+      proof.showInstance,
+    );
+    expect(result.valid).toBe(true);
+  }, 600_000);
+
+  it("verifyProof round-trips a serialized proof", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "verifyProof-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const serialized = proof.serialize();
+    expect(serialized.length).toBeGreaterThan(0);
+
+    const result = await openac.verifyProof(serialized, keys.verifyingKeys());
+    expect(result.valid).toBe(true);
+  }, 600_000);
+
+  it("rejects predicates referencing an unknown claim", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+
+    await expect(
+      openac.precompute({
+        jwt: cred.jwt,
+        disclosures: cred.disclosures,
+        issuerPublicKey: cred.issuerPublicKey,
+        keys,
+        predicates: { claim: "this_claim_does_not_exist", op: ">=", value: 1 },
+      }),
+    ).rejects.toThrow(/unknown claim/i);
+  }, 60_000);
+});
+
+describe.skipIf(!HAS_R2)("Full pipeline with keys fetched from R2", () => {
+  it("end-to-end via loadKeysFromUrl and typed predicates", async () => {
+    const wasmModule = await loadWasmModule();
+    const openac = await OpenAC.init({
+      assetsDir: ASSETS_DIR,
+      wasmModule,
+      keysBaseUrl: R2_BASE_URL,
+    });
+
+    const cred = makeDummy1k();
+    const keys = await openac.loadKeysFromUrl("1k");
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "sdk-e2e-r2-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const result = await openac.verify(proof, keys.verifyingKeys());
+    expect(result.valid).toBe(true);
+    expect(result.expressionResult).toBe(true);
+  }, 2_400_000);
+
+  it("verifies with bundled show VK + remote prepare VK (hybrid offline-friendly)", async () => {
+    const wasmModule = await loadWasmModule();
+    const openac = await OpenAC.init({ assetsDir: ASSETS_DIR, wasmModule });
+
+    const cred = makeDummy1k();
+    const keys = await openac.loadKeysFromUrl("1k", R2_BASE_URL);
+    const bundledShowVk = await openac.loadBundledShowVerifyingKey("1k");
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "sdk-e2e-hybrid-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    expect(sha256Hex(bundledShowVk)).toBe(sha256Hex(keys.showVerifyingKey));
+    const result = await openac.verify(proof, {
+      prepareVerifyingKey: keys.prepareVerifyingKey,
+      showVerifyingKey: bundledShowVk,
+    });
+    expect(result.valid).toBe(true);
+  }, 2_400_000);
+});
+
+describe("SDK e2e test configuration", () => {
+  it("reports active modes", () => {
+    const modes: string[] = [];
+    if (HAS_LOCAL_1K) modes.push("local-1k");
+    if (HAS_LOCAL_2K) modes.push("local-2k");
+    if (HAS_R2) modes.push(`remote (${R2_BASE_URL})`);
+    if (modes.length === 0) {
+      modes.push(
+        "none: provide local keys in ../ecdsa-spartan2/keys/ or set OPENAC_KEYS_URL",
+      );
+    }
+    expect(modes.length).toBeGreaterThan(0);
+    // eslint-disable-next-line no-console
+    console.log(`[sdk-e2e] active modes: ${modes.join(", ")}`);
+  });
+});

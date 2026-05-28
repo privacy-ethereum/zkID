@@ -10,7 +10,7 @@ export default function globalSetup() {
   const distDir = join(SDK_DIR, "dist");
 
   if (!existsSync(distDir)) {
-    console.log("\n[global-setup] dist/ not found — running npm run build...");
+    console.log("\n[global-setup] dist/ not found: running npm run build...");
     execSync("npm run build", { cwd: SDK_DIR, stdio: "inherit" });
     console.log("[global-setup] Build complete.\n");
   }

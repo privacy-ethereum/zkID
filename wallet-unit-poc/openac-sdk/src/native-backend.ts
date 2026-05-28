@@ -3,7 +3,7 @@
 // Node.js only.
 
 import { execFile } from "child_process";
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { existsSync, readdirSync } from "fs";
 import { promisify } from "util";
@@ -22,18 +22,42 @@ interface RunResult {
 
 const execFileAsync = promisify(execFile);
 
+export interface NativeBackendTimeouts {
+  defaultMs?: number;
+  setupPrepareMs?: number;
+  setupShowMs?: number;
+  provePrepareMs?: number;
+  proveShowMs?: number;
+  reblindPrepareMs?: number;
+  reblindShowMs?: number;
+  benchmarkMs?: number;
+}
+
 export interface NativeBackendConfig {
   binaryPath?: string;
   workDir?: string;
   inputDir?: string;
   env?: Record<string, string>;
+  timeouts?: NativeBackendTimeouts;
 }
+
+const DEFAULT_TIMEOUTS: Required<NativeBackendTimeouts> = {
+  defaultMs: 600_000,
+  setupPrepareMs: 1_200_000,
+  setupShowMs: 600_000,
+  provePrepareMs: 300_000,
+  proveShowMs: 120_000,
+  reblindPrepareMs: 300_000,
+  reblindShowMs: 120_000,
+  benchmarkMs: 1_800_000,
+};
 
 export class NativeBackend {
   private binaryPath: string;
   private workDir: string;
   private inputDir: string;
   private env: Record<string, string>;
+  private timeouts: Required<NativeBackendTimeouts>;
 
   constructor(config: NativeBackendConfig = {}) {
     this.binaryPath = config.binaryPath ?? this.findBinary();
@@ -44,6 +68,7 @@ export class NativeBackend {
       ...this.buildDylibEnv(),
       ...config.env,
     };
+    this.timeouts = { ...DEFAULT_TIMEOUTS, ...config.timeouts };
   }
 
   private findBinary(): string {
@@ -95,12 +120,13 @@ export class NativeBackend {
     return {};
   }
 
-  private async run(args: string[], timeoutMs = 600_000): Promise<RunResult> {
+  private async run(args: string[], timeoutMs?: number): Promise<RunResult> {
+    const effectiveTimeout = timeoutMs ?? this.timeouts.defaultMs;
     try {
       const { stdout, stderr } = await execFileAsync(this.binaryPath, args, {
         cwd: this.workDir,
         env: { ...process.env, ...this.env },
-        timeout: timeoutMs,
+        timeout: effectiveTimeout,
         maxBuffer: 10 * 1024 * 1024,
       });
       return { stdout, stderr };
@@ -117,13 +143,13 @@ export class NativeBackend {
   async setupPrepare(inputPath?: string): Promise<void> {
     const args = ["prepare", "setup"];
     if (inputPath) args.push("--input", inputPath);
-    await this.run(args, 1_200_000);
+    await this.run(args, this.timeouts.setupPrepareMs);
   }
 
   async setupShow(inputPath?: string): Promise<void> {
     const args = ["show", "setup"];
     if (inputPath) args.push("--input", inputPath);
-    await this.run(args, 600_000);
+    await this.run(args, this.timeouts.setupShowMs);
   }
 
   async setup(inputPath?: string): Promise<void> {
@@ -134,13 +160,13 @@ export class NativeBackend {
   async provePrepare(inputPath?: string): Promise<void> {
     const args = ["prepare", "prove"];
     if (inputPath) args.push("--input", inputPath);
-    await this.run(args, 300_000);
+    await this.run(args, this.timeouts.provePrepareMs);
   }
 
   async proveShow(inputPath?: string): Promise<void> {
     const args = ["show", "prove"];
     if (inputPath) args.push("--input", inputPath);
-    await this.run(args, 120_000);
+    await this.run(args, this.timeouts.proveShowMs);
   }
 
   async generateSharedBlinds(): Promise<void> {
@@ -148,11 +174,11 @@ export class NativeBackend {
   }
 
   async reblindPrepare(): Promise<void> {
-    await this.run(["prepare", "reblind"], 300_000);
+    await this.run(["prepare", "reblind"], this.timeouts.reblindPrepareMs);
   }
 
   async reblindShow(): Promise<void> {
-    await this.run(["show", "reblind"], 120_000);
+    await this.run(["show", "reblind"], this.timeouts.reblindShowMs);
   }
 
   async verifyPrepare(): Promise<NativeVerificationResult> {
@@ -176,7 +202,7 @@ export class NativeBackend {
   async runBenchmark(inputPath?: string): Promise<string> {
     const args = ["benchmark"];
     if (inputPath) args.push("--input", inputPath);
-    const { stdout, stderr } = await this.run(args, 1_800_000);
+    const { stdout, stderr } = await this.run(args, this.timeouts.benchmarkMs);
     return stdout + stderr;
   }
 
@@ -191,12 +217,6 @@ export class NativeBackend {
   async loadArtifact(filename: string): Promise<Uint8Array> {
     const path = join(this.workDir, "keys", filename);
     return new Uint8Array(await readFile(path));
-  }
-
-  async saveArtifact(filename: string, data: Uint8Array): Promise<void> {
-    const dir = join(this.workDir, "keys");
-    await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, filename), data);
   }
 
   async loadKeys(): Promise<KeySet> {
@@ -249,14 +269,6 @@ export class NativeBackend {
       showWitness: sw,
       sharedBlinds: sb,
     };
-  }
-
-  get directory(): string {
-    return this.workDir;
-  }
-
-  get keysDir(): string {
-    return join(this.workDir, "keys");
   }
 
   get keysExist(): boolean {

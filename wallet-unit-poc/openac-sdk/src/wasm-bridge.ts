@@ -1,16 +1,17 @@
 // Async loader and typed wrapper over the Spartan2 WASM module.
 // Provides high-level API methods aligned with the zkID paper protocol:
-// 1. loadKeys(baseUrl, vcSize)    — Fetch pre-generated keys (one-time, by VC size)
-// 2. precomputeFromWitness()      — Prove Prepare circuit (once per credential)
-// 3. precomputeShowFromWitness()  — Prove Show circuit (once per credential)
-// 4. present()                    — Reblind both proofs with shared randomness (per presentation)
-// 5. verify()                     — Verify both proofs + commitment check (per presentation)
+// 1. loadKeys(baseUrl, vcSize)    Fetch pre-generated keys (one-time, by VC size)
+// 2. precomputeFromWitness()      Prove Prepare circuit (once per credential)
+// 3. precomputeShowFromWitness()  Prove Show circuit (once per credential)
+// 4. present()                    Reblind both proofs with shared randomness (per presentation)
+// 5. verify()                     Verify both proofs + commitment check (per presentation)
 //
 // NOTE: Keys are generated offline via native CLI, not in browser.
 
 import { WasmError } from "./errors.js";
+import type { VcSize } from "./sizing.js";
 
-export type VcSize = "1k" | "2k" | "4k" | "8k";
+export type { VcSize } from "./sizing.js";
 
 interface WasmPrecomputeResult {
   proof: Uint8Array;
@@ -30,11 +31,6 @@ interface WasmVerifyResult {
   prepare_public_values: string[];
   show_public_values: string[];
   error: string | null;
-}
-
-interface WasmSingleVerifyResult {
-  valid: boolean;
-  public_values: string[];
 }
 
 interface OpenACWasmModule {
@@ -63,8 +59,6 @@ interface OpenACWasmModule {
     showVk: Uint8Array,
     showInstance: Uint8Array,
   ): WasmVerifyResult;
-  verify_single(proof: Uint8Array, vk: Uint8Array): WasmSingleVerifyResult;
-  compare_comm_w_shared(instance1: Uint8Array, instance2: Uint8Array): boolean;
 }
 
 export interface SetupKeys {
@@ -116,12 +110,28 @@ export class WasmBridge {
       this.wasm = module as OpenACWasmModule;
     } else {
       try {
+        // The wasm/pkg/openac_wasm.js module is generated at build time by
+        // `npm run build:wasm` (wasm-pack output, --target web). In Node the
+        // wasm binary must be loaded explicitly; browsers auto-fetch via the
+        // module's default export.
+        // @ts-ignore wasm-pack output is generated at runtime by build:wasm
         const module = await import("../wasm/pkg/openac_wasm.js");
+        const isNode = typeof process !== "undefined" && !!process.versions?.node;
+        if (isNode && typeof module.initSync === "function") {
+          const { readFile } = await import("fs/promises");
+          const { fileURLToPath } = await import("url");
+          const { dirname, join } = await import("path");
+          const here = dirname(fileURLToPath(import.meta.url));
+          const wasmBytes = await readFile(
+            join(here, "..", "wasm", "pkg", "openac_wasm_bg.wasm"),
+          );
+          module.initSync({ module: wasmBytes });
+        }
         this.wasm = module as OpenACWasmModule;
-      } catch {
+      } catch (e) {
         throw new WasmError(
           "WASM_LOAD_FAILED",
-          "Could not load bundled WASM module. Build it first (npm run build:wasm) or provide wasmPath.",
+          `Could not load bundled WASM module: ${e instanceof Error ? e.message : String(e)}. Build it first (npm run build:wasm) or provide wasmPath/wasmModule.`,
         );
       }
     }
@@ -265,24 +275,5 @@ export class WasmBridge {
         error: errorMessage,
       };
     }
-  }
-
-  /** @deprecated Use verify() instead */
-  async verifySingle(
-    proof: Uint8Array,
-    vk: Uint8Array,
-  ): Promise<{ valid: boolean; publicValues: string[] }> {
-    const wasm = this.getWasm();
-    const result = wasm.verify_single(proof, vk);
-    return { valid: result.valid, publicValues: result.public_values };
-  }
-
-  /** @deprecated Use verify() instead — commitment check is now internal */
-  compareCommWShared(
-    prepareInstance: Uint8Array,
-    showInstance: Uint8Array,
-  ): boolean {
-    const wasm = this.getWasm();
-    return wasm.compare_comm_w_shared(prepareInstance, showInstance);
   }
 }

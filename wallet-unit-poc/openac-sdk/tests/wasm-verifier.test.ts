@@ -33,7 +33,7 @@ function checkVerificationArtifactsExist(): boolean {
 }
 
 describe.skipIf(!checkVerificationArtifactsExist())(
-  "WASM Verifier — Artifact Availability",
+  "WASM Verifier: Artifact Availability",
   () => {
     it("should have WASM module built", () => {
       expect(existsSync(join(WASM_PKG_DIR, "openac_wasm.js"))).toBe(true);
@@ -54,7 +54,7 @@ describe.skipIf(!checkVerificationArtifactsExist())(
   },
 );
 
-describe("WASM Verifier — Class Structure", () => {
+describe("WASM Verifier: Class Structure", () => {
   it("should instantiate Verifier with WasmBridge", () => {
     const bridge = new WasmBridge();
     const verifier = new Verifier(bridge);
@@ -75,7 +75,7 @@ describe("WASM Verifier — Class Structure", () => {
 });
 
 describe.skipIf(!checkVerificationArtifactsExist())(
-  "WASM Verifier — WasmBridge Initialization",
+  "WASM Verifier: WasmBridge Initialization",
   () => {
     it("should load WASM module synchronously", async () => {
       const bridge = new WasmBridge();
@@ -99,7 +99,7 @@ describe.skipIf(!checkVerificationArtifactsExist())(
 );
 
 describe.skipIf(!checkVerificationArtifactsExist())(
-  "WASM Verifier — Pre-generated Proof Verification (Browser Only)",
+  "WASM Verifier: Pre-generated Proof Verification (Browser Only)",
   () => {
     let bridge: WasmBridge;
     let verifier: Verifier;
@@ -224,7 +224,8 @@ describe.skipIf(!checkVerificationArtifactsExist())(
 
       expect(result.valid).toBe(true);
       expect(typeof result.expressionResult).toBe("boolean");
-      expect(result.deviceKey).not.toBeNull();
+      // Device key is no longer a verifier-observable public output of Show.
+      expect(result.deviceKey).toBeNull();
       expect(result.verifyMs).toBeGreaterThan(0);
     }, 30_000);
   },

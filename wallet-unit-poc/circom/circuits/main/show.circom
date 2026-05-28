@@ -3,4 +3,4 @@ pragma circom 2.2.3;
 
 include "../show.circom";
 
-component main {public[deviceKeyX, deviceKeyY]} = Show(2, 2, 8, 64);
+component main = Show(2, 2, 8, 64);

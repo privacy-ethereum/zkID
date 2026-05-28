@@ -593,3 +593,70 @@ pub fn mdoc_hashmap_to_json_string(
 
     serde_json::to_string(&json_map).map_err(|_| SynthesisError::Unsatisfiable)
 }
+
+#[cfg(test)]
+mod show_witness_indices_tests {
+    use super::*;
+
+    /// Catches witness-layout drift between show.sym and calculate_show_witness_indices,
+    /// which would silently break the Prepare<->Show commitment binding.
+    #[test]
+    fn witness_indices_match_show_sym() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let sym_path = std::path::Path::new(manifest_dir)
+            .join("../circom/build/show/show.sym");
+        if !sym_path.exists() {
+            eprintln!(
+                "show.sym not found at {}; skipping (run `bash ../circom/scripts/compile.sh show`).",
+                sym_path.display()
+            );
+            return;
+        }
+
+        let contents = std::fs::read_to_string(&sym_path).expect("read show.sym");
+        let idx_of = |name: &str| -> Option<usize> {
+            for line in contents.lines() {
+                let mut parts = line.split(',');
+                let _ = parts.next();
+                let witness_idx = parts.next()?;
+                let _ = parts.next();
+                let signal = parts.next()?.trim();
+                if signal == name {
+                    let parsed: i64 = witness_idx.parse().ok()?;
+                    if parsed < 0 {
+                        return None;
+                    }
+                    return Some(parsed as usize);
+                }
+            }
+            None
+        };
+
+        let expression_result = idx_of("main.expressionResult")
+            .expect("main.expressionResult missing from show.sym");
+        let device_key_x =
+            idx_of("main.deviceKeyX").expect("main.deviceKeyX missing from show.sym");
+        let device_key_y =
+            idx_of("main.deviceKeyY").expect("main.deviceKeyY missing from show.sym");
+        let claim0 =
+            idx_of("main.claimValues[0]").expect("main.claimValues[0] missing from show.sym");
+
+        let layout = calculate_show_witness_indices(2);
+        assert_eq!(
+            layout.expression_result_index, expression_result,
+            "expressionResult witness index mismatch with show.sym"
+        );
+        assert_eq!(
+            layout.device_key_x_index, device_key_x,
+            "deviceKeyX witness index mismatch with show.sym (recompile show and update utils.rs)"
+        );
+        assert_eq!(
+            layout.device_key_y_index, device_key_y,
+            "deviceKeyY witness index mismatch with show.sym (recompile show and update utils.rs)"
+        );
+        assert_eq!(
+            layout.claim_values_start, claim0,
+            "claimValues[0] witness index mismatch with show.sym"
+        );
+    }
+}

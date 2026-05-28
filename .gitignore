@@ -19,6 +19,8 @@
 # OpenAC SDK build artifacts
 wallet-unit-poc/openac-sdk/assets/*.r1cs
 wallet-unit-poc/openac-sdk/assets/*.wasm
+wallet-unit-poc/openac-sdk/assets/keys/
+*.key
 
 # Web demo build artifacts
 wallet-unit-poc/web-demo/dist/

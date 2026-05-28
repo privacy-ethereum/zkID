@@ -32,7 +32,8 @@ describe("WitnessCalculator", () => {
         claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
         predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
         predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
-        predicateCompareValues: inputJson.predicateCompareValues.map((v: string) => BigInt(v)),
+        predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),
+        predicateRhsValues: inputJson.predicateRhsValues.map((v: string) => BigInt(v)),
         tokenTypes: inputJson.tokenTypes.map((v: string) => BigInt(v)),
         tokenValues: inputJson.tokenValues.map((v: string) => BigInt(v)),
         exprLen: BigInt(inputJson.exprLen),
@@ -41,7 +42,8 @@ describe("WitnessCalculator", () => {
       const witness = await calculator.calculateShowWitness(inputs);
 
       expect(witness[0]).toBe(1n);
-      // w[1] = expressionResult, w[2] = deviceKeyX, w[3] = deviceKeyY
+      // Witness layout (unchanged by the device-key-hiding fix): w[1] = expressionResult,
+      // w[2] = deviceKeyX, w[3] = deviceKeyY. After the fix, only w[1] is verifier-observable.
       expect(witness[2]).toBe(BigInt(inputJson.deviceKeyX));
       expect(witness[3]).toBe(BigInt(inputJson.deviceKeyY));
     }, 30_000);
@@ -61,7 +63,8 @@ describe("WitnessCalculator", () => {
         claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
         predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
         predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
-        predicateCompareValues: inputJson.predicateCompareValues.map((v: string) => BigInt(v)),
+        predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),
+        predicateRhsValues: inputJson.predicateRhsValues.map((v: string) => BigInt(v)),
         tokenTypes: inputJson.tokenTypes.map((v: string) => BigInt(v)),
         tokenValues: inputJson.tokenValues.map((v: string) => BigInt(v)),
         exprLen: BigInt(inputJson.exprLen),

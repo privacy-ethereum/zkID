@@ -17,7 +17,11 @@
     "0",
     "2"
   ],
-  "predicateCompareValues": [
+  "predicateRhsIsRef": [
+    "0",
+    "0"
+  ],
+  "predicateRhsValues": [
     "1070101",
     "1040605"
   ],
