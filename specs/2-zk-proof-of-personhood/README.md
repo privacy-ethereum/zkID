@@ -110,7 +110,7 @@ Where:
 - `canonical_message(app_id)` is a deterministic, fixed-length byte sequence uniquely determined by `app_id` (see [Canonical Signed-Message Requirement](#canonical-signed-message-requirement)),
 - `Poseidon` is the Poseidon hash function (see [Cryptographic Primitives](#cryptographic-primitives)).
 
-The nullifier is computed in the DeviceSig circuit, not the CertChain circuit (see [Circuit Design](#circuit-design)).
+The nullifier is computed in the UserSig circuit, not the CertChain circuit (see [Circuit Design](#circuit-design)).
 
 Because the nullifier derivation requires the card's private key, an adversary cannot compute nullifiers without possession of the card.
 
