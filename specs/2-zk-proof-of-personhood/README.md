@@ -265,7 +265,7 @@ The CertChain circuit MUST enforce:
 
    Local tag/length checks (e.g., `tbs[offset-2] == 0x02 && 0 < tbs[offset-1] <= 20`) are insufficient: a typical X.509 TBS contains multiple ASN.1 INTEGER positions (version, modulus, exponent, extension contents) that satisfy such checks. A malicious prover could redirect the offset to any of them and obtain a non-canonical "serial number" that is provably not in the revocation tree, bypassing revocation. See [DER-Offset Structural Binding](#der-offset-structural-binding).
 
-   Implementations that restrict issuer TBSes to v3 (the typical MOICA case) SHOULD pin the version block bytes (`[0xa0, 0x03, 0x02, 0x01, 0x02]` at TBS offsets `[4..8]`) as constants. Implementations that accept additional X.509 versions SHOULD document the supported version set and the corresponding canonical serial-number offsets. The reference zkmopro/zkID implementation currently accepts both v1 and v3 issuer TBSes; see [`audit_report_v3.md` INFO finding](https://github.com/zkmopro/zkID/blob/b4f151dd20339cbec9f3b89f40497b6aca6bca55/wallet-unit-poc/circom/audit_report_v3.md).
+   Implementations that restrict issuer TBSes to v3 (the typical MOICA case) SHOULD pin the version block bytes (`[0xa0, 0x03, 0x02, 0x01, 0x02]` at TBS offsets `[4..8]`) as constants. Implementations that accept additional X.509 versions SHOULD document the supported version set and the corresponding canonical serial-number offsets. The reference privacy-ethereum/zkID implementation currently accepts both v1 and v3 issuer TBSes; see [`audit_report_v3.md` INFO finding](https://github.com/privacy-ethereum/zkID/blob/b4f151dd20339cbec9f3b89f40497b6aca6bca55/wallet-unit-poc/circom/audit_report_v3.md).
 
 3. **Non-inclusion of the revocation list**
 
