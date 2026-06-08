@@ -173,7 +173,8 @@ jobs:
               if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/RSA-X.509-Cert')
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: latest
+                  tag_name: ${{ github.ref == 'refs/heads/main' && 'latest' || 'RSA-X.509-Cert-latest' }}
+                  name: ${{ github.ref == 'refs/heads/main' && 'latest' || 'RSA-X.509-Cert (latest build)' }}
                   make_latest: false
                   files: |
                       wallet-unit-poc/mobile/MoproiOSBindings/MoproBindings.xcframework.zip
@@ -184,7 +185,8 @@ jobs:
               if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/RSA-X.509-Cert')
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: latest
+                  tag_name: ${{ github.ref == 'refs/heads/main' && 'latest' || 'RSA-X.509-Cert-latest' }}
+                  name: ${{ github.ref == 'refs/heads/main' && 'latest' || 'RSA-X.509-Cert (latest build)' }}
                   make_latest: false
                   files: |
                       wallet-unit-poc/mobile/MoproiOSBindings/mopro.swift
@@ -231,7 +233,8 @@ jobs:
               if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/RSA-X.509-Cert')
               uses: softprops/action-gh-release@v2
               with:
-                  tag_name: latest
+                  tag_name: ${{ github.ref == 'refs/heads/main' && 'latest' || 'RSA-X.509-Cert-latest' }}
+                  name: ${{ github.ref == 'refs/heads/main' && 'latest' || 'RSA-X.509-Cert (latest build)' }}
                   make_latest: false
                   files: |
                       wallet-unit-poc/mobile/MoproAndroidBindings.zip
