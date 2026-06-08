@@ -186,6 +186,47 @@ Implementations MUST:
 7. Generate proofs for both circuits (see [Circuit Design](#circuit-design)).
 8. Submit both proofs and their public inputs to the verifier.
 
+The following sequence diagram is informative:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant V as Verifier / Forum
+    participant P as Prover / User
+    participant C as MOICA card
+    participant R as Revocation SMT Storage
+
+    V->>P: Send verification request
+
+    par Collect credential inputs
+        P->>C: Request credential and user signature inputs
+        C-->>P: Return credential data
+    and Collect status inputs
+        P->>R: Request revocation status data
+        R-->>P: Return revocation status data
+    end
+
+    rect rgb(245, 245, 245)
+        Note over P: Generate linked ZK proofs
+
+        P->>P: CertChain circuit:<br/>prove credential validity<br/>and revocation status
+
+        P->>P: UserSig circuit:<br/>prove user possession<br/>and derive app-specific nullifier
+
+        P->>P: Link both proofs to the same credential
+    end
+
+    P-->>V: Send proof package
+
+    V->>V: Verify proofs, linkage,<br/>revocation status, and nullifier uniqueness
+
+    alt Verification succeeds
+        V-->>P: Accept verification
+    else Verification fails
+        V-->>P: Reject verification
+    end
+```
+
 ## Circuit Design
 
 The proof pipeline is split into two linked sub-circuits: a **CertChain** circuit for credential verification and a **DeviceSig** circuit for session binding and nullifier derivation.
