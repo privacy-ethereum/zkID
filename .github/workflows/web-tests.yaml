@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - main
+            - RSA-X.509-Cert
         paths:
             - "wallet-unit-poc/spartan2-wasm/**"
             - "wallet-unit-poc/web/**"
@@ -213,7 +214,7 @@ jobs:
 
     publish-wasm:
         needs: wasm-crate-tests
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/RSA-X.509-Cert')
         runs-on: ubuntu-latest
 
         permissions:
@@ -243,6 +244,7 @@ jobs:
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: latest
+                  make_latest: false
                   files: |
                       wallet-unit-poc/spartan2-wasm/pkg/spartan2_wasm.js.gz
                       wallet-unit-poc/spartan2-wasm/pkg/spartan2_wasm_bg.wasm.gz

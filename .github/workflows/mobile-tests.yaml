@@ -8,6 +8,7 @@ on:
     push:
         branches:
             - main
+            - RSA-X.509-Cert
         paths:
             - "wallet-unit-poc/mobile/**"
             - "wallet-unit-poc/ecdsa-spartan2/**"
@@ -169,20 +170,22 @@ jobs:
                   zip -r MoproBindings.xcframework.zip MoproBindings.xcframework
 
             - name: Upload release xcframework to GitHub Release
-              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/RSA-X.509-Cert')
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: latest
+                  make_latest: false
                   files: |
                       wallet-unit-poc/mobile/MoproiOSBindings/MoproBindings.xcframework.zip
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Upload release swift to GitHub Release
-              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/RSA-X.509-Cert')
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: latest
+                  make_latest: false
                   files: |
                       wallet-unit-poc/mobile/MoproiOSBindings/mopro.swift
               env:
@@ -225,10 +228,11 @@ jobs:
                   zip -r MoproAndroidBindings.zip MoproAndroidBindings
 
             - name: Upload release assets to GitHub Release
-              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/RSA-X.509-Cert')
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: latest
+                  make_latest: false
                   files: |
                       wallet-unit-poc/mobile/MoproAndroidBindings.zip
               env:

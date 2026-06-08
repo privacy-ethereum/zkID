@@ -4,6 +4,7 @@ on:
     push:
         branches:
             - main
+            - RSA-X.509-Cert
         paths:
             - "wallet-unit-poc/ecdsa-spartan2/**"
             - "wallet-unit-poc/zkid-input-builder/**"
@@ -173,10 +174,11 @@ jobs:
                   done
 
             - name: Upload artifacts to GitHub Release
-              if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+              if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/RSA-X.509-Cert')
               uses: softprops/action-gh-release@v2
               with:
                   tag_name: latest
+                  make_latest: false
                   files: |
                       wallet-unit-poc/ecdsa-spartan2/keys/cert_chain_rs2048_proving.key.gz
                       wallet-unit-poc/ecdsa-spartan2/keys/cert_chain_rs2048_verifying.key.gz
