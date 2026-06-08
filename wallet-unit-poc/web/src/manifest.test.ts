@@ -16,7 +16,7 @@ import {
 const KEYS_API =
   "https://api.github.com/repos/zkmopro/zkID/releases/tags/latest";
 const SMT_API =
-  "https://api.github.com/repos/moven0831/moica-revocation-smt/releases/tags/snapshot-latest";
+  "https://api.github.com/repos/privacy-ethereum/moica-revocation-smt/releases/tags/snapshot-latest";
 
 interface FakeAsset {
   name: string;

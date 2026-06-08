@@ -86,7 +86,7 @@ All other signals (user cert bytes, RSA signatures, SMT proof path,
 
 Revocation uses a Sparse Merkle Tree non-membership proof against the SMT
 maintained by the
-[`moica-revocation-smt`](https://github.com/moven0831/moica-revocation-smt)
+[`moica-revocation-smt`](https://github.com/privacy-ethereum/moica-revocation-smt)
 service. Circuit A verifies that the cert's `serialNumber` is not present in
 the tree rooted at `smtRoot`.
 
