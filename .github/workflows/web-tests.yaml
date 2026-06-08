@@ -27,9 +27,11 @@ on:
 env:
     NODE_VERSION: "20"
     PNPM_VERSION: "10"
-    # Must match the `wasm-bindgen` version resolved in
-    # wallet-unit-poc/spartan2-wasm/Cargo.lock. Bump both together.
-    WASM_BINDGEN_CLI_VERSION: "0.2.118"
+    # Must match the `wasm-bindgen` version resolved in the workspace-root
+    # Cargo.lock. spartan2-wasm is a workspace member, so the root lock governs
+    # the wasm build (NOT the stale standalone spartan2-wasm/Cargo.lock). Bump
+    # both together.
+    WASM_BINDGEN_CLI_VERSION: "0.2.122"
 
 jobs:
     compile-circuits:
