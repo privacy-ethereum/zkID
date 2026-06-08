@@ -746,8 +746,8 @@ When the verification flow requires PIN entry (e.g., for smartcard-based certifi
 - [MOICA Certificate Revocation List](https://moica.nat.gov.tw/del.html)
 - [Client-side SMT proof generation for revocation privacy](https://github.com/zkmopro/ZK-based-Human-Verification/issues/16)
 - [Exploring Spartan2 Proofs for On-Chain Verification](https://github.com/zkmopro/zkID/blob/main/wallet-unit-poc/onchain-research.md)
-- [Circuit Audit Report v2 (zkmopro/zkID)](https://github.com/zkmopro/zkID/blob/main/wallet-unit-poc/circom/audit_report_v2.md)
-- [Circuit Audit Report v3 — post-fix re-audit (zkmopro/zkID)](https://github.com/zkmopro/zkID/blob/main/wallet-unit-poc/circom/audit_report_v3.md)
+- [Circuit Audit Report v2 (privacy-ethereum/zkID)](https://github.com/privacy-ethereum/zkID/blob/main/wallet-unit-poc/circom/audit_report_v2.md)
+- [Circuit Audit Report v3 — post-fix re-audit (privacy-ethereum/zkID)](https://github.com/privacy-ethereum/zkID/blob/main/wallet-unit-poc/circom/audit_report_v3.md)
 
 # Glossary
 
