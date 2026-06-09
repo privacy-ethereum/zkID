@@ -27,7 +27,7 @@ function hasNativeArtifacts(): boolean {
 }
 
 describe.skipIf(!hasNativeArtifacts())(
-  "Native Backend — Artifact Existence",
+  "Native Backend: Artifact Existence",
   () => {
     it("should find pre-generated keys directory", () => {
       expect(existsSync(KEYS_DIR)).toBe(true);
@@ -65,7 +65,8 @@ describe("Age Verification", () => {
       claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
       predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
       predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
-      predicateCompareValues: inputJson.predicateCompareValues.map((v: string) => BigInt(v)),
+      predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),
+      predicateRhsValues: inputJson.predicateRhsValues.map((v: string) => BigInt(v)),
       tokenTypes: inputJson.tokenTypes.map((v: string) => BigInt(v)),
       tokenValues: inputJson.tokenValues.map((v: string) => BigInt(v)),
       exprLen: BigInt(inputJson.exprLen),

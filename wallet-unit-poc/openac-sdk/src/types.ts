@@ -5,6 +5,7 @@ export interface OpenACConfig {
   assetsDir?: string;
   artifacts?: CircuitArtifacts;
   memory?: { initial?: number; maximum?: number };
+  keysBaseUrl?: string;
 }
 
 export interface CircuitArtifacts {
@@ -29,7 +30,6 @@ export interface ShowCircuitParams {
   valueBits: number;
 }
 
-// Default circuit parameters matching production circom configuration
 export const DEFAULT_JWT_PARAMS: JwtCircuitParams = {
   maxMessageLength: 1920,
   maxB64PayloadLength: 1900,
@@ -45,7 +45,6 @@ export const DEFAULT_SHOW_PARAMS: ShowCircuitParams = {
   valueBits: 64,
 };
 
-// ECDSA P-256 public key in JWK format
 export interface EcdsaPublicKey {
   kty: "EC";
   crv: "P-256";
@@ -62,48 +61,9 @@ export interface PemPublicKey {
 
 export type IssuerPublicKey = EcdsaPublicKey | PemPublicKey;
 
-export interface ProofRequest {
-  jwt: string;
-  disclosures: string[];
-  issuerPublicKey: IssuerPublicKey;
-  devicePrivateKey: EcdsaPrivateKey;
-  verifierNonce: string;
-  birthdayClaimIndex?: number;
-  currentDate?: Date;
-  keys?: KeySet;
-  jwtParams?: JwtCircuitParams;
-  showParams?: ShowCircuitParams;
-  decodeFlags?: number[];
-  additionalMatches?: string[];
-}
-
-export interface ProofResult {
-  prepareProof: Uint8Array;
-  showProof: Uint8Array;
-  prepareInstance: Uint8Array;
-  showInstance: Uint8Array;
-  publicValues: ProofPublicValues;
-  timing: ProofTiming;
-  serialize(): Uint8Array;
-  toBase64(): string;
-  toJSON(): SerializedProofJSON;
-}
-
 export interface ProofPublicValues {
   expressionResult: boolean;
-  deviceKeyX: string;
-  deviceKeyY: string;
   normalizedClaimValues: bigint[];
-}
-
-export interface ProofTiming {
-  setupMs?: number;
-  generateBlindsMs: number;
-  prepareProveMs: number;
-  prepareReblindMs: number;
-  showProveMs: number;
-  showReblindMs: number;
-  totalMs: number;
 }
 
 export interface VerifyingKeys {
@@ -114,7 +74,8 @@ export interface VerifyingKeys {
 export interface VerificationResult {
   valid: boolean;
   expressionResult: boolean | null;
-  deviceKey: { x: string; y: string } | null;
+  /** Always null. The device-key binding flows through comm_W_shared, not a public output. */
+  deviceKey: null;
   verifyMs: number;
   error?: string;
 }
@@ -143,8 +104,6 @@ export interface SerializedProofJSON {
   showInstance: string; // base64
   publicValues: {
     expressionResult: boolean;
-    deviceKeyX: string;
-    deviceKeyY: string;
   };
 }
 
@@ -170,7 +129,6 @@ export type ErrorCode =
   | "WASM_OOM"
   | "WASM_NOT_INITIALIZED";
 
-// A parsed SD-JWT disclosure
 export interface DisclosedClaim {
   index: number;
   salt: string;
@@ -180,7 +138,6 @@ export interface DisclosedClaim {
   digest: string; // SHA-256 of disclosure (base64url, matches _sd array)
 }
 
-// Raw WASM module exports (internal)
 export interface WasmExports {
   setup_prepare(
     r1csBytes: Uint8Array,
@@ -218,7 +175,6 @@ export interface WasmExports {
   ): Promise<Uint8Array>;
 }
 
-// Raw circuit inputs for the JWT (Prepare) circuit
 export interface JwtCircuitInputs {
   sig_r: bigint;
   sig_s_inverse: bigint;
@@ -237,7 +193,6 @@ export interface JwtCircuitInputs {
   claimFormats: bigint[];
 }
 
-// Raw circuit inputs for the Show circuit
 export interface ShowCircuitInputs {
   deviceKeyX: bigint;
   deviceKeyY: bigint;
@@ -248,7 +203,8 @@ export interface ShowCircuitInputs {
   claimValues: bigint[];
   predicateClaimRefs: bigint[];
   predicateOps: bigint[];
-  predicateCompareValues: bigint[];
+  predicateRhsIsRef: bigint[];
+  predicateRhsValues: bigint[];
   tokenTypes: bigint[];
   tokenValues: bigint[];
   exprLen: bigint;
@@ -259,11 +215,9 @@ export interface PrecomputeRequest {
   disclosures: string[];
   issuerPublicKey: IssuerPublicKey;
   keys: KeySet;
-  jwtParams?: JwtCircuitParams;
-  birthdayClaimIndex?: number;
-  decodeFlags?: number[];
-  claimFormats?: number[];
-  additionalMatches?: string[];
+
+  /** Predicates the holder wants to prove. Drives format inference and vcSize selection. */
+  predicates: import("./predicates.js").PredicateExpression;
 }
 
 export interface SerializedCredential {
@@ -280,6 +234,13 @@ export interface PrecomputedCredential {
   birthdayClaimIndex: number;
   birthdayClaim: string;
   deviceKey: EcdsaPublicKey;
+  /**
+   * Normalized claim values extracted from the JWT circuit witness. Required
+   * input to the Show circuit's predicate evaluation. Consumers that use the
+   * typed predicate DSL never need to read this; `present()` consumes it
+   * internally. Exposed so cached credentials survive serialize/deserialize.
+   */
+  normalizedClaimValues: bigint[];
   timing: PrecomputeTiming;
   serialize(): Uint8Array;
   toJSON(): SerializedPrecomputedCredentialJSON;
@@ -302,6 +263,7 @@ export interface SerializedPrecomputedCredentialJSON {
   birthdayClaimIndex: number;
   birthdayClaim: string;
   deviceKey: EcdsaPublicKey;
+  normalizedClaimValues: string[]; // bigints serialized as decimal strings
 }
 
 export interface PresentRequest {
@@ -309,8 +271,9 @@ export interface PresentRequest {
   verifierNonce: string;
   devicePrivateKey: EcdsaPrivateKey;
   keys: KeySet;
-  showParams?: ShowCircuitParams;
-  showInputOptions?: import("./inputs/show-input-builder.js").ShowInputOptions;
+
+  /** Predicates to evaluate against the precomputed credential. */
+  predicates: import("./predicates.js").PredicateExpression;
 }
 
 export interface PresentationProof {

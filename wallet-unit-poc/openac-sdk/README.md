@@ -1,15 +1,6 @@
 # openac-sdk
 
-ZK proof SDK for SD-JWT credentials. Prove predicates (age >= 18, etc.) without revealing claim values.
-
-Built on [zkID](https://github.com/privacy-scaling-explorations/zkID) (Spartan2 + Hyrax over secp256r1).
-
-## Two-Circuit Protocol
-
-1. **Prepare** — Verify JWT signature (ES256), extract device key, normalize claims
-2. **Show** — Prove device key ownership, evaluate predicates over claims
-
-Both proofs share a blinded witness commitment (`comm_W_shared`).
+ZK proof SDK for SD-JWT credentials. Prove predicates (`age >= 18`, `balance <= credit_limit`, etc.) without revealing claim values. Built on Spartan2 + Hyrax over secp256r1.
 
 ## Install
 
@@ -17,142 +8,147 @@ Both proofs share a blinded witness commitment (`comm_W_shared`).
 npm install openac-sdk
 ```
 
-## Usage
+Node 18+. Browser usage requires preloading WASM and passing `wasmModule` to `OpenAC.init`.
 
-### Prover: Precompute + Present
+## Quickstart
 
 ```typescript
-import { OpenAC, PredicateOp } from "openac-sdk";
+import { OpenAC } from "openac-sdk";
 
-const openac = await OpenAC.init({ assetsDir: "./assets" });
-const keys = await openac.loadKeysFromUrl("https://cdn.example/keys", "1k");
+const openac = await OpenAC.init();
+const keys = await openac.loadKeysFromUrl("1k");
 
-// Precompute (once per credential, ~2s)
+const predicate = {
+  claim: "roc_birthday",
+  op: "<=" as const,
+  value: new Date("2008-01-01"),
+};
+
+// Precompute once per credential. Pass the predicate so format inference works.
 const precomputed = await openac.precompute({
   jwt: sdJwtToken,
   disclosures: ["WyJzYWx0...", "..."],
   issuerPublicKey: { kty: "EC", crv: "P-256", x: "...", y: "..." },
   keys,
+  predicates: predicate,
 });
 
-// Present (per verification, ~100ms)
+// Present per verifier session.
 const proof = await openac.present({
   precomputed,
   verifierNonce: "challenge-123",
   devicePrivateKey: "0xabcdef...",
   keys,
-  showInputOptions: {
-    normalizedClaimValues: [890615n],
-    predicates: [{ claimRef: 0, op: PredicateOp.GE, compareValue: 18n }],
-  },
-});
-```
-
-### Verifier
-
-```typescript
-const openac = await OpenAC.init();
-
-const result = await openac.verify(proof, {
-  prepareVerifyingKey: /* Uint8Array */,
-  showVerifyingKey: /* Uint8Array */,
+  predicates: predicate,
 });
 
-result.valid;            // true
-result.expressionResult; // true (predicate passed)
-result.deviceKey;        // { x: '0x...', y: '0x...' }
-```
-
-### One-Shot (no precompute/present split)
-
-```typescript
-const proof = await openac.createProof({
-  jwt: sdJwtToken,
-  disclosures,
-  issuerPublicKey,
-  devicePrivateKey: "0xabcdef...",
-  verifierNonce: "challenge-123",
-  keys,
-});
-
-const result = await openac.verifyProof(proof.serialize(), verifyingKeys);
+const result = await openac.verify(proof, keys.verifyingKeys());
+console.log(result.valid, result.expressionResult);
 ```
 
 ## Predicates
 
 ```typescript
-import { PredicateOp, LogicToken, buildShowCircuitInputs, DEFAULT_SHOW_PARAMS } from "openac-sdk";
+// Literal comparison
+{ claim: "age", op: ">=", value: 18 }
 
-// claim[0] >= 18 AND claim[1] == 1
-const showInputs = buildShowCircuitInputs(DEFAULT_SHOW_PARAMS, nonce, sig, deviceKey, {
-  normalizedClaimValues: [25n, 1n],
-  predicates: [
-    { claimRef: 0, op: PredicateOp.GE, compareValue: 18n },
-    { claimRef: 1, op: PredicateOp.EQ, compareValue: 1n },
+// Date (auto-encoded to ROC date format)
+{ claim: "roc_birthday", op: "<=", value: new Date("2008-01-01") }
+
+// Claim-to-claim
+{ claim: "balance", op: "<=", compareTo: { claim: "credit_limit" } }
+
+// Nested boolean composition
+{
+  all: [
+    { claim: "age", op: ">=", value: 18 },
+    {
+      any: [
+        { claim: "kyc_tier", op: "==", value: 2 },
+        { claim: "kyc_tier", op: "==", value: 3 },
+      ],
+    },
   ],
-  logicExpression: [
-    { type: LogicToken.REF, value: 0 },
-    { type: LogicToken.REF, value: 1 },
-    { type: LogicToken.AND, value: 0 },
-  ],
+}
+```
+
+**Operators**: `"<="`, `">="`, `"=="`
+**Value types**: `bigint`, `number`, `Date`, `string`
+**Combinators**: `all`, `any`, `not` (nest arbitrarily)
+**Format**: inferred from value type (`Date` becomes date, numeric becomes uint, string becomes string). Override with `format: "date" | "uint" | "string"` on any predicate.
+
+## Verifier
+
+A verifier only needs the two verifying keys, not the proving keys.
+
+```typescript
+import { OpenAC } from "openac-sdk";
+
+const openac = await OpenAC.init();
+
+const result = await openac.verify(proof, {
+  prepareVerifyingKey, // Uint8Array
+  showVerifyingKey,    // Uint8Array
+});
+// result.valid            both proofs verified and shared commitment matches
+// result.expressionResult  boolean output of the predicate expression
+// result.deviceKey         always null; binding flows through comm_W_shared
+```
+
+The verifier check includes byte-equality of `comm_W_shared` between the Prepare and Show instances before either SNARK is verified. This is the load-bearing security check that ties the two proofs to the same underlying credential.
+
+## Configuration
+
+```typescript
+const openac = await OpenAC.init({
+  keysBaseUrl: "https://my-cdn.example/keys", // override the default R2 endpoint
+  assetsDir: "./assets",                       // override circuit-WASM asset path
+  wasmModule: preloadedWasm,                   // browser: pre-init WASM and pass it
 });
 ```
 
-Operators: `LE` (<=), `GE` (>=), `EQ` (==). Logic: `REF`, `AND`, `OR`, `NOT`. Evaluated as postfix RPN.
+## Testing helpers
+
+```typescript
+import { generateDummyCredential } from "openac-sdk/testing";
+
+const cred = generateDummyCredential({
+  size: "1k",
+  claims: [
+    { key: "roc_birthday", value: "0900101" },
+    { key: "roc_max", value: "0950101" },
+  ],
+});
+// cred.jwt, cred.disclosures, cred.issuerPublicKey, cred.devicePrivateKeyHex
+```
+
+Deterministic keys; JWT is sized to fit the chosen circuit slot.
 
 ## API
 
-| Method | Description |
-|--------|-------------|
-| `OpenAC.init(config?)` | Load WASM prover |
-| `openac.loadKeysFromUrl(url, size)` | Fetch keys (`'1k'`/`'2k'`/`'4k'`/`'8k'`) |
-| `openac.loadKeys(data)` | Load keys from bytes |
-| `openac.precompute(req)` | Prove JWT validity (cache this) |
-| `openac.present(req)` | Prove predicates + device key |
-| `openac.verify(proof, keys)` | Verify proof |
-| `openac.createProof(req)` | One-shot prove |
-| `openac.verifyProof(bytes, keys)` | Verify serialized proof |
+| Method | Returns |
+|---|---|
+| `OpenAC.init(config?)` | `Promise<OpenAC>` |
+| `openac.loadKeysFromUrl(size, url?)` | `Promise<KeySet>` |
+| `openac.loadKeys(serialized)` | `Promise<KeySet>` |
+| `openac.precompute(req)` | `Promise<PrecomputedCredential>` |
+| `openac.present(req)` | `Promise<PresentationProof>` |
+| `openac.verify(proof, vks)` | `Promise<VerificationResult>` |
+| `openac.verifyProof(serialized, vks)` | `Promise<VerificationResult>` |
 
-| Utility | |
-|---------|---|
-| `Credential.parse(jwt, disclosures)` | Parse SD-JWT |
-| `buildJwtCircuitInputs(...)` | Build Prepare circuit inputs |
-| `buildShowCircuitInputs(...)` | Build Show circuit inputs |
-| `signDeviceNonce(nonce, key)` | Sign verifier challenge |
-| `WitnessCalculator` | Generate circom witnesses |
-| `NativeBackend` | Wrap Rust CLI for server-side proving |
+`size` is `"1k" | "2k" | "4k" | "8k"`. `precompute` auto-picks the smallest size that fits the JWT.
 
 ## Build
 
 ```bash
 npm install
-npm run build           # TypeScript
-npm run build:wasm      # WASM prover (needs Rust + wasm-pack)
-npm run build:all       # Both
+npm run build:all   # WASM (needs Rust + wasm-pack) + TypeScript
 npm test
 ```
 
-### Generate Keys
-
-```bash
-cd ../ecdsa-spartan2
-cargo build --release
-cargo run --release -- prepare setup --size 1k --input ../circom/inputs/jwt/1k/default.json
-cargo run --release -- show setup --size 1k --input ../circom/inputs/show/default.json
-```
-
-### Key Sizes
-
-| Size | Prepare PK/VK | Show PK/VK | Total |
-|------|---------------|------------|-------|
-| 1k | 258 MB each | 3 MB each | ~522 MB |
-| 2k | 427 MB each | 3 MB each | ~860 MB |
-| 4k | 811 MB each | 3 MB each | ~1.6 GB |
-| 8k | 1.6 GB each | 3 MB each | ~3.2 GB |
-
 ## Dependencies
 
-`@noble/curves` (P-256 ECDSA), `@noble/hashes` (SHA-256). No Node.js-specific runtime deps.
+`@noble/curves` and `@noble/hashes`. The SDK loads circuit assets and the WASM module from disk via Node's `fs`/`path`/`url` builtins, so Node 18+ is required for the default initialization path.
 
 ## License
 

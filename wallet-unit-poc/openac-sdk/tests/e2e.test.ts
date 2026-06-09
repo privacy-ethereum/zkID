@@ -8,13 +8,15 @@ import {
   NativeBackend,
   WitnessCalculator,
   Credential,
-  buildJwtCircuitInputs,
-  buildShowCircuitInputs,
-  signDeviceNonce,
   base64urlToBigInt,
   DEFAULT_JWT_PARAMS,
   DEFAULT_SHOW_PARAMS,
 } from "../src/index.js";
+import { buildJwtCircuitInputs } from "../src/inputs/jwt-input-builder.js";
+import {
+  buildShowCircuitInputs,
+  signDeviceNonce,
+} from "../src/inputs/show-input-builder.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = join(__dirname, "..", "assets");
@@ -87,7 +89,7 @@ interface TestJwtData {
 
 /**
  * Generate a self-contained SD-JWT with known claims for testing.
- * Uses only @noble/curves — no external JWT library needed.
+ * Uses only @noble/curves: no external JWT library needed.
  */
 function generateTestJwt(): TestJwtData {
   // Salts must be long enough so that each base64url-encoded disclosure is >= 56 bytes.
@@ -145,10 +147,6 @@ function generateTestJwt(): TestJwtData {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Encoding helpers (pure, no Node.js Buffer dependency)
-// ---------------------------------------------------------------------------
-
 function hexToBytes(hex: string): Uint8Array {
   const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
   const bytes = new Uint8Array(clean.length / 2);
@@ -183,10 +181,6 @@ function bytesToBase64url(bytes: Uint8Array): string {
   }
   return result.replace(/\+/g, "-").replace(/\//g, "_");
 }
-
-// ===========================================================================
-// Tests
-// ===========================================================================
 
 describe("Credential Parsing via SDK", () => {
   it("parses SD-JWT and extracts claims", () => {
@@ -257,7 +251,8 @@ describe("Input Builders via SDK", () => {
     expect(inputs.claimValues.length).toBe(DEFAULT_SHOW_PARAMS.nClaims);
     expect(inputs.predicateClaimRefs.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
     expect(inputs.predicateOps.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
-    expect(inputs.predicateCompareValues.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
+    expect(inputs.predicateRhsIsRef.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
+    expect(inputs.predicateRhsValues.length).toBe(DEFAULT_SHOW_PARAMS.maxPredicates);
     expect(inputs.tokenTypes.length).toBe(DEFAULT_SHOW_PARAMS.maxLogicTokens);
     expect(inputs.tokenValues.length).toBe(DEFAULT_SHOW_PARAMS.maxLogicTokens);
 
@@ -331,7 +326,10 @@ describe("Show Circuit via SDK", () => {
 
     // Witness sanity checks
     expect(witness[0]).toBe(1n); // valid constraint system
-    // w[1] = expressionResult, w[2] = deviceKeyX, w[3] = deviceKeyY
+    // Witness layout unchanged by the device-key-hiding fix:
+    // w[1] = expressionResult, w[2] = deviceKeyX, w[3] = deviceKeyY.
+    // After the fix only w[1] is verifier-observable; w[2]/w[3] still appear
+    // in the witness vector (and the shared-witness commitment with Prepare).
     expect(witness[2]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
     expect(witness[3]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
   }, 30_000);
@@ -486,7 +484,7 @@ describe("Full Pipeline via SDK (Prepare + Show with Shared Blinds)", () => {
     expect(showResult.valid).toBe(true);
     expect(showResult.output).toContain("Verification successful");
 
-    // Step 8: Cross-circuit consistency — device key from JWT must match Show
+    // Step 8: Cross-circuit consistency: device key from JWT must match Show
     // JWT circuit (maxMatches=4): w[3] = KeyBindingX, w[4] = KeyBindingY
     expect(jwtWitness[3]).toBe(showWitness[2]); // KeyBindingX
     expect(jwtWitness[4]).toBe(showWitness[3]); // KeyBindingY

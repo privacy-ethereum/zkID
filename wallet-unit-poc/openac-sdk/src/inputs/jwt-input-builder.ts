@@ -213,7 +213,7 @@ export function buildJwtCircuitInputs(
     matchIndex.push(0);
   }
 
-  // claims processing — claim-only slots (maxClaims = maxMatches - 2)
+  // claims processing: claim-only slots (maxClaims = maxMatches - 2)
   const maxClaims = params.maxMatches - 2;
   const rawDisclosures = credential.claims.map((c) => c.raw);
   const { claimArray, claimLengths } = encodeClaims(

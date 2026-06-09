@@ -64,10 +64,7 @@ export class Verifier {
     return {
       valid: true,
       expressionResult,
-      deviceKey: {
-        x: result.showPublicValues[1] ?? "",
-        y: result.showPublicValues[2] ?? "",
-      },
+      deviceKey: null,
       verifyMs: performance.now() - startTime,
     };
   }
@@ -105,10 +102,7 @@ export class Verifier {
     return {
       valid: true,
       expressionResult,
-      deviceKey: {
-        x: result.showPublicValues[1] ?? "",
-        y: result.showPublicValues[2] ?? "",
-      },
+      deviceKey: null,
       verifyMs: performance.now() - startTime,
     };
   }

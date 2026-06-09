@@ -1,11 +1,14 @@
-import { WasmBridge, VcSize } from "./wasm-bridge.js";
+import { WasmBridge } from "./wasm-bridge.js";
+import type { VcSize } from "./sizing.js";
 import { WitnessCalculator } from "./witness-calculator.js";
 import { Prover } from "./prover.js";
 import { Verifier } from "./verifier.js";
+import { readFile } from "fs/promises";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+import { WasmError } from "./errors.js";
 import type {
   OpenACConfig,
-  ProofRequest,
-  ProofResult,
   VerificationResult,
   VerifyingKeys,
   KeySet,
@@ -16,6 +19,9 @@ import type {
   PresentRequest,
   PresentationProof,
 } from "./types.js";
+
+export const DEFAULT_KEYS_BASE_URL =
+  "https://pub-d941fd6fc0c84bd892810e681a55edcd.r2.dev";
 
 export class OpenAC {
   private bridge: WasmBridge;
@@ -47,14 +53,17 @@ export class OpenAC {
       await bridge.init(config.wasmPath);
     }
 
-    // Initialize WitnessCalculator if assetsDir is provided or use default
     let witnessCalculator: WitnessCalculator | undefined;
     try {
       witnessCalculator = new WitnessCalculator(config.assetsDir);
       await witnessCalculator.init();
-    } catch {
-      // WitnessCalculator initialization is optional - may fail if assets not available
+    } catch (e) {
       witnessCalculator = undefined;
+      if (process.env.OPENAC_DEBUG) {
+        console.warn(
+          `[openac-sdk] WitnessCalculator unavailable: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
     }
 
     const prover = new Prover(bridge, witnessCalculator);
@@ -63,8 +72,9 @@ export class OpenAC {
     return new OpenAC(bridge, prover, verifier, config);
   }
 
-  async loadKeysFromUrl(baseUrl: string, vcSize: VcSize): Promise<KeySet> {
-    const keys = await this.bridge.loadKeys(baseUrl, vcSize);
+  async loadKeysFromUrl(vcSize: VcSize, baseUrl?: string): Promise<KeySet> {
+    const url = baseUrl ?? this.config.keysBaseUrl ?? DEFAULT_KEYS_BASE_URL;
+    const keys = await this.bridge.loadKeys(url, vcSize);
     return createKeySet(
       keys.preparePk,
       keys.prepareVk,
@@ -79,6 +89,26 @@ export class OpenAC {
       data.prepareVerifyingKey,
       data.showProvingKey,
       data.showVerifyingKey,
+    );
+  }
+
+  async loadBundledShowVerifyingKey(vcSize: VcSize): Promise<Uint8Array> {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const candidates = [
+      join(here, "..", "assets", "keys", `${vcSize}_show_verifying.key`),
+      join(here, "assets", "keys", `${vcSize}_show_verifying.key`),
+    ];
+    for (const path of candidates) {
+      try {
+        const buf = await readFile(path);
+        return new Uint8Array(buf);
+      } catch {
+        continue;
+      }
+    }
+    throw new WasmError(
+      "KEY_LOAD_FAILED",
+      `Bundled show VK for size '${vcSize}' not found. Expected at assets/keys/${vcSize}_show_verifying.key`,
     );
   }
 
@@ -101,10 +131,6 @@ export class OpenAC {
       proof.prepareInstance,
       proof.showInstance,
     );
-  }
-
-  async createProof(request: ProofRequest): Promise<ProofResult> {
-    return this.prover.createProof(request);
   }
 
   async verifyProof(
@@ -169,14 +195,15 @@ export { Verifier } from "./verifier.js";
 export { WitnessCalculator } from "./witness-calculator.js";
 export { NativeBackend } from "./native-backend.js";
 export type { NativeBackendConfig } from "./native-backend.js";
-export { buildJwtCircuitInputs } from "./inputs/jwt-input-builder.js";
-export {
-  buildShowCircuitInputs,
-  signDeviceNonce,
-  PredicateOp,
-  LogicToken,
-} from "./inputs/show-input-builder.js";
-export type { ShowInputOptions, PredicateSpec } from "./inputs/show-input-builder.js";
+// Typed predicate DSL (recommended public API).
+export { compilePredicateExpression } from "./predicates.js";
+export type {
+  Predicate,
+  PredicateExpression,
+  Comparator,
+  ClaimFormatHint,
+  CompiledPredicates,
+} from "./predicates.js";
 
 export {
   OpenACError,
@@ -189,9 +216,6 @@ export {
 
 export type {
   OpenACConfig,
-  ProofRequest,
-  ProofResult,
-  ProofTiming,
   ProofPublicValues,
   VerificationResult,
   VerifyingKeys,
@@ -204,11 +228,6 @@ export type {
   EcdsaPrivateKey,
   IssuerPublicKey,
   PemPublicKey,
-  JwtCircuitParams,
-  ShowCircuitParams,
-  JwtCircuitInputs,
-  ShowCircuitInputs,
-  CircuitArtifacts,
   ErrorCode,
   PrecomputeRequest,
   PrecomputedCredential,

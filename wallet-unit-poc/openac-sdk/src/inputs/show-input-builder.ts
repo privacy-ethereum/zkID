@@ -39,10 +39,14 @@ export const LogicToken = {
   NOT: 3,
 } as const;
 
+export type PredicateRhs =
+  | { kind: "literal"; value: bigint }
+  | { kind: "claimRef"; index: number };
+
 export interface PredicateSpec {
   claimRef: number;
   op: number;
-  compareValue: bigint;
+  rhs: PredicateRhs;
 }
 
 export interface ShowInputOptions {
@@ -61,7 +65,6 @@ export function buildShowCircuitInputs(
   deviceKey: EcdsaPublicKey,
   options: ShowInputOptions = {},
 ): ShowCircuitInputs {
-  // decode the device signature
   const sigBytes = base64Decode(deviceSignature);
   const sigHex = Array.from(sigBytes)
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -69,14 +72,12 @@ export function buildShowCircuitInputs(
   const sigDecoded = p256.Signature.fromCompact(sigHex);
   const sigSInverse = Fq.inv(sigDecoded.s);
 
-  // decode device key
   if (deviceKey.kty !== "EC" || deviceKey.crv !== "P-256") {
     throw new InputError("INVALID_KEY", "Device key must be P-256 EC key");
   }
   const deviceKeyX = base64urlToBigInt(deviceKey.x);
   const deviceKeyY = base64urlToBigInt(deviceKey.y);
 
-  // verify signature off-chain
   const pubkey = p256.ProjectivePoint.fromAffine({ x: deviceKeyX, y: deviceKeyY });
   const msgHash = sha256(new TextEncoder().encode(nonce));
   const sigForVerify = sigDecoded.toDERRawBytes();
@@ -85,35 +86,43 @@ export function buildShowCircuitInputs(
     throw new InputError("INVALID_SIGNATURE", "Device signature verification failed");
   }
 
-  // compute message hash mod scalar field order
   const messageHash = sha256(new TextEncoder().encode(nonce));
   const messageHashBigInt = bytesToBigInt(messageHash);
   const messageHashModQ = messageHashBigInt % P256_SCALAR_ORDER;
 
-  // Build claim values array
   const normalizedValues = options.normalizedClaimValues ?? [0n];
   const claimValues: bigint[] = Array(params.nClaims).fill(0n);
   for (let i = 0; i < Math.min(params.nClaims, normalizedValues.length); i++) {
     claimValues[i] = normalizedValues[i]!;
   }
 
-  // Build predicates
   const predicates = options.predicates ?? [
-    { claimRef: 0, op: PredicateOp.EQ, compareValue: claimValues[0]! },
+    {
+      claimRef: 0,
+      op: PredicateOp.EQ,
+      rhs: { kind: "literal", value: claimValues[0]! },
+    },
   ];
   const predicateLen = BigInt(predicates.length);
 
   const predicateClaimRefs: bigint[] = Array(params.maxPredicates).fill(0n);
   const predicateOps: bigint[] = Array(params.maxPredicates).fill(BigInt(PredicateOp.EQ));
-  const predicateCompareValues: bigint[] = Array(params.maxPredicates).fill(claimValues[0] ?? 0n);
+  const predicateRhsIsRef: bigint[] = Array(params.maxPredicates).fill(0n);
+  const predicateRhsValues: bigint[] = Array(params.maxPredicates).fill(0n);
 
   for (let i = 0; i < Math.min(params.maxPredicates, predicates.length); i++) {
-    predicateClaimRefs[i] = BigInt(predicates[i]!.claimRef);
-    predicateOps[i] = BigInt(predicates[i]!.op);
-    predicateCompareValues[i] = predicates[i]!.compareValue;
+    const spec = predicates[i]!;
+    predicateClaimRefs[i] = BigInt(spec.claimRef);
+    predicateOps[i] = BigInt(spec.op);
+    if (spec.rhs.kind === "literal") {
+      predicateRhsIsRef[i] = 0n;
+      predicateRhsValues[i] = spec.rhs.value;
+    } else {
+      predicateRhsIsRef[i] = 1n;
+      predicateRhsValues[i] = BigInt(spec.rhs.index);
+    }
   }
 
-  // Build logic expression tokens
   const logicExpr = options.logicExpression ?? [{ type: LogicToken.REF, value: 0 }];
   const exprLen = BigInt(logicExpr.length);
 
@@ -142,7 +151,8 @@ export function buildShowCircuitInputs(
     claimValues,
     predicateClaimRefs,
     predicateOps,
-    predicateCompareValues,
+    predicateRhsIsRef,
+    predicateRhsValues,
     tokenTypes,
     tokenValues,
     exprLen,
@@ -159,7 +169,6 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 function base64Decode(input: string): Uint8Array {
-  // handle base64url
   let b64 = input.replace(/-/g, "+").replace(/_/g, "/");
   const pad = (4 - (b64.length % 4)) % 4;
   b64 += "=".repeat(pad);
