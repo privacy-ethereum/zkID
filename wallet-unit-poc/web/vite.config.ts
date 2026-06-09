@@ -12,7 +12,7 @@ import {
 
 const RELEASE_BASE = "https://github.com/zkmopro/zkID/releases/download/latest";
 const SMT_SNAPSHOT_RELEASE_BASE =
-  "https://github.com/moven0831/moica-revocation-smt/releases/download/snapshot-latest";
+  "https://github.com/privacy-ethereum/moica-revocation-smt/releases/download/snapshot-latest";
 
 // COOP is scoped per URL so that the sign route keeps `window.opener` alive
 // for the HiPKI popup while the proving route runs in a cross-origin-isolated

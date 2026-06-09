@@ -186,7 +186,7 @@ export async function installMockServices(
 const KEYS_RELEASE_API =
   "https://api.github.com/repos/zkmopro/zkID/releases/tags/latest";
 const SMT_RELEASE_API =
-  "https://api.github.com/repos/moven0831/moica-revocation-smt/releases/tags/snapshot-latest";
+  "https://api.github.com/repos/privacy-ethereum/moica-revocation-smt/releases/tags/snapshot-latest";
 
 const KEYS_FIXTURE_FILES = [
   "certChainRS2048_proving.key.gz",

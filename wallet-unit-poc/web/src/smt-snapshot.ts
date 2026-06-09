@@ -16,7 +16,7 @@
 //     Leaf:   [33:65] key, [65:97] value,
 //             [97:129] entryMark                 (129 bytes total)
 //
-// Upstream source: moven0831/moica-revocation-smt server/internal/snapshot/binary.go
+// Upstream source: privacy-ethereum/moica-revocation-smt server/internal/snapshot/binary.go
 
 import { bytesToHex } from "./bytes";
 

@@ -141,11 +141,11 @@ per-issuer snapshot is only known at that point):
 - `/smt-snapshot/g3-tree-snapshot.bin.gz` (~21 MB gzipped; MOICA-G3 only)
 
 SMT-side digests come from
-`https://api.github.com/repos/moven0831/moica-revocation-smt/releases/tags/snapshot-latest`.
+`https://api.github.com/repos/privacy-ethereum/moica-revocation-smt/releases/tags/snapshot-latest`.
 
 In dev, `/keys/*` is proxied to `https://github.com/zkmopro/zkID/releases/download/latest/<asset>`
 and `/smt-snapshot/*` is proxied to
-`https://github.com/moven0831/moica-revocation-smt/releases/download/snapshot-latest/<asset>`
+`https://github.com/privacy-ethereum/moica-revocation-smt/releases/download/snapshot-latest/<asset>`
 via `vite.config.ts`. In prod, configure your host to serve those two paths
 same-origin (either via a reverse proxy, or by caching the release assets on a
 CORS-enabled origin you control). Pointing either env var directly at a bare
@@ -207,7 +207,7 @@ Production needs three things the dev proxy provides for free:
 2. **A reverse proxy from `/hipki/*` to the user's `localhost:61161`** so
    browser fetches are same-origin and bypass HiPKI's missing CORS headers.
 3. **A reverse proxy from `/smt-snapshot/*`** to
-   `https://github.com/moven0831/moica-revocation-smt/releases/download/snapshot-latest/`
+   `https://github.com/privacy-ethereum/moica-revocation-smt/releases/download/snapshot-latest/`
    (or set `VITE_SMT_SNAPSHOT_BASE_URL` to an absolute URL on a CORS-enabled
    host). GitHub Release CORS behaviour is not a contract the app relies on.
 
