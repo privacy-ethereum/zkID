@@ -17,8 +17,10 @@
   },
   "files": [
     "dist",
-    "assets",
-    "wasm/pkg"
+    "wasm/pkg",
+    "assets/**/*.wasm",
+    "assets/**/*.js",
+    "assets/keys/*.key"
   ],
   "scripts": {
     "build": "tsup",
