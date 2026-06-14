@@ -1,7 +1,7 @@
 # zkID wallet-unit-poc
 
 Privacy-preserving X.509 certificate verification using zero-knowledge proofs.
-Given a MOICA user certificate (RSA-SHA256 / RS256) and a device signature over
+Given a MOICA user certificate (RSA-SHA256 / RS256) and a user signature over
 the relying-party `app_id`, the prover emits two Spartan2 proofs that together
 attest to (a) a valid cert chain to a known issuer, (b) non-revocation of the
 user cert against an SMT root, and (c) possession of the user private key —

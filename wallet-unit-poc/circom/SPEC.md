@@ -5,7 +5,7 @@ This document describes the Circom circuits in this directory.
 ## Overview
 
 The circuits verify Taiwan Citizen Digital Certificate (MOICA) X.509
-certificates signed with RSA-SHA256, plus a per-session user-device signature
+certificates signed with RSA-SHA256, plus a per-session user signature
 over arbitrary data (the "TBS" sent to the HiPKI card). They also assert
 non-revocation against a Sparse Merkle Tree (SMT).
 
@@ -15,7 +15,7 @@ non-revocation against a Sparse Merkle Tree (SMT).
 | -------------------- | ------------------ | ------------------------------------------------------------------------ |
 | `certChainRS2048`  | `CertChainRSA256`  | Circuit A — cert chain + revocation + pkCommit (MOICA-G2)               |
 | `certChainRS4096`  | `CertChainRSA256`  | Circuit A — cert chain + revocation + pkCommit (MOICA-G3)               |
-| `userSigRS2048`  | `UserSigRSA256`  | Circuit B — device signature + nullifier + appIdPacked + pkCommit       |
+| `userSigRS2048`  | `UserSigRSA256`  | Circuit B — user signature + nullifier + appIdPacked + pkCommit         |
 
 The two-circuit split replaces the former monolithic `FullCertRSA256VerifyWithRevocation`.
 Circuit A and Circuit B are linked via `pkCommit`: the verifier checks
@@ -45,7 +45,7 @@ Circuit A and Circuit B are linked via `pkCommit`: the verifier checks
    equal `tbs[0..31]` (the SHA-256-padded payload the card signs) packed
    little-endian into one field element. The verifier unpacks and byte-compares
    against the issued challenge's `app_id`.
-2. **Device signature verify** — `userPkLimbs` verifies `userRsaSignature`
+2. **User signature verify** — `userPkLimbs` verifies `userRsaSignature`
    over `tbs`. Proves the holder of the user's private key signed the app-id bytes.
 3. **Linking** — same `pkCommit` formula as Circuit A, using the same
    `pkBlind` value.

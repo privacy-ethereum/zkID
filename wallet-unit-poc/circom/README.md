@@ -40,7 +40,7 @@ memory-heavy.
 - `circuits/main/` — top-level circuit entry points (one file per build target)
 - `circuits/rs256.circom` — RS256 cert verification and shared templates
 - `circuits/certChain.circom` — CertChain circuit (Circuit A: cert chain + revocation + pkCommit)
-- `circuits/userSig.circom` — UserSig circuit (Circuit B: device signature + pkCommit)
+- `circuits/userSig.circom` — UserSig circuit (Circuit B: user signature + pkCommit)
 - `circuits/components/` — reusable templates: SMT non-membership, Poseidon over P256
 - `circuits/utils/utils.circom` — DER-level cert helpers (TBS / serial extraction, modulus extraction, byte packing, Poseidon-over-bytes)
 

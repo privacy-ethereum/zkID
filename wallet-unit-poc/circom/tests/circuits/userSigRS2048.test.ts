@@ -19,7 +19,7 @@ describe("UserSigRSA256 (rs2048)", function () {
     });
   });
 
-  it("should accept valid device signature inputs", async function () {
+  it("should accept valid user signature inputs", async function () {
     this.timeout(900_000);
     const witness = await circuit.calculateWitness(input);
     await circuit.expectConstraintPass(witness);

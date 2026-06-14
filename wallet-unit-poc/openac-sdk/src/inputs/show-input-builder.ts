@@ -65,7 +65,7 @@ export function buildShowCircuitInputs(
     throw new InputError("INVALID_KEY", "Current day must be between 1 and 31");
   }
 
-  // decode the device signature
+  // decode the user signature
   const sigBytes = base64Decode(userSignature);
   const sigHex = Array.from(sigBytes)
     .map((b) => b.toString(16).padStart(2, "0"))
