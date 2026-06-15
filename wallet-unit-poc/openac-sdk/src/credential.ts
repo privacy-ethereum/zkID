@@ -8,7 +8,6 @@ import {
 import { InputError } from "./errors.js";
 import type { DisclosedClaim, EcdsaPublicKey } from "./types.js";
 
-// Parsed SD-JWT credential
 export class Credential {
   readonly header: Record<string, unknown>;
   readonly payload: Record<string, unknown>;
@@ -71,7 +70,6 @@ export class Credential {
     return new Credential(jwt, header, payload, signature, claims, b64Header, b64Payload, b64Signature);
   }
 
-  // Find the index of the birthday claim in the disclosures array
   findBirthdayClaim(): number | null {
     const birthdayKeys = ["roc_birthday", "birthdate", "birthday", "date_of_birth"];
 
@@ -84,7 +82,6 @@ export class Credential {
     return null;
   }
 
-  // Get the device binding key from the JWT payload's cnf.jwk field
   get deviceBindingKey(): EcdsaPublicKey | null {
     const cnf = this.payload.cnf as { jwk?: EcdsaPublicKey } | undefined;
     if (!cnf?.jwk) return null;
@@ -111,8 +108,7 @@ export class Credential {
   }
 }
 
-// Parse a single base64url-encoded SD-JWT disclosure
-// A disclosure is a JSON array: [salt, claim_name, claim_value]
+// SD-JWT disclosure: base64url(JSON([salt, claim_name, claim_value]))
 function parseDisclosure(raw: string, index: number): DisclosedClaim {
   let decoded: string;
   try {

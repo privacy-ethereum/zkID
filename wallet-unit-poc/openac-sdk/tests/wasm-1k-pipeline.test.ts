@@ -9,12 +9,14 @@ import { sha256 } from "@noble/hashes/sha2";
 
 import {
   Credential,
-  buildJwtCircuitInputs,
-  buildShowCircuitInputs,
-  signDeviceNonce,
   DEFAULT_SHOW_PARAMS,
   circuitInputsToJson,
 } from "../src/index.js";
+import { buildJwtCircuitInputs } from "../src/inputs/jwt-input-builder.js";
+import {
+  buildShowCircuitInputs,
+  signDeviceNonce,
+} from "../src/inputs/show-input-builder.js";
 import type { JwtCircuitParams } from "../src/types.js";
 import { WasmBridge } from "../src/wasm-bridge.js";
 
@@ -23,7 +25,7 @@ const KEYS_DIR = join(__dirname, "..", "..", "ecdsa-spartan2", "keys");
 const WASM_PKG_DIR = join(__dirname, "..", "wasm", "pkg");
 const ASSETS_DIR = join(__dirname, "..", "assets");
 
-// 1k circuit params — must match circom/circuits.json "jwt_1k" params
+// 1k circuit params: must match circom/circuits.json "jwt_1k" params
 const JWT_PARAMS_1K: JwtCircuitParams = {
   maxMessageLength: 1280,
   maxB64PayloadLength: 960,
@@ -228,7 +230,7 @@ function checkArtifactsExist(): boolean {
 }
 
 describe.skipIf(!checkArtifactsExist())(
-  "Full Pipeline — 1k Circuit via WASM Bridge",
+  "Full Pipeline: 1k Circuit via WASM Bridge",
   () => {
   let bridge: WasmBridge;
   let wasmAvailable = false;
@@ -396,8 +398,10 @@ describe.skipIf(!checkArtifactsExist())(
 
     expect(verifyResult.valid).toBe(true);
     expect(verifyResult.error).toBeUndefined();
-    // Show circuit: 3 public values (expressionResult, deviceKeyX, deviceKeyY)
-    expect(verifyResult.showPublicValues.length).toBe(3);
+    // Show circuit emits only expressionResult as a verifier-observable public
+    // value. Device key was previously also exposed but moved into the shared
+    // witness commitment to prevent verifier-side session linkability.
+    expect(verifyResult.showPublicValues.length).toBe(1);
     // JWT 1k circuit: maxClaims(2) + 2 (KeyBindingX, KeyBindingY) = 4 public values
     expect(verifyResult.preparePublicValues.length).toBe(4);
   }, 900_000);

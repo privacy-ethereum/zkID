@@ -343,7 +343,7 @@ This section specifies the network interface that conforming verifiers SHOULD ex
 
 The Verifier API does not modify the cryptographic protocol or circuit relations defined in [Specification](#specification). It defines the wire-level operations needed to deliver challenges to provers, accept proof submissions, expose deployment state, and report errors.
 
-This section describes the 2-party deployment topology (relying party ↔ verifier). Other deployment topologies (e.g., 3-party flows where a wallet mediates between a merchant and the verifier, as in 3/ZK-AGE-ELIGIBILITY) are out of scope for this version. Where applicable, the term `challenge` used here corresponds to the verifier-issued nonce used elsewhere in OpenAC-based flows.
+This section describes the 2-party deployment topology (relying party ↔ verifier). Other deployment topologies (e.g., 3-party flows where a wallet mediates between a merchant and the verifier, as in 3/ZK-AGE-VERIFICATION) are out of scope for this version. Where applicable, the term `challenge` used here corresponds to the verifier-issued nonce used elsewhere in OpenAC-based flows.
 
 ### Operations
 

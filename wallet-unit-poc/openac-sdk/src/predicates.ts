@@ -1,0 +1,279 @@
+// High-level typed predicate DSL. Compiles to the low-level circuit
+// representation in show-input-builder.ts and jwt-input-builder.ts.
+//
+// Format codes match jwt.circom (line 50):
+//   0=bool, 1=uint, 2=iso_date, 3=roc_date, 4=string
+// We expose three formats to consumers: "uint", "date", "string".
+// "date" maps to claimFormat=3 (roc_date) with decodeFlag=1. The other formats
+// use decodeFlag=0.
+
+import { InputError } from "./errors.js";
+import {
+  PredicateOp,
+  LogicToken,
+  type PredicateSpec,
+} from "./inputs/show-input-builder.js";
+import type { DisclosedClaim } from "./types.js";
+
+export type Comparator = "<=" | ">=" | "==";
+export type ClaimFormatHint = "uint" | "date" | "string";
+
+export type Predicate =
+  | {
+      claim: string;
+      op: Comparator;
+      value: bigint | number | Date | string;
+      format?: ClaimFormatHint;
+    }
+  | {
+      claim: string;
+      op: Comparator;
+      compareTo: { claim: string };
+      format?: ClaimFormatHint;
+    };
+
+export type PredicateExpression =
+  | Predicate
+  | { all: PredicateExpression[] }
+  | { any: PredicateExpression[] }
+  | { not: PredicateExpression };
+
+export interface CompiledPredicates {
+  predicates: PredicateSpec[];
+  logicExpression: Array<{ type: number; value: number }>;
+  decodeFlags: number[];
+  claimFormats: number[];
+  claimNameToIndex: Map<string, number>;
+  birthdayClaimIndex: number | null;
+}
+
+const OP_MAP: Record<Comparator, number> = {
+  "<=": PredicateOp.LE,
+  ">=": PredicateOp.GE,
+  "==": PredicateOp.EQ,
+};
+
+function isPredicate(node: PredicateExpression): node is Predicate {
+  return typeof node === "object" && node !== null && "claim" in node && "op" in node;
+}
+
+function isClaimNameLikelyDate(name: string): boolean {
+  return /(birth|dob|date|_at$)/i.test(name);
+}
+
+function isYymmddString(s: string): boolean {
+  // accept "YYMMDD" (6) or "0YYMMDD" (7) shaped numeric strings
+  return /^\d{6,7}$/.test(s);
+}
+
+function dateToRocBigInt(d: Date): bigint {
+  // Taiwan ROC year = Gregorian year - 1911. Encoded as YYMMDD with optional
+  // leading zero for ROC years < 100. The dummy-credential fixture uses
+  // "0900101" → ROC year 90 (= 2001 AD) Jan 1.
+  const yyyy = d.getUTCFullYear();
+  const mm = d.getUTCMonth() + 1;
+  const dd = d.getUTCDate();
+  const rocYear = yyyy - 1911;
+  if (rocYear < 1 || rocYear > 999) {
+    throw new InputError(
+      "PARAMS_EXCEEDED",
+      `Date ${d.toISOString()} out of ROC range (year 1912..2910)`,
+    );
+  }
+  return BigInt(rocYear * 10000 + mm * 100 + dd);
+}
+
+function inferFormat(p: Predicate, claimName: string): ClaimFormatHint {
+  if (p.format) return p.format;
+  if ("value" in p) {
+    const v = p.value;
+    if (v instanceof Date) return "date";
+    if (typeof v === "bigint" || typeof v === "number") {
+      return isClaimNameLikelyDate(claimName) ? "date" : "uint";
+    }
+    if (typeof v === "string") {
+      if (isClaimNameLikelyDate(claimName) && isYymmddString(v)) return "date";
+      return "string";
+    }
+  }
+  // claim-to-claim comparison with no hint: pick uint and let the other
+  // side reconcile through inferred-once-then-frozen logic below.
+  return isClaimNameLikelyDate(claimName) ? "date" : "uint";
+}
+
+function formatToCircuitCodes(f: ClaimFormatHint): { decodeFlag: number; claimFormat: number } {
+  switch (f) {
+    case "date":
+      return { decodeFlag: 1, claimFormat: 3 };
+    case "uint":
+      return { decodeFlag: 0, claimFormat: 1 };
+    case "string":
+      return { decodeFlag: 0, claimFormat: 4 };
+  }
+}
+
+function normalizeLiteralValue(
+  v: bigint | number | Date | string,
+  format: ClaimFormatHint,
+): bigint {
+  if (v instanceof Date) {
+    if (format !== "date") {
+      throw new InputError(
+        "INVALID_KEY",
+        `Date value supplied for ${format} predicate; declare format: "date" or use a numeric value`,
+      );
+    }
+    return dateToRocBigInt(v);
+  }
+  if (typeof v === "bigint") return v;
+  if (typeof v === "number") {
+    if (!Number.isFinite(v) || !Number.isInteger(v)) {
+      throw new InputError("INVALID_KEY", `Predicate value ${v} is not a safe integer`);
+    }
+    return BigInt(v);
+  }
+  if (typeof v === "string") {
+    if (format === "date" && isYymmddString(v)) return BigInt(v);
+    if (format === "uint" && /^-?\d+$/.test(v)) return BigInt(v);
+    throw new InputError(
+      "INVALID_KEY",
+      `String value "${v}" cannot be normalized for format ${format}`,
+    );
+  }
+  throw new InputError("INVALID_KEY", `Unsupported predicate value type: ${typeof v}`);
+}
+
+/**
+ * Compile a typed PredicateExpression into the circuit-level inputs.
+ *
+ * Walks the expression in postfix order to produce the RPN `logicExpression`
+ * and a flat `predicates[]` indexed in DFS order. Format inference happens
+ * the first time a claim is referenced; subsequent references must agree.
+ */
+export function compilePredicateExpression(
+  expr: PredicateExpression,
+  claims: DisclosedClaim[],
+): CompiledPredicates {
+  const claimNameToIndex = new Map<string, number>();
+  for (const c of claims) claimNameToIndex.set(c.name, c.index);
+
+  const claimFormatChosen = new Map<number, ClaimFormatHint>();
+
+  function lookupClaim(name: string): number {
+    const idx = claimNameToIndex.get(name);
+    if (idx === undefined) {
+      throw new InputError(
+        "CLAIM_NOT_FOUND",
+        `Predicate references unknown claim "${name}". Known claims: ${
+          claims.map((c) => c.name).join(", ") || "(none)"
+        }`,
+      );
+    }
+    return idx;
+  }
+
+  function recordFormat(claimIndex: number, claimName: string, format: ClaimFormatHint) {
+    const prior = claimFormatChosen.get(claimIndex);
+    if (prior && prior !== format) {
+      throw new InputError(
+        "PARAMS_EXCEEDED",
+        `Claim "${claimName}" referenced with conflicting formats: "${prior}" vs "${format}"`,
+      );
+    }
+    claimFormatChosen.set(claimIndex, format);
+  }
+
+  const compiledPredicates: PredicateSpec[] = [];
+  const logicExpression: Array<{ type: number; value: number }> = [];
+
+  function compileLeaf(p: Predicate): number {
+    const claimIdx = lookupClaim(p.claim);
+    const format = inferFormat(p, p.claim);
+    recordFormat(claimIdx, p.claim, format);
+
+    if ("compareTo" in p) {
+      const rhsIdx = lookupClaim(p.compareTo.claim);
+      recordFormat(rhsIdx, p.compareTo.claim, format);
+      compiledPredicates.push({
+        claimRef: claimIdx,
+        op: OP_MAP[p.op],
+        rhs: { kind: "claimRef", index: rhsIdx },
+      });
+    } else {
+      compiledPredicates.push({
+        claimRef: claimIdx,
+        op: OP_MAP[p.op],
+        rhs: { kind: "literal", value: normalizeLiteralValue(p.value, format) },
+      });
+    }
+    return compiledPredicates.length - 1;
+  }
+
+  function walk(node: PredicateExpression): void {
+    if (isPredicate(node)) {
+      const idx = compileLeaf(node);
+      logicExpression.push({ type: LogicToken.REF, value: idx });
+      return;
+    }
+    if ("all" in node) {
+      if (node.all.length === 0) {
+        throw new InputError("PARAMS_EXCEEDED", "`all` expression must contain at least one predicate");
+      }
+      walk(node.all[0]!);
+      for (let i = 1; i < node.all.length; i++) {
+        walk(node.all[i]!);
+        logicExpression.push({ type: LogicToken.AND, value: 0 });
+      }
+      return;
+    }
+    if ("any" in node) {
+      if (node.any.length === 0) {
+        throw new InputError("PARAMS_EXCEEDED", "`any` expression must contain at least one predicate");
+      }
+      walk(node.any[0]!);
+      for (let i = 1; i < node.any.length; i++) {
+        walk(node.any[i]!);
+        logicExpression.push({ type: LogicToken.OR, value: 0 });
+      }
+      return;
+    }
+    if ("not" in node) {
+      walk(node.not);
+      logicExpression.push({ type: LogicToken.NOT, value: 0 });
+      return;
+    }
+    throw new InputError("PARAMS_EXCEEDED", `Unknown predicate expression node: ${JSON.stringify(node)}`);
+  }
+
+  walk(expr);
+
+  // Build per-claim decodeFlags / claimFormats arrays sized to the credential.
+  const decodeFlags: number[] = [];
+  const claimFormats: number[] = [];
+  for (let i = 0; i < claims.length; i++) {
+    const format = claimFormatChosen.get(i) ?? "uint";
+    const { decodeFlag, claimFormat } = formatToCircuitCodes(format);
+    decodeFlags.push(decodeFlag);
+    claimFormats.push(claimFormat);
+  }
+
+  // Identify a "birthday-like" claim index (first claim compiled with "date"
+  // format) so the legacy precompute path can still default decodeFlags
+  // around it. Pure heuristic, not consumed by the new path.
+  let birthdayClaimIndex: number | null = null;
+  for (const [idx, format] of claimFormatChosen) {
+    if (format === "date") {
+      birthdayClaimIndex = idx;
+      break;
+    }
+  }
+
+  return {
+    predicates: compiledPredicates,
+    logicExpression,
+    decodeFlags,
+    claimFormats,
+    claimNameToIndex,
+    birthdayClaimIndex,
+  };
+}

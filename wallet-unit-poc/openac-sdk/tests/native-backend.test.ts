@@ -27,7 +27,7 @@ function hasNativeArtifacts(): boolean {
 }
 
 describe.skipIf(!hasNativeArtifacts())(
-  "Native Backend — Artifact Existence",
+  "Native Backend: Artifact Existence",
   () => {
     it("should find pre-generated keys directory", () => {
       expect(existsSync(KEYS_DIR)).toBe(true);
