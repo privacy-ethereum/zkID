@@ -11,3 +11,7 @@ The goal of this work is to provide a framework that allows verifiers to reliabl
 - Revocation in zkID: Merkle Tree-based Approaches: https://pse.dev/blog/revocation-in-zkid-merkle-tree-based-approaches
 
 - DIF Revocation Report: https://github.com/decentralized-identity/labs-privacy-preserving-revocation-mechanisms/blob/main/docs/report.md
+
+- LeanIMT+: Efficient Merkle Tree for Membership and Non-Membership Proofs: https://pse.dev/blog/lean-imt-plus-efficient-merkle-tree-for-membership-and-non-membership-proofs
+
+- Privacy-Preserving Revocation for Verifiable Credentials Using Zero-Knowledge Non-Membership Proofs: https://pse.dev/blog/privacy-preserving-revocation-for-verifiable-credentials-using-zero-knowledge-non-membership-proofs
