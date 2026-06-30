@@ -1,14 +1,22 @@
 #!/bin/bash
 set -euo pipefail
 
-# Build the Spartan2 WASM module using wasm-pack
-# This compiles the Rust prover to WebAssembly for use in the SDK
+# Build the Spartan2 WASM module using wasm-pack with rayon (multi-threading).
+#
+# Requires:
+#   - nightly Rust with rust-src component (declared in rust-toolchain.toml)
+#   - wasm-pack
+#
+# The +atomics,+bulk-memory,+mutable-globals target features enable SharedArrayBuffer
+# (required for rayon thread pools).  The consuming page must be served with:
+#   Cross-Origin-Opener-Policy: same-origin
+#   Cross-Origin-Embedder-Policy: require-corp
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SDK_DIR="$(dirname "$SCRIPT_DIR")"
 WASM_DIR="$SDK_DIR/wasm"
 
-echo "=== Building OpenAC WASM module ==="
+echo "=== Building OpenAC WASM module (rayon enabled) ==="
 echo "WASM crate: $WASM_DIR"
 
 # Check for wasm-pack
@@ -17,15 +25,43 @@ if ! command -v wasm-pack &> /dev/null; then
     curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 fi
 
-# Build with wasm-pack
-echo "Building WASM module..."
 cd "$WASM_DIR"
-wasm-pack build \
+
+echo "Building WASM module..."
+# Pass '.' explicitly so wasm-pack doesn't misinterpret '-Z' as the crate path.
+# RUSTFLAGS must be an env var — wasm-pack ignores .cargo/config.toml rustflags.
+#
+# --shared-memory      marks the WebAssembly.Memory type as shared (limits byte
+#                      0x03).  Without this the memory cannot be sent via
+#                      postMessage to workers (DataCloneError).
+# --max-memory=...     required whenever --shared-memory is set; wasm-ld rejects
+#                      shared memory without an explicit maximum page count.
+#                      2 GB covers the Spartan2 1k peak (~2.3 GB on mobile).
+# --import-memory      makes the WASM module import its memory from the JS host
+#                      instead of defining it inline.  wasm-bindgen's threading
+#                      transform asserts mem.import.is_some(); without this flag
+#                      the build panics with: "assertion failed: mem.import.is_some()"
+# --export=*           wasm-bindgen's threading transform (transforms/threads/mod.rs)
+#                      looks up every TLS and heap symbol via the module's export
+#                      table (delete_synthetic_export / get_tls_base).  wasm-ld
+#                      does not export these by default when --shared-memory is
+#                      active, so each one must be forced:
+#
+#   __heap_base       i32 global — start of the heap; used to place the
+#                     thread-ID counter ("failed to find __heap_base…")
+#   __wasm_init_tls   function — initialises TLS for each new thread
+#                     ("failed to find __wasm_init_tls")
+#   __tls_size        i32 global — byte size of the TLS block
+#   __tls_align       i32 global — alignment of the TLS block
+#   __tls_base        i32 global — base address of TLS for the current thread
+RUSTUP_TOOLCHAIN=nightly \
+RUSTFLAGS='-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=--shared-memory -C link-arg=--max-memory=2147483648 -C link-arg=--import-memory -C link-arg=--export=__heap_base -C link-arg=--export=__wasm_init_tls -C link-arg=--export=__tls_size -C link-arg=--export=__tls_align -C link-arg=--export=__tls_base' \
+wasm-pack build . \
     --target web \
     --out-dir pkg \
     --release \
     -- \
-    --features "getrandom/js"
+    -Z build-std=panic_abort,std
 
 echo "=== WASM build complete ==="
 echo "Output: $WASM_DIR/pkg/"

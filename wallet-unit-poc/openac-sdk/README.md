@@ -140,6 +140,15 @@ Deterministic keys; JWT is sized to fit the chosen circuit slot.
 
 ## Build
 
+### Prerequisites
+
+- Node.js >= 18
+- Rust nightly with `rust-src` component (for WASM builds)
+- [`wasm-pack`](https://rustwasm.github.io/wasm-pack/installer/) (for WASM builds)
+- Compiled Circom circuits (see `../circom/`)
+
+### TypeScript library only
+
 ```bash
 npm install
 npm run build:all   # WASM (needs Rust + wasm-pack) + TypeScript

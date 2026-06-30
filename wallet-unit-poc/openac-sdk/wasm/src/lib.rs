@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
+pub use wasm_bindgen_rayon::init_thread_pool;
+
 use ecdsa_spartan2::{
     parse_witness, prove_circuit_in_memory, reblind_in_memory, PrepareCircuit, ShowCircuit,
 };

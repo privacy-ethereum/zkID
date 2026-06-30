@@ -106,7 +106,7 @@ export class WasmBridge {
     if (this.initialized) return;
 
     if (wasmPath) {
-      const module = await import(/* webpackIgnore: true */ wasmPath);
+      const module = await import(/* @vite-ignore */ wasmPath);
       this.wasm = module as OpenACWasmModule;
     } else {
       try {
@@ -173,6 +173,14 @@ export class WasmBridge {
         throw new WasmError(
           "KEY_LOAD_FAILED",
           `Failed to load key from ${url}: ${response.status} ${response.statusText}`,
+        );
+      }
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("text/html")) {
+        throw new WasmError(
+          "KEY_LOAD_FAILED",
+          `Key file at ${url} returned HTML instead of binary data. ` +
+            `The keys directory likely does not exist — run the ecdsa-spartan2 setup binary to generate keys.`,
         );
       }
       const buffer = await response.arrayBuffer();
