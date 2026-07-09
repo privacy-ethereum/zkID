@@ -162,7 +162,7 @@ jobs:
             - name: Build iOS bindings
               run: |
                   cd wallet-unit-poc/mobile
-                  IOS_ARCHS=aarch64-apple-ios,aarch64-apple-ios-sim CONFIGURATION=release cargo run --bin ios
+                  IOS_ARCHS=aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios CONFIGURATION=release cargo run --bin ios
 
             - name: Create ZIP of xcframework
               run: |
