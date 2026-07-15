@@ -18,6 +18,11 @@ fn is_ios_target(target: &str) -> bool {
 fn main() {
     chkstk_stub::build();
 
+    let target = std::env::var("TARGET").unwrap_or_default();
+    if is_ios_target(target.as_str()) {
+        stub_rust_probestack();
+    }
+
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let circom_build_dir = std::path::PathBuf::from(&manifest_dir)
         .parent()
@@ -41,8 +46,6 @@ fn main() {
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
 
     if let Ok(witnesscalc_cache) = std::env::var("WITNESSCALC_PREBUILD_CACHE") {
-        let target = std::env::var("TARGET").unwrap_or_default();
-
         if is_ios_target(target.as_str()) {
             let cache_src = Path::new(&witnesscalc_cache);
             let target_witnesscalc = Path::new(&out_dir).join("witnesscalc");
@@ -83,6 +86,26 @@ fn main() {
             }
         }
     }
+}
+
+// wasmer-vm assumes non-Windows x86_64 targets provide `__rust_probestack`
+// (see wasmer_vm::probestack), but Darwin's LLVM stack-probe convention uses
+// `__chkstk_darwin` instead (already stubbed via chkstk_stub), so the symbol
+// is genuinely absent when linking for x86_64-apple-ios. Stub it as a no-op,
+// same as wasmer_vm's own fallback for architectures without stack probes.
+fn stub_rust_probestack() {
+    let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
+    let stub_path = Path::new(&out_dir).join("rust_probestack_stub.c");
+    std::fs::write(&stub_path, "void __rust_probestack(void) {}\n")
+        .expect("Failed to write rust_probestack stub");
+
+    cc::Build::new()
+        .file(&stub_path)
+        .out_dir(&out_dir)
+        .compile("rust_probestack_stub");
+
+    println!("cargo:rustc-link-search=native={out_dir}");
+    println!("cargo:rustc-link-lib=static=rust_probestack_stub");
 }
 
 #[allow(unused)]

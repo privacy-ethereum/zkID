@@ -15,7 +15,7 @@ wasm = []
 mobile = ["ecdsa-spartan2/cert_chain_rs4096", "ecdsa-spartan2/user_sig_rs2048"]
 
 [dependencies]
-mopro-ffi = "0.3.5"
+mopro-ffi = "0.3.7"
 thiserror = "2.0.12"
 anyhow = "1.0.99"
 ecdsa-spartan2 = { path = "../ecdsa-spartan2" } # mobile only supports 4096-bit RSA
@@ -51,7 +51,7 @@ serde_json = "1.0.149"
 
 [dev-dependencies]
 tempfile = "3.8"
-mopro-ffi = { version = "0.3.5", features = ["uniffi-tests"] }
+mopro-ffi = { version = "0.3.7", features = ["uniffi-tests"] }
 
 [build-dependencies]
 spartan2 = { git = "https://github.com/0xVikasRushi/Spartan2.git", branch = "openac-sdk", default-features = false }
