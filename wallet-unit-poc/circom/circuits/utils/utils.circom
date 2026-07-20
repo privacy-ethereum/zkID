@@ -187,7 +187,10 @@ template HashModScalarField() {
     verifyLo.in <== hashLo;
     component verifyHi = Num2Bits(128);
     verifyHi.in <== hashHi;
-    
+
+    // checks above only range-check each limb; without this recomposition
+    hashNum.out === hashLo + hashHi * (2 ** 128);
+
     // hash >= q
     component alpha = GreaterThan(129);
     alpha.in[0] <== hashHi;

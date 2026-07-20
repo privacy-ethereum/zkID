@@ -126,6 +126,13 @@ template K_add() {
     signal slo <-- s & (2 ** (128) - 1);
     signal shi <-- s >> 128;
 
+
+    component sloBits = Num2Bits(128);
+    sloBits.in <== slo;
+    component shiBits = Num2Bits(128);
+    shiBits.in <== shi;
+    s === slo + shi * (2 ** 128);
+
     // Get carry bit of (slo + tQlo)
 
     component inBits = Num2Bits(128 + 1);
