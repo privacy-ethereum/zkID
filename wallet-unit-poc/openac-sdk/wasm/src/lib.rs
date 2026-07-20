@@ -344,7 +344,10 @@ pub fn verify(
     let prepare_vk: <R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey =
         bincode::deserialize(prepare_vk_bytes)
             .map_err(|e| JsError::new(&format!("Prepare VK deserialization failed: {}", e)))?;
-    let prepare_instance: spartan2::r1cs::SplitR1CSInstance<E> =
+    // Instances are deserialized for input-shape compatibility only. They are
+    // caller-supplied and unauthenticated, so linkage must not depend on them;
+    // the commitment comparison below reads from the verified proofs instead.
+    let _prepare_instance: spartan2::r1cs::SplitR1CSInstance<E> =
         bincode::deserialize(prepare_instance_bytes).map_err(|e| {
             JsError::new(&format!("Prepare instance deserialization failed: {}", e))
         })?;
@@ -354,24 +357,10 @@ pub fn verify(
     let show_vk: <R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey =
         bincode::deserialize(show_vk_bytes)
             .map_err(|e| JsError::new(&format!("Show VK deserialization failed: {}", e)))?;
-    let show_instance: spartan2::r1cs::SplitR1CSInstance<E> =
+    let _show_instance: spartan2::r1cs::SplitR1CSInstance<E> =
         bincode::deserialize(show_instance_bytes)
             .map_err(|e| JsError::new(&format!("Show instance deserialization failed: {}", e)))?;
 
-    // Step A: Compare shared commitments
-    let commitment_valid = prepare_instance.comm_W_shared == show_instance.comm_W_shared;
-    if !commitment_valid {
-        let result = VerifyResult {
-            valid: false,
-            prepare_public_values: vec![],
-            show_public_values: vec![],
-            error: Some("Shared commitment mismatch: prepare and show proofs do not share the same private data".to_string()),
-        };
-        return serde_wasm_bindgen::to_value(&result)
-            .map_err(|e| JsError::new(&format!("JS conversion failed: {}", e)));
-    }
-
-    // Step B: Verify Prepare proof
     let prepare_pv = match prepare_proof.verify(&prepare_vk) {
         Ok(pv) => pv,
         Err(e) => {
@@ -386,7 +375,6 @@ pub fn verify(
         }
     };
 
-    // Step C: Verify Show proof
     let show_pv = match show_proof.verify(&show_vk) {
         Ok(pv) => pv,
         Err(e) => {
@@ -400,6 +388,24 @@ pub fn verify(
                 .map_err(|e| JsError::new(&format!("JS conversion failed: {}", e)));
         }
     };
+
+    // Linkage: both proofs must commit to the same shared witness. Read the
+    // commitments from the verified proofs, not the caller-supplied instances.
+    let prepare_shared = prepare_proof.comm_W_shared();
+    let show_shared = show_proof.comm_W_shared();
+    let commitment_valid = prepare_shared.is_some()
+        && show_shared.is_some()
+        && prepare_shared == show_shared;
+    if !commitment_valid {
+        let result = VerifyResult {
+            valid: false,
+            prepare_public_values: vec![],
+            show_public_values: vec![],
+            error: Some("Shared commitment mismatch: prepare and show proofs do not share the same private data".to_string()),
+        };
+        return serde_wasm_bindgen::to_value(&result)
+            .map_err(|e| JsError::new(&format!("JS conversion failed: {}", e)));
+    }
 
     // All checks passed
     let result = VerifyResult {
