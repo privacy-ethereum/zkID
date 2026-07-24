@@ -423,19 +423,44 @@ pub fn calculate_jwt_output_indices(
     }
 }
 
+/// Show circuit template parameters (`Show(nClaims, maxPredicates, maxLogicTokens, valueBits)`).
+/// Fixed across all VC sizes: the Show circuit is always `Show(2, 2, 8, 64)`
+/// (see `circom/circuits.json`), so only `nClaims` varies with the JWT circuit
+/// and it is always `2` because every JWT size uses `maxMatches = 4`.
+pub const SHOW_MAX_PREDICATES: usize = 2;
+pub const SHOW_MAX_LOGIC_TOKENS: usize = 8;
+
+/// Number of public IO signals of the Show circuit.
+///
+/// The verifier statement is bound into the proof's public IO (see
+/// `circom/circuits/main/show.circom`). Circom lays the public signals out as a
+/// contiguous witness prefix `witness[1..=SHOW_NUM_PUBLIC]`, in the order:
+///   [0] expressionResult (output)
+///   [1] messageHash
+///   [2] predicateLen
+///   [3..]  predicateClaimRefs[maxPredicates]
+///          predicateOps[maxPredicates]
+///          predicateRhsIsRef[maxPredicates]
+///          predicateRhsValues[maxPredicates]
+///          tokenTypes[maxLogicTokens]
+///          tokenValues[maxLogicTokens]
+///          exprLen
+/// = 4 + 4*maxPredicates + 2*maxLogicTokens
+///   (with maxPredicates=2, maxLogicTokens=8: 4 + 8 + 16 = 28).
+pub const SHOW_NUM_PUBLIC: usize =
+    4 + 4 * SHOW_MAX_PREDICATES + 2 * SHOW_MAX_LOGIC_TOKENS;
+
 /// Layout of the Show circuit's witness vector.
 ///
-/// Verified against `build/show/show.sym` (`Show(2, 2, 8, 64)`):
-///   witness[1] = main.expressionResult (output)
-///   witness[2] = main.deviceKeyX       (public input)
-///   witness[3] = main.deviceKeyY       (public input)
-///   witness[4] = main.sig_r            (private)
-///   witness[5] = main.sig_s_inverse    (private)
-///   witness[6] = main.predicateLen     (private)
-///   witness[7..7+n_claims] = main.claimValues[..]
-///
-/// Note: `main.messageHash` shows `witness_idx = -1` in show.sym, so it does
-/// not occupy a slot in the witness vector and is not counted in this layout.
+/// Verified against `build/show/show.sym` (`Show(2, 2, 8, 64)`), with the
+/// verifier statement made public (`SHOW_NUM_PUBLIC = 28`):
+///   witness[1]        = main.expressionResult (public output)
+///   witness[2..=28]   = messageHash + predicate program (public inputs)
+///   witness[29]       = main.deviceKeyX       (private, shared via comm_W_shared)
+///   witness[30]       = main.deviceKeyY       (private, shared)
+///   witness[31]       = main.sig_r            (private)
+///   witness[32]       = main.sig_s_inverse    (private)
+///   witness[33..33+n_claims] = main.claimValues[..] (private, shared)
 #[derive(Debug, Clone, Copy)]
 pub struct ShowWitnessLayout {
     pub expression_result_index: usize,
@@ -449,17 +474,25 @@ impl ShowWitnessLayout {
     pub fn claim_values_range(&self) -> Range<usize> {
         self.claim_values_start..self.claim_values_start + self.claim_values_len
     }
+
+    /// Number of public IO signals (`expressionResult` + bound statement).
+    pub fn num_public(&self) -> usize {
+        SHOW_NUM_PUBLIC
+    }
 }
 
 /// Calculate Show circuit witness layout for the given `n_claims` template parameter.
 ///
 /// `n_claims` must equal the JWT circuit's `maxMatches - 2` (see [`CircuitSize::n_claims`]).
 pub fn calculate_show_witness_indices(n_claims: usize) -> ShowWitnessLayout {
+    // Private signals follow the public prefix: deviceKeyX, deviceKeyY, sig_r,
+    // sig_s_inverse, then claimValues[..].
+    let device_key_x_index = SHOW_NUM_PUBLIC + 1;
     ShowWitnessLayout {
         expression_result_index: 1,
-        device_key_x_index: 2,
-        device_key_y_index: 3,
-        claim_values_start: 7,
+        device_key_x_index,
+        device_key_y_index: device_key_x_index + 1,
+        claim_values_start: device_key_x_index + 4,
         claim_values_len: n_claims,
     }
 }

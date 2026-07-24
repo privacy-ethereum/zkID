@@ -27,7 +27,18 @@
   "show": {
     "file": "show",
     "template": "Show",
-    "params": [2, 2, 8, 64]
+    "params": [2, 2, 8, 64],
+    "pubs": [
+      "messageHash",
+      "predicateLen",
+      "predicateClaimRefs",
+      "predicateOps",
+      "predicateRhsIsRef",
+      "predicateRhsValues",
+      "tokenTypes",
+      "tokenValues",
+      "exprLen"
+    ]
   },
   "ecdsa": {
     "file": "ecdsa/ecdsa",

@@ -2,12 +2,9 @@ import { p256 } from "@noble/curves/p256";
 import { sha256 } from "@noble/hashes/sha2";
 import { Field } from "@noble/curves/abstract/modular";
 
-import {
-  base64urlToBigInt,
-  bytesToBigInt,
-  P256_SCALAR_ORDER,
-} from "../utils.js";
+import { base64urlToBigInt } from "../utils.js";
 import { InputError } from "../errors.js";
+import { buildShowStatementFields } from "./show-statement.js";
 import type { ShowCircuitParams, ShowCircuitInputs, EcdsaPublicKey, EcdsaPrivateKey } from "../types.js";
 
 const Fq = Field(BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"));
@@ -86,10 +83,6 @@ export function buildShowCircuitInputs(
     throw new InputError("INVALID_SIGNATURE", "Device signature verification failed");
   }
 
-  const messageHash = sha256(new TextEncoder().encode(nonce));
-  const messageHashBigInt = bytesToBigInt(messageHash);
-  const messageHashModQ = messageHashBigInt % P256_SCALAR_ORDER;
-
   const normalizedValues = options.normalizedClaimValues ?? [0n];
   const claimValues: bigint[] = Array(params.nClaims).fill(0n);
   for (let i = 0; i < Math.min(params.nClaims, normalizedValues.length); i++) {
@@ -103,59 +96,28 @@ export function buildShowCircuitInputs(
       rhs: { kind: "literal", value: claimValues[0]! },
     },
   ];
-  const predicateLen = BigInt(predicates.length);
-
-  const predicateClaimRefs: bigint[] = Array(params.maxPredicates).fill(0n);
-  const predicateOps: bigint[] = Array(params.maxPredicates).fill(BigInt(PredicateOp.EQ));
-  const predicateRhsIsRef: bigint[] = Array(params.maxPredicates).fill(0n);
-  const predicateRhsValues: bigint[] = Array(params.maxPredicates).fill(0n);
-
-  for (let i = 0; i < Math.min(params.maxPredicates, predicates.length); i++) {
-    const spec = predicates[i]!;
-    predicateClaimRefs[i] = BigInt(spec.claimRef);
-    predicateOps[i] = BigInt(spec.op);
-    if (spec.rhs.kind === "literal") {
-      predicateRhsIsRef[i] = 0n;
-      predicateRhsValues[i] = spec.rhs.value;
-    } else {
-      predicateRhsIsRef[i] = 1n;
-      predicateRhsValues[i] = BigInt(spec.rhs.index);
-    }
-  }
-
   const logicExpr = options.logicExpression ?? [{ type: LogicToken.REF, value: 0 }];
-  const exprLen = BigInt(logicExpr.length);
 
-  if (logicExpr.length > params.maxLogicTokens) {
-    throw new InputError(
-      "PARAMS_EXCEEDED",
-      `Logic expression length (${logicExpr.length}) exceeds maxLogicTokens (${params.maxLogicTokens})`,
-    );
-  }
-
-  const tokenTypes: bigint[] = Array(params.maxLogicTokens).fill(0n);
-  const tokenValues: bigint[] = Array(params.maxLogicTokens).fill(0n);
-
-  for (let i = 0; i < logicExpr.length; i++) {
-    tokenTypes[i] = BigInt(logicExpr[i]!.type);
-    tokenValues[i] = BigInt(logicExpr[i]!.value);
-  }
+  // Build the verifier statement (messageHash + padded predicate program) via
+  // the shared helper so the prover and verifier compute byte-identical public
+  // values.
+  const statement = buildShowStatementFields(params, nonce, predicates, logicExpr);
 
   return {
     deviceKeyX,
     deviceKeyY,
     sig_r: sigDecoded.r,
     sig_s_inverse: sigSInverse,
-    messageHash: messageHashModQ,
-    predicateLen,
+    messageHash: statement.messageHash,
+    predicateLen: statement.predicateLen,
     claimValues,
-    predicateClaimRefs,
-    predicateOps,
-    predicateRhsIsRef,
-    predicateRhsValues,
-    tokenTypes,
-    tokenValues,
-    exprLen,
+    predicateClaimRefs: statement.predicateClaimRefs,
+    predicateOps: statement.predicateOps,
+    predicateRhsIsRef: statement.predicateRhsIsRef,
+    predicateRhsValues: statement.predicateRhsValues,
+    tokenTypes: statement.tokenTypes,
+    tokenValues: statement.tokenValues,
+    exprLen: statement.exprLen,
   };
 }
 

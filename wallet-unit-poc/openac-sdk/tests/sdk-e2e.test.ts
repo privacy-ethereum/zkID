@@ -8,10 +8,11 @@ import { createHash } from "crypto";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
-import { OpenAC } from "../src/index.js";
+import { OpenAC, Credential, compilePredicateExpression } from "../src/index.js";
 import { generateDummyCredential } from "../src/testing/index.js";
 import type { VcSize } from "../src/sizing.js";
-import type { KeySet, VerifyingKeys } from "../src/types.js";
+import type { KeySet, VerifyingKeys, ExpectedStatement } from "../src/types.js";
+import type { PredicateExpression } from "../src/predicates.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = join(__dirname, "..", "assets");
@@ -83,6 +84,22 @@ const claimToClaimPredicate = {
   op: "<=" as const,
   compareTo: { claim: "roc_max" },
 };
+
+/**
+ * Build the verifier's expected statement. The verify API takes the predicate
+ * program in circuit (claim-index) form and never sees the holder's claims; a
+ * real verifier derives that program from its credential schema. Here the test
+ * compiles it once against the schema (the dummy credential's claim layout).
+ */
+function expectedStatement(
+  cred: ReturnType<typeof makeDummy1k>,
+  nonce: string,
+  predicates: PredicateExpression,
+): ExpectedStatement {
+  const schema = Credential.parse(cred.jwt, cred.disclosures).claims;
+  const compiled = compilePredicateExpression(predicates, schema);
+  return { nonce, predicates: compiled.predicates, logicExpression: compiled.logicExpression };
+}
 
 describe("OpenAC: initialization", () => {
   it("init() returns an OpenAC instance reporting isReady=true", async () => {
@@ -239,10 +256,13 @@ describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
       predicates: claimToClaimPredicate,
     });
 
-    const result = await openac.verify(proof, keys.verifyingKeys());
+    const result = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "typed-dsl-c2c-nonce", claimToClaimPredicate),
+    );
     expect(result.valid).toBe(true);
     expect(result.expressionResult).toBe(true);
-    expect(result.deviceKey).toBeNull();
   }, 600_000);
 
   it("proves an age threshold with value: Date", async () => {
@@ -271,7 +291,11 @@ describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
       predicates: predicate,
     });
 
-    const result = await openac.verify(proof, keys.verifyingKeys());
+    const result = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "typed-dsl-age-nonce", predicate),
+    );
     expect(result.valid).toBe(true);
     expect(result.expressionResult).toBe(true);
   }, 600_000);
@@ -303,7 +327,11 @@ describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
       predicates: expr,
     });
 
-    const result = await openac.verify(proof, keys.verifyingKeys());
+    const result = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "typed-dsl-all-nonce", expr),
+    );
     expect(result.valid).toBe(true);
     expect(result.expressionResult).toBe(true);
   }, 600_000);
@@ -334,6 +362,7 @@ describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
       keys.verifyingKeys(),
       proof.prepareInstance,
       proof.showInstance,
+      expectedStatement(cred, "verifyComponents-nonce", claimToClaimPredicate),
     );
     expect(result.valid).toBe(true);
   }, 600_000);
@@ -361,7 +390,11 @@ describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
     const serialized = proof.serialize();
     expect(serialized.length).toBeGreaterThan(0);
 
-    const result = await openac.verifyProof(serialized, keys.verifyingKeys());
+    const result = await openac.verifyProof(
+      serialized,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "verifyProof-nonce", claimToClaimPredicate),
+    );
     expect(result.valid).toBe(true);
   }, 600_000);
 
@@ -379,6 +412,92 @@ describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
       }),
     ).rejects.toThrow(/unknown claim/i);
   }, 60_000);
+
+  // --- Statement-binding soundness (policy-swap + replay) ---
+  //
+  // A cryptographically valid Show proof only asserts "some hidden predicate
+  // over the linked credential was true for some hidden nonce". These tests
+  // prove the verifier now rejects unless that hidden statement equals its
+  // expected nonce and policy.
+
+  it("rejects a policy-swap: proof for an easy policy fails against the verifier's policy", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+
+    // Holder proves an easy policy that yields expressionResult === true...
+    const easyPolicy: PredicateExpression = claimToClaimPredicate;
+    // ...but the verifier requires a different (harder) policy.
+    const verifierPolicy: PredicateExpression = {
+      claim: "roc_birthday",
+      op: ">=" as const,
+      value: new Date(Date.UTC(2010, 0, 1)),
+    };
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: easyPolicy,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "policy-swap-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: easyPolicy,
+    });
+
+    // Sanity: the proof verifies against the policy it was actually made for.
+    const honest = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "policy-swap-nonce", easyPolicy),
+    );
+    expect(honest.valid).toBe(true);
+
+    // Attack: same proof, same nonce, but the verifier's expected policy differs.
+    const swapped = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "policy-swap-nonce", verifierPolicy),
+    );
+    expect(swapped.valid).toBe(false);
+    expect(swapped.expressionResult).toBeNull();
+    expect(swapped.error).toMatch(/policy/i);
+  }, 600_000);
+
+  it("rejects a replay: proof for an old nonce fails against a fresh challenge", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "captured-old-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    // Replayed against a different (fresh) session challenge.
+    const replayed = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "fresh-session-nonce", claimToClaimPredicate),
+    );
+    expect(replayed.valid).toBe(false);
+    expect(replayed.expressionResult).toBeNull();
+    expect(replayed.error).toMatch(/nonce/i);
+  }, 600_000);
 });
 
 describe.skipIf(!HAS_R2)("Full pipeline with keys fetched from R2", () => {
@@ -409,7 +528,11 @@ describe.skipIf(!HAS_R2)("Full pipeline with keys fetched from R2", () => {
       predicates: claimToClaimPredicate,
     });
 
-    const result = await openac.verify(proof, keys.verifyingKeys());
+    const result = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "sdk-e2e-r2-nonce", claimToClaimPredicate),
+    );
     expect(result.valid).toBe(true);
     expect(result.expressionResult).toBe(true);
   }, 2_400_000);
@@ -439,10 +562,14 @@ describe.skipIf(!HAS_R2)("Full pipeline with keys fetched from R2", () => {
     });
 
     expect(sha256Hex(bundledShowVk)).toBe(sha256Hex(keys.showVerifyingKey));
-    const result = await openac.verify(proof, {
-      prepareVerifyingKey: keys.prepareVerifyingKey,
-      showVerifyingKey: bundledShowVk,
-    });
+    const result = await openac.verify(
+      proof,
+      {
+        prepareVerifyingKey: keys.prepareVerifyingKey,
+        showVerifyingKey: bundledShowVk,
+      },
+      expectedStatement(cred, "sdk-e2e-hybrid-nonce", claimToClaimPredicate),
+    );
     expect(result.valid).toBe(true);
   }, 2_400_000);
 });

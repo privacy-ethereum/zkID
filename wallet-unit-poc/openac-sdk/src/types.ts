@@ -71,6 +71,31 @@ export interface VerifyingKeys {
   showVerifyingKey: Uint8Array;
 }
 
+/**
+ * The verifier's expected statement, required by all verification APIs. The
+ * verifier recomputes the Show proof's public values (nonce hash + predicate
+ * program) from this and rejects any proof whose public values do not match, so
+ * a valid proof also confirms it was produced for exactly this nonce and this
+ * policy, not merely that some hidden predicate over the linked credential was
+ * true for some hidden nonce.
+ *
+ * The verifier authors the policy and issues the nonce, so it supplies the
+ * predicate program in the circuit's own (claim-index) terms. It does NOT take
+ * the holder's disclosed claims: the statement the verifier requires is decided
+ * by the verifier, independent of anything the holder discloses. A verifier that
+ * prefers the name-based DSL can compile it once against its credential schema
+ * via `compilePredicateExpression` and reuse the resulting `predicates` /
+ * `logicExpression` here.
+ */
+export interface ExpectedStatement {
+  /** The exact nonce/challenge the verifier issued for this session (freshness). */
+  nonce: string;
+  /** The required predicate program, in circuit (claim-index) form. */
+  predicates: import("./inputs/show-input-builder.js").PredicateSpec[];
+  /** Postfix logic expression over predicate results (REF/AND/OR/NOT). */
+  logicExpression: Array<{ type: number; value: number }>;
+}
+
 export interface VerificationResult {
   valid: boolean;
   expressionResult: boolean | null;

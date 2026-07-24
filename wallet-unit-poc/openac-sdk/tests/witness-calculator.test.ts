@@ -42,10 +42,12 @@ describe("WitnessCalculator", () => {
       const witness = await calculator.calculateShowWitness(inputs);
 
       expect(witness[0]).toBe(1n);
-      // Witness layout (unchanged by the device-key-hiding fix): w[1] = expressionResult,
-      // w[2] = deviceKeyX, w[3] = deviceKeyY. After the fix, only w[1] is verifier-observable.
-      expect(witness[2]).toBe(BigInt(inputJson.deviceKeyX));
-      expect(witness[3]).toBe(BigInt(inputJson.deviceKeyY));
+      // Witness layout after binding the verifier statement into the public IO:
+      // w[1] = expressionResult, w[2..=28] = messageHash + predicate program
+      // (public), then the private signals: w[29] = deviceKeyX, w[30] = deviceKeyY.
+      expect(witness[2]).toBe(BigInt(inputJson.messageHash));
+      expect(witness[29]).toBe(BigInt(inputJson.deviceKeyX));
+      expect(witness[30]).toBe(BigInt(inputJson.deviceKeyY));
     }, 30_000);
 
     it("should generate WTNS binary from show inputs", async () => {

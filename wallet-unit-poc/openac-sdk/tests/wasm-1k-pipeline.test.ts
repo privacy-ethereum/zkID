@@ -370,9 +370,11 @@ describe.skipIf(!checkArtifactsExist())(
     );
     expect(showResult.proof.length).toBeGreaterThan(0);
 
-    // JWT 1k (maxMatches=4, maxClaims=2): w[3]=KeyBindingX, w[4]=KeyBindingY
-    expect(jwtWitness[3]).toBe(showWitness[2]);
-    expect(jwtWitness[4]).toBe(showWitness[3]);
+    // JWT 1k (maxMatches=4, maxClaims=2): w[3]=KeyBindingX, w[4]=KeyBindingY.
+    // In the Show witness the verifier statement now occupies the public prefix
+    // (w[1..=28]), so the device key sits at w[29]=deviceKeyX, w[30]=deviceKeyY.
+    expect(jwtWitness[3]).toBe(showWitness[29]);
+    expect(jwtWitness[4]).toBe(showWitness[30]);
 
     const presentResult = await bridge.present(
       preparePk,
@@ -398,10 +400,10 @@ describe.skipIf(!checkArtifactsExist())(
 
     expect(verifyResult.valid).toBe(true);
     expect(verifyResult.error).toBeUndefined();
-    // Show circuit emits only expressionResult as a verifier-observable public
-    // value. Device key was previously also exposed but moved into the shared
-    // witness commitment to prevent verifier-side session linkability.
-    expect(verifyResult.showPublicValues.length).toBe(1);
+    // Show circuit public IO: expressionResult (1) + the bound verifier statement
+    // (messageHash + predicate program) = 28 values. The device key remains in
+    // the shared witness commitment, not a public output.
+    expect(verifyResult.showPublicValues.length).toBe(28);
     // JWT 1k circuit: maxClaims(2) + 2 (KeyBindingX, KeyBindingY) = 4 public values
     expect(verifyResult.preparePublicValues.length).toBe(4);
   }, 900_000);

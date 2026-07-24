@@ -4,7 +4,7 @@ import { readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
-import { OpenAC } from "../src/index.js";
+import { OpenAC, Credential, compilePredicateExpression } from "../src/index.js";
 import { generateDummyCredential } from "../src/testing/index.js";
 import type { VcSize } from "../src/sizing.js";
 import type { KeySet, VerifyingKeys } from "../src/types.js";
@@ -99,19 +99,25 @@ describe("multi-size pipeline", () => {
           predicates: claimToClaimPredicate,
         });
 
+        const nonce = `verifier-nonce-mul-${size}`;
         const proof = await openac.present({
           precomputed,
-          verifierNonce: `verifier-nonce-mul-${size}`,
+          verifierNonce: nonce,
           devicePrivateKey: cred.devicePrivateKeyHex,
           keys,
           predicates: claimToClaimPredicate,
         });
 
-        const verification = await openac.verify(proof, keys.verifyingKeys());
+        const schema = Credential.parse(cred.jwt, cred.disclosures).claims;
+        const compiled = compilePredicateExpression(claimToClaimPredicate, schema);
+        const verification = await openac.verify(proof, keys.verifyingKeys(), {
+          nonce,
+          predicates: compiled.predicates,
+          logicExpression: compiled.logicExpression,
+        });
 
         expect(verification.valid).toBe(true);
         expect(verification.expressionResult).toBe(true);
-        expect(verification.deviceKey).toBeNull();
       }, 600_000);
     });
   }
