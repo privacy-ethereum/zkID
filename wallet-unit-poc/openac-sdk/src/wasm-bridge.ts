@@ -13,6 +13,72 @@ import type { VcSize } from "./sizing.js";
 
 export type { VcSize } from "./sizing.js";
 
+// Pinned SHA-256 digests of the canonical OpenAC setup keys (matches the key
+// set in ecdsa-spartan2/keys/ and the bundled assets). The key CDN is NOT
+// trusted: any fetched key that does not match its pinned digest is rejected,
+// so a compromised distribution path cannot substitute attacker parameters.
+// Regenerate with: shasum -a 256 ecdsa-spartan2/keys/*_{proving,verifying}.key
+const KEY_SHA256: Record<string, string> = {
+  "1k_prepare_proving.key":
+    "9a071286c62da4d2094ed54e6d7d279b52d9dcd7d6e402759cbff8c02d64b4fc",
+  "1k_prepare_verifying.key":
+    "74513884fba5a8a6e9e74c3bf459ad62abd5e659cd2d86e43e7d398c6e37ab54",
+  "1k_show_proving.key":
+    "12217b48ee2ee3d74df725ba9c2a767aa0c96dfdd05427027ab656f3a4438deb",
+  "1k_show_verifying.key":
+    "d6c412db5ebe82b2025a4beb5e1869b43733e14286d6fbbef4a2a6e589883a48",
+  "2k_prepare_proving.key":
+    "84f15ec72cc38c645751c867920e49d81eace4516798344e05d56bad7852bffd",
+  "2k_prepare_verifying.key":
+    "1686135abc409d786a8073f5c65ec3e8afd0161ebdcdcfc88fcb8a4210057f2a",
+  "2k_show_proving.key":
+    "12217b48ee2ee3d74df725ba9c2a767aa0c96dfdd05427027ab656f3a4438deb",
+  "2k_show_verifying.key":
+    "d6c412db5ebe82b2025a4beb5e1869b43733e14286d6fbbef4a2a6e589883a48",
+  "4k_prepare_proving.key":
+    "cbb77d85ec92a94c974e4fe8a164f94209d34615267339c061d6a6a98ea8a034",
+  "4k_prepare_verifying.key":
+    "930449b7b75f62b7a09b63cf1bfe1ca26e0ce521918f138b9db07280c14894a9",
+  "4k_show_proving.key":
+    "12217b48ee2ee3d74df725ba9c2a767aa0c96dfdd05427027ab656f3a4438deb",
+  "4k_show_verifying.key":
+    "d6c412db5ebe82b2025a4beb5e1869b43733e14286d6fbbef4a2a6e589883a48",
+  "8k_prepare_proving.key":
+    "402fb1284ef89c58e95f2f021e399b5651758d85b3f55157b25dd4661a3fe792",
+  "8k_prepare_verifying.key":
+    "f992184fdc4c1697d5cd798992617c4193a258e88e028f94af998ed867c79c75",
+  "8k_show_proving.key":
+    "12217b48ee2ee3d74df725ba9c2a767aa0c96dfdd05427027ab656f3a4438deb",
+  "8k_show_verifying.key":
+    "d6c412db5ebe82b2025a4beb5e1869b43733e14286d6fbbef4a2a6e589883a48",
+};
+
+async function verifyKeyDigest(
+  filename: string,
+  bytes: Uint8Array,
+  url: string,
+): Promise<void> {
+  const expected = KEY_SHA256[filename];
+  if (!expected) {
+    throw new WasmError(
+      "KEY_INTEGRITY_FAILED",
+      `No pinned digest for key file ${filename}; refusing to load it.`,
+    );
+  }
+  const digest = new Uint8Array(
+    await globalThis.crypto.subtle.digest("SHA-256", bytes),
+  );
+  const actual = Array.from(digest)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  if (actual !== expected) {
+    throw new WasmError(
+      "KEY_INTEGRITY_FAILED",
+      `Key ${filename} from ${url} failed integrity check: expected sha256 ${expected}, got ${actual}.`,
+    );
+  }
+}
+
 interface WasmPrecomputeResult {
   proof: Uint8Array;
   instance: Uint8Array;
@@ -176,7 +242,9 @@ export class WasmBridge {
         );
       }
       const buffer = await response.arrayBuffer();
-      return new Uint8Array(buffer);
+      const bytes = new Uint8Array(buffer);
+      await verifyKeyDigest(filename, bytes, url);
+      return bytes;
     };
 
     const keys = await Promise.all(keyFiles.map(fetchKey));
