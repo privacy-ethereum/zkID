@@ -18,6 +18,7 @@ import type {
   PrecomputedCredential,
   PresentRequest,
   PresentationProof,
+  ExpectedStatement,
 } from "./types.js";
 
 export const DEFAULT_KEYS_BASE_URL =
@@ -123,6 +124,7 @@ export class OpenAC {
   async verify(
     proof: PresentationProof,
     keys: VerifyingKeys,
+    expected: ExpectedStatement,
   ): Promise<VerificationResult> {
     return this.verifier.verifyComponents(
       proof.prepareProof,
@@ -130,14 +132,16 @@ export class OpenAC {
       keys,
       proof.prepareInstance,
       proof.showInstance,
+      expected,
     );
   }
 
   async verifyProof(
     proof: SerializedProof,
     keys: VerifyingKeys,
+    expected: ExpectedStatement,
   ): Promise<VerificationResult> {
-    return this.verifier.verifyProof(proof, keys);
+    return this.verifier.verifyProof(proof, keys, expected);
   }
 
   async verifyComponents(
@@ -146,6 +150,7 @@ export class OpenAC {
     keys: VerifyingKeys,
     prepareInstance: Uint8Array,
     showInstance: Uint8Array,
+    expected: ExpectedStatement,
   ): Promise<VerificationResult> {
     return this.verifier.verifyComponents(
       prepareProof,
@@ -153,6 +158,7 @@ export class OpenAC {
       keys,
       prepareInstance,
       showInstance,
+      expected,
     );
   }
 
@@ -197,6 +203,15 @@ export { NativeBackend } from "./native-backend.js";
 export type { NativeBackendConfig } from "./native-backend.js";
 // Typed predicate DSL (recommended public API).
 export { compilePredicateExpression } from "./predicates.js";
+// Verifier-statement binding helpers (nonce hash + compiled predicate program).
+export {
+  computeMessageHash,
+  buildShowStatementFields,
+  buildShowStatementPublicValues,
+} from "./inputs/show-statement.js";
+// Circuit-level predicate program types/constants, for building ExpectedStatement.
+export { PredicateOp, LogicToken } from "./inputs/show-input-builder.js";
+export type { PredicateSpec, PredicateRhs } from "./inputs/show-input-builder.js";
 export type {
   Predicate,
   PredicateExpression,
@@ -218,6 +233,7 @@ export type {
   OpenACConfig,
   ProofPublicValues,
   VerificationResult,
+  ExpectedStatement,
   VerifyingKeys,
   KeySet,
   SerializedKeySet,

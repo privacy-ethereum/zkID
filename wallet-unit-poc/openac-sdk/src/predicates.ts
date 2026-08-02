@@ -4,8 +4,9 @@
 // Format codes match jwt.circom (line 50):
 //   0=bool, 1=uint, 2=iso_date, 3=roc_date, 4=string
 // We expose three formats to consumers: "uint", "date", "string".
-// "date" maps to claimFormat=3 (roc_date) with decodeFlag=1. The other formats
-// use decodeFlag=0.
+// "date" -> claimFormat=3 (roc_date), "uint" -> claimFormat=1, "string" ->
+// claimFormat=4. Every claim referenced by a predicate is decoded
+// (decodeFlag=1) so its value is extracted and normalized before comparison.
 
 import { InputError } from "./errors.js";
 import {
@@ -106,9 +107,9 @@ function formatToCircuitCodes(f: ClaimFormatHint): { decodeFlag: number; claimFo
     case "date":
       return { decodeFlag: 1, claimFormat: 3 };
     case "uint":
-      return { decodeFlag: 0, claimFormat: 1 };
+      return { decodeFlag: 1, claimFormat: 1 };
     case "string":
-      return { decodeFlag: 0, claimFormat: 4 };
+      return { decodeFlag: 1, claimFormat: 4 };
   }
 }
 
@@ -251,9 +252,11 @@ export function compilePredicateExpression(
   const decodeFlags: number[] = [];
   const claimFormats: number[] = [];
   for (let i = 0; i < claims.length; i++) {
-    const format = claimFormatChosen.get(i) ?? "uint";
-    const { decodeFlag, claimFormat } = formatToCircuitCodes(format);
-    decodeFlags.push(decodeFlag);
+    const chosen = claimFormatChosen.get(i);
+    const { decodeFlag, claimFormat } = formatToCircuitCodes(chosen ?? "uint");
+    // Decode only claims referenced by a predicate; unreferenced slots stay
+    // undecoded to save constraints.
+    decodeFlags.push(chosen ? decodeFlag : 0);
     claimFormats.push(claimFormat);
   }
 

@@ -36,6 +36,11 @@ template ClaimValueNormalizer(valueLen) {
     isRocDateFormat <== formatEq[3].out;
     signal isStringFormat <== formatEq[4].out;
 
+    // Require exactly one supported format (0..4) to be selected, so an
+    // out-of-range format is rejected rather than normalized to 0.
+    signal formatSelectorSum <== isBoolFormat + isUintFormat + isIsoDateFormat + isRocDateFormat + isStringFormat;
+    formatSelectorSum === 1;
+
     // ===== Format 0: Boolean — "1" or "true" → 1, else → 0 =====
     component valLenEq1 = IsEqual();
     valLenEq1.in[0] <== valueLength;
@@ -66,13 +71,17 @@ template ClaimValueNormalizer(valueLen) {
     signal uintAccum[valueLen + 1];
     uintAccum[0] <== 0;
 
+    // Scale by 10 only within valueLength; past the value the multiplier is 1
+    // so trailing padding does not inflate the result.
     component valueLenGt[valueLen];
+    signal uintScaled[valueLen];
     for (var i = 0; i < valueLen; i++) {
         valueLenGt[i] = GreaterThan(log2Ceil(valueLen + 1));
         valueLenGt[i].in[0] <== valueLength;
         valueLenGt[i].in[1] <== i;
 
-        uintAccum[i + 1] <== uintAccum[i] * 10 + (value[i] - 48) * valueLenGt[i].out;
+        uintScaled[i] <== uintAccum[i] * (9 * valueLenGt[i].out + 1);
+        uintAccum[i + 1] <== uintScaled[i] + (value[i] - 48) * valueLenGt[i].out;
     }
     signal uintValue <== uintAccum[valueLen];
 
@@ -101,13 +110,17 @@ template ClaimValueNormalizer(valueLen) {
     strLenLe8.in[1] <== 8;
     isStringFormat * (1 - strLenLe8.out) === 0;
 
+    // Scale by 256 only within valueLength; past the value the multiplier is 1
+    // so trailing padding does not inflate the packed integer.
     component strLenGt[valueLen];
+    signal strScaled[valueLen];
     for (var i = 0; i < valueLen; i++) {
         strLenGt[i] = GreaterThan(log2Ceil(valueLen + 1));
         strLenGt[i].in[0] <== valueLength;
         strLenGt[i].in[1] <== i;
 
-        strAccum[i + 1] <== strAccum[i] * 256 + value[i] * strLenGt[i].out;
+        strScaled[i] <== strAccum[i] * (255 * strLenGt[i].out + 1);
+        strAccum[i + 1] <== strScaled[i] + value[i] * strLenGt[i].out;
     }
     signal strValue <== strAccum[valueLen];
 

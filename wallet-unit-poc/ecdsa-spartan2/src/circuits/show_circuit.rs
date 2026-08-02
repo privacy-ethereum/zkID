@@ -165,7 +165,9 @@ impl SpartanCircuit<E> for ShowCircuit {
                 synthesize(cs, r1cs, Some(witness))?;
             }
             Err(_) => {
-                let num_public = 1;
+                let num_public =
+                    calculate_show_witness_indices(self.path_config.circuit_size.n_claims())
+                        .num_public();
                 synthesize_witness_only(cs, &witness, num_public)?;
             }
         }
@@ -173,13 +175,19 @@ impl SpartanCircuit<E> for ShowCircuit {
     }
 
     fn public_values(&self) -> Result<Vec<Scalar>, SynthesisError> {
+        // Public IO = expressionResult (output) followed by the bound verifier
+        // statement (messageHash + predicate program). Circom lays these out as
+        // the contiguous witness prefix `witness[1..=num_public]`.
+        let num_public =
+            calculate_show_witness_indices(self.path_config.circuit_size.n_claims()).num_public();
+
         let witness = self.get_or_generate_witness().ok();
 
-        let expression_result = witness
-            .as_ref()
-            .map(|w| w[1])
-            .unwrap_or(Scalar::ZERO);
-        Ok(vec![expression_result])
+        let mut values = Vec::with_capacity(num_public);
+        for idx in 1..=num_public {
+            values.push(witness.as_ref().map(|w| w[idx]).unwrap_or(Scalar::ZERO));
+        }
+        Ok(values)
     }
 
     fn shared<CS: ConstraintSystem<Scalar>>(

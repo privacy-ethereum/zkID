@@ -326,12 +326,13 @@ describe("Show Circuit via SDK", () => {
 
     // Witness sanity checks
     expect(witness[0]).toBe(1n); // valid constraint system
-    // Witness layout unchanged by the device-key-hiding fix:
-    // w[1] = expressionResult, w[2] = deviceKeyX, w[3] = deviceKeyY.
-    // After the fix only w[1] is verifier-observable; w[2]/w[3] still appear
-    // in the witness vector (and the shared-witness commitment with Prepare).
-    expect(witness[2]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
-    expect(witness[3]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
+    // Witness layout after binding the verifier statement into the public IO:
+    // w[1] = expressionResult, w[2..=28] = messageHash + predicate program
+    // (public), then private signals w[29] = deviceKeyX, w[30] = deviceKeyY.
+    // The device key stays in the shared-witness commitment with Prepare.
+    expect(witness[2]).toBe(showInputs.messageHash); // messageHash (public)
+    expect(witness[29]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
+    expect(witness[30]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
   }, 30_000);
 
   it("proves and verifies via NativeBackend", async () => {
@@ -484,10 +485,12 @@ describe("Full Pipeline via SDK (Prepare + Show with Shared Blinds)", () => {
     expect(showResult.valid).toBe(true);
     expect(showResult.output).toContain("Verification successful");
 
-    // Step 8: Cross-circuit consistency: device key from JWT must match Show
-    // JWT circuit (maxMatches=4): w[3] = KeyBindingX, w[4] = KeyBindingY
-    expect(jwtWitness[3]).toBe(showWitness[2]); // KeyBindingX
-    expect(jwtWitness[4]).toBe(showWitness[3]); // KeyBindingY
+    // Step 8: Cross-circuit consistency: device key from JWT must match Show.
+    // JWT circuit (maxMatches=4): w[3] = KeyBindingX, w[4] = KeyBindingY.
+    // In Show, the verifier statement occupies the public prefix (w[1..=28]),
+    // so the device key sits at w[29] = deviceKeyX, w[30] = deviceKeyY.
+    expect(jwtWitness[3]).toBe(showWitness[29]); // KeyBindingX
+    expect(jwtWitness[4]).toBe(showWitness[30]); // KeyBindingY
 
     // Step 9: Expression evaluation result
     expect(typeof showWitness[1]).toBe("bigint"); // expressionResult

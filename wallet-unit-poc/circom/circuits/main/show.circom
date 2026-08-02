@@ -3,4 +3,4 @@ pragma circom 2.2.3;
 
 include "../show.circom";
 
-component main = Show(2, 2, 8, 64);
+component main {public[messageHash, predicateLen, predicateClaimRefs, predicateOps, predicateRhsIsRef, predicateRhsValues, tokenTypes, tokenValues, exprLen]} = Show(2, 2, 8, 64);
