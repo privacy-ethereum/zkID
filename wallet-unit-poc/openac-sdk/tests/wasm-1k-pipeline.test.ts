@@ -414,7 +414,9 @@ describe.skipIf(!checkArtifactsExist())(
     expect(verifyResult.showPublicValues.length).toBe(28);
     // JWT 1k circuit public IO: outputs maxClaims(2) + 2 (KeyBindingX,
     // KeyBindingY), then the public issuer key inputs (pubKeyX, pubKeyY) = 6.
-    expect(verifyResult.preparePublicValues.length).toBe(6);
+    // 3n + 4 for n = 2 claim slots: claim values, KeyBindingX/Y, the issuer
+    // key, then decodeFlags and claimFormats.
+    expect(verifyResult.preparePublicValues.length).toBe(10);
     const provenIssuer = extractIssuerKeyFromPreparePublicValues(
       verifyResult.preparePublicValues.map(parseScalar),
     );

@@ -27,7 +27,7 @@ import {
   circuitInputsToJson,
   base64urlToBigInt,
 } from "../../openac-sdk/src/utils.js";
-import { extractIssuerKeyFromPreparePublicValues } from "../../openac-sdk/src/inputs/issuer-key.js";
+import { extractIssuerKeyFromPreparePublicValues } from "../../openac-sdk/src/inputs/prepare-public-io.js";
 import { DEFAULT_SHOW_PARAMS } from "../../openac-sdk/src/types.js";
 import type { JwtCircuitParams } from "../../openac-sdk/src/types.js";
 
@@ -559,7 +559,7 @@ export async function verify(
   // Extract public values from verification result
   let ageAbove18 = false;
   let deviceKey: { x: string; y: string } | null = null;
-  // The Prepare proof's public IO ends with the (pubKeyX, pubKeyY) the circuit
+  // The Prepare proof's public IO carries the (pubKeyX, pubKeyY) the circuit
   // ran its ES256 check against. Proof validity does not cover issuer identity,
   // so compare that key against the issuer this demo expects.
   let issuerTrusted = false;

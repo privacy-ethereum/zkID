@@ -1,7 +1,11 @@
 import { WasmBridge } from "./wasm-bridge.js";
 import { deserializeProofBundle } from "./prover.js";
 import { buildShowStatementPublicValues } from "./inputs/show-statement.js";
-import { extractIssuerKeyFromPreparePublicValues } from "./inputs/issuer-key.js";
+import {
+  extractIssuerKeyFromPreparePublicValues,
+  extractClaimNormalizationFromPreparePublicValues,
+} from "./inputs/prepare-public-io.js";
+import { checkNormalizationSupports } from "./predicates.js";
 import { bigintToBase64url } from "./utils.js";
 import { DEFAULT_SHOW_PARAMS } from "./types.js";
 import type {
@@ -130,6 +134,12 @@ export class Verifier {
    * index-by-index. Any mismatch fails verification, so a `valid` result also
    * means the proof was produced for this exact nonce and predicate program.
    *
+   * The predicate program says which claim slots the policy reads, and the
+   * Prepare proof's public IO says how each of those slots was decoded and
+   * normalized. Both are required to match the expected statement, since the
+   * same predicate over the same slot means different things under different
+   * normalization.
+   *
    * Issuer identity is reported, not decided: the key the circuit ran its ES256
    * check against is read out of the Prepare public IO and returned as
    * `issuerKey`, leaving the trust decision to the caller. See
@@ -174,15 +184,35 @@ export class Verifier {
       );
     }
 
-    // The Prepare proof's public IO ends with the (pubKeyX, pubKeyY) the ES256
-    // check inside the circuit ran against. Reported as-is; the caller decides
-    // whether that key belongs to an issuer it trusts.
+    // The Prepare proof's public IO carries the (pubKeyX, pubKeyY) the ES256
+    // check inside the circuit ran against, and the decodeFlags/claimFormats the
+    // claim values were normalized under.
+    const preparePublicValues = result.preparePublicValues.map(parseScalar);
     let issuerKey;
+    let claimNormalization;
     try {
-      issuerKey = provenIssuerKey(result.preparePublicValues.map(parseScalar));
+      // The issuer key is reported as-is; the caller decides whether it belongs
+      // to an issuer it trusts.
+      issuerKey = provenIssuerKey(preparePublicValues);
+      claimNormalization =
+        extractClaimNormalizationFromPreparePublicValues(preparePublicValues);
     } catch (e) {
       return Verifier.failure(
         e instanceof Error ? e.message : String(e),
+        startTime,
+      );
+    }
+
+    // The normalization is checked here rather than reported, because the
+    // policy binding below compares predicates against claim values whose
+    // meaning depends on it.
+    const normalizationError = checkNormalizationSupports(
+      claimNormalization,
+      expected.claimNormalization,
+    );
+    if (normalizationError) {
+      return Verifier.failure(
+        `Claim normalization mismatch: ${normalizationError}`,
         startTime,
       );
     }

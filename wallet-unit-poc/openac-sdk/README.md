@@ -13,7 +13,11 @@ Node 18+. Browser usage requires preloading WASM and passing `wasmModule` to `Op
 ## Quickstart
 
 ```typescript
-import { OpenAC, compilePredicateExpression } from "openac-sdk";
+import {
+  OpenAC,
+  compilePredicateExpression,
+  requiredNormalization,
+} from "openac-sdk";
 
 const openac = await OpenAC.init();
 const keys = await openac.loadKeysFromUrl("1k");
@@ -51,6 +55,7 @@ const result = await openac.verify(proof, keys.verifyingKeys(), {
   nonce: "challenge-123",
   predicates: compiled.predicates,
   logicExpression: compiled.logicExpression,
+  claimNormalization: requiredNormalization(compiled),
 });
 
 // verify() reports the issuer key rather than judging it, so check it against
@@ -92,12 +97,30 @@ console.log(result.expressionResult);
 **Combinators**: `all`, `any`, `not` (nest arbitrarily)
 **Format**: inferred from value type (`Date` becomes date, numeric becomes uint, string becomes string). Override with `format: "date" | "uint" | "string"` on any predicate.
 
+### Precompute decides what a presentation can prove
+
+`precompute()` runs the JWT circuit once and caches the claim values it normalized. `present()` reuses that cache, so the predicates passed to `precompute()` fix what later presentations can evaluate:
+
+- a claim no precompute-time predicate referenced was never decoded, and its cached value is `0` rather than the credential's value
+- a claim normalized as `uint` is a decimal integer and is not comparable to a `date` or `string` predicate
+
+The prover chooses this normalization, so it is part of what a verifier must check rather than something the SDK can settle on the holder's side alone. It is enforced in two places:
+
+- `present()` compares its compiled formats against the ones recorded at precompute time and throws `CLAIM_FORMAT_MISMATCH` rather than building a proof over values that do not answer its predicates
+- `verify()` reads `decodeFlags` and `claimFormats` out of the Prepare proof's public IO and requires them to match `expected.claimNormalization`, so a prover that skips the check above still cannot get a policy accepted that was evaluated over `0` or over a differently normalized value
+
+Reuse a `PrecomputedCredential` across sessions only for predicates over the same claims in the same formats; otherwise call `precompute()` again. If your verifiers use varying policies, pass the union of the claims and formats you expect to serve to `precompute()`. Each extra decoded claim costs constraints, so precompute for the policies you serve rather than for the whole credential.
+
 ## Verifier
 
 A verifier only needs the two verifying keys, not the proving keys.
 
 ```typescript
-import { OpenAC, compilePredicateExpression } from "openac-sdk";
+import {
+  OpenAC,
+  compilePredicateExpression,
+  requiredNormalization,
+} from "openac-sdk";
 
 const openac = await OpenAC.init();
 
@@ -114,6 +137,7 @@ const result = await openac.verify(
     nonce,                                    // the challenge this session issued
     predicates: compiled.predicates,
     logicExpression: compiled.logicExpression,
+    claimNormalization: requiredNormalization(compiled),
   },
 );
 // result.valid            proofs verified, bound to this nonce and policy
@@ -127,6 +151,7 @@ const result = await openac.verify(
 1. **Shared commitment**: byte-equality of `comm_W_shared` between the Prepare and Show instances, tying both proofs to the same underlying credential.
 2. **Both SNARKs verify** against the supplied verifying keys.
 3. **Statement binding**: the Show proof's public values must equal what the verifier recomputes from its own `nonce` (freshness/replay) and compiled policy (no policy swap).
+4. **Claim normalization**: the `decodeFlags` and `claimFormats` in the Prepare proof's public IO must match what the policy requires, so the policy was evaluated over the credential's claim values in the formats it compares against rather than over `0` or a differently normalized value.
 
 ### Issuer trust is yours to enforce
 
@@ -192,7 +217,7 @@ Deterministic keys; JWT is sized to fit the chosen circuit slot.
 | `openac.verify(proof, vks, expected)` | `Promise<VerificationResult>` |
 | `openac.verifyProof(serialized, vks, expected)` | `Promise<VerificationResult>` |
 
-`expected` is an `ExpectedStatement`: `{ nonce, predicates, logicExpression }`. Every verify call returns `issuerKey` for the caller to check. See [Issuer trust is yours to enforce](#issuer-trust-is-yours-to-enforce).
+`expected` is an `ExpectedStatement`: `{ nonce, predicates, logicExpression, claimNormalization }`. All four come from `compilePredicateExpression` plus your own nonce. Every verify call returns `issuerKey` for the caller to check. See [Issuer trust is yours to enforce](#issuer-trust-is-yours-to-enforce).
 
 `size` is `"1k" | "2k" | "4k" | "8k"`. `precompute` auto-picks the smallest size that fits the JWT.
 

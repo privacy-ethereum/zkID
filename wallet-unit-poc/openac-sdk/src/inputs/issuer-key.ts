@@ -1,16 +1,11 @@
 // Decoding of an issuer public key to and from the P-256 affine coordinates the
 // credential circuits use as `pubKeyX` / `pubKeyY`.
 //
-// Both directions live here so they stay in sync:
-//   issuerPublicKeyToPoint()                    JWK or PEM -> coordinates, for
-//                                               the prover's witness.
-//   extractIssuerKeyFromPreparePublicValues()   proof public IO -> coordinates,
-//                                               for verify().
-//
-// `pubKeyX`/`pubKeyY` are public inputs of the JWT and MDOC main components (see
-// circom/circuits/main/), which is what makes the second direction possible.
-// Callers comparing a proof against a trust store use both: convert the stored
-// key with issuerPublicKeyToPoint(), then compare.
+// issuerPublicKeyToPoint() converts a JWK or PEM key to the coordinates the
+// prover puts in its witness. The reverse direction, reading the coordinates
+// back out of a proof, lives in prepare-public-io.js and is re-exported here so
+// callers comparing a proof against a trust store find both together: convert
+// the stored key with issuerPublicKeyToPoint(), then compare.
 
 import { p256 } from "@noble/curves/nist.js";
 
@@ -21,17 +16,15 @@ import {
   base64urlEncode,
   bytesToBigInt,
 } from "../utils.js";
-import { InputError, VerificationError } from "../errors.js";
+import { InputError } from "../errors.js";
 import type {
   EcdsaPublicKey,
   PemPublicKey,
   IssuerPublicKey,
 } from "../types.js";
+import type { IssuerKeyPoint } from "./prepare-public-io.js";
 
-export interface IssuerKeyPoint {
-  x: bigint;
-  y: bigint;
-}
+export type { IssuerKeyPoint };
 
 /**
  * Convert a PEM-encoded ECDSA P-256 public key to JWK format.
@@ -129,27 +122,4 @@ export function issuerPublicKeyToPoint(key: IssuerPublicKey): IssuerKeyPoint {
   return { x, y };
 }
 
-/**
- * Extract (pubKeyX, pubKeyY) from a credential proof's public-value vector.
- *
- * Circom lays public IO out as `[outputs..., public inputs...]`. The only public
- * inputs of the JWT and MDOC main components are `pubKeyX` and `pubKeyY`
- * (declared in that order), so the issuer key is the last two entries whatever
- * else a given circuit or size variant exposes. Confirmed against `jwt_1k.sym`
- * (indices 5 and 6 of 6) and `mdoc.sym` (indices 8 and 9 of 9); the Rust tests
- * in `ecdsa-spartan2/src/utils.rs` assert this against the compiled circuits.
- */
-export function extractIssuerKeyFromPreparePublicValues(
-  publicValues: bigint[],
-): IssuerKeyPoint {
-  if (publicValues.length < 2) {
-    throw new VerificationError(
-      "INVALID_PROOF_FORMAT",
-      `Proof exposes ${publicValues.length} public values, expected at least 2 (issuer pubKeyX, pubKeyY)`,
-    );
-  }
-  return {
-    x: publicValues[publicValues.length - 2]!,
-    y: publicValues[publicValues.length - 1]!,
-  };
-}
+export { extractIssuerKeyFromPreparePublicValues } from "./prepare-public-io.js";

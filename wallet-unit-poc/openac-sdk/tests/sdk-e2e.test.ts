@@ -8,7 +8,12 @@ import { createHash } from "crypto";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
-import { OpenAC, Credential, compilePredicateExpression } from "../src/index.js";
+import {
+  OpenAC,
+  Credential,
+  compilePredicateExpression,
+  requiredNormalization,
+} from "../src/index.js";
 import { generateDummyCredential } from "../src/testing/index.js";
 import type { VcSize } from "../src/sizing.js";
 import type { KeySet, VerifyingKeys, ExpectedStatement } from "../src/types.js";
@@ -102,6 +107,7 @@ function expectedStatement(
     nonce,
     predicates: compiled.predicates,
     logicExpression: compiled.logicExpression,
+    claimNormalization: requiredNormalization(compiled),
   };
 }
 
@@ -470,6 +476,66 @@ describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
     expect(swapped.valid).toBe(false);
     expect(swapped.expressionResult).toBeNull();
     expect(swapped.error).toMatch(/policy/i);
+  }, 600_000);
+
+  it("rejects a proof whose claims were normalized differently than the policy requires", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+    const nonce = "normalization-nonce";
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: nonce,
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    // Sanity: the proof verifies against the normalization it was built under.
+    const honest = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, nonce, claimToClaimPredicate),
+    );
+    expect(honest.valid).toBe(true);
+
+    // Same proof, same nonce, same predicate program, but the verifier requires
+    // the claims to have been normalized as uint rather than as dates. The
+    // normalization is in the Prepare proof's public IO, so the mismatch is
+    // visible to the verifier.
+    const base = expectedStatement(cred, nonce, claimToClaimPredicate);
+    const mismatched = await openac.verify(proof, keys.verifyingKeys(), {
+      ...base,
+      claimNormalization: {
+        decodeFlags: base.claimNormalization.decodeFlags,
+        claimFormats: base.claimNormalization.claimFormats.map(() => 1),
+      },
+    });
+    expect(mismatched.valid).toBe(false);
+    expect(mismatched.expressionResult).toBeNull();
+    expect(mismatched.error).toMatch(/normalization/i);
+
+    // A policy reading a claim the proof never decoded is rejected too: that
+    // claim's value is 0 rather than the credential's.
+    const undecoded = await openac.verify(proof, keys.verifyingKeys(), {
+      ...base,
+      claimNormalization: {
+        decodeFlags: base.claimNormalization.decodeFlags.map(() => 1),
+        claimFormats: base.claimNormalization.claimFormats,
+      },
+    });
+    if (base.claimNormalization.decodeFlags.some((f) => f !== 1)) {
+      expect(undecoded.valid).toBe(false);
+      expect(undecoded.error).toMatch(/undecoded/i);
+    }
   }, 600_000);
 
   it("reports the proving issuer key for a credential signed by another key", async () => {

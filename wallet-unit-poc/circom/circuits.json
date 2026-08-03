@@ -3,31 +3,31 @@
     "file": "jwt",
     "template": "JWT",
     "params": [1920, 1900, 4, 50, 128],
-    "pubs": ["pubKeyX", "pubKeyY"]
+    "pubs": ["pubKeyX", "pubKeyY", "decodeFlags", "claimFormats"]
   },
   "jwt_1k": {
     "file": "jwt",
     "template": "JWT",
     "params": [1280, 960, 4, 50, 128],
-    "pubs": ["pubKeyX", "pubKeyY"]
+    "pubs": ["pubKeyX", "pubKeyY", "decodeFlags", "claimFormats"]
   },
   "jwt_2k": {
     "file": "jwt",
     "template": "JWT",
     "params": [2048, 2000, 4, 50, 128],
-    "pubs": ["pubKeyX", "pubKeyY"]
+    "pubs": ["pubKeyX", "pubKeyY", "decodeFlags", "claimFormats"]
   },
   "jwt_4k": {
     "file": "jwt",
     "template": "JWT",
     "params": [4096, 4000, 4, 50, 128],
-    "pubs": ["pubKeyX", "pubKeyY"]
+    "pubs": ["pubKeyX", "pubKeyY", "decodeFlags", "claimFormats"]
   },
   "jwt_8k": {
     "file": "jwt",
     "template": "JWT",
     "params": [8192, 8000, 4, 50, 128],
-    "pubs": ["pubKeyX", "pubKeyY"]
+    "pubs": ["pubKeyX", "pubKeyY", "decodeFlags", "claimFormats"]
   },
   "show": {
     "file": "show",
@@ -54,6 +54,6 @@
     "file": "mdoc",
     "template": "MDOC",
     "params": [1792, 256, 4, 32, 64, 64],
-    "pubs": ["pubKeyX", "pubKeyY"]
+    "pubs": ["pubKeyX", "pubKeyY", "valueTypes", "claimFlags"]
   }
 }

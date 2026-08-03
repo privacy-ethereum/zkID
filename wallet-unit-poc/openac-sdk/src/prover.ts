@@ -20,6 +20,7 @@ import {
   type VcSize,
 } from "./sizing.js";
 import {
+  assertNormalizationSupports,
   compilePredicateExpression,
   type CompiledPredicates,
 } from "./predicates.js";
@@ -35,6 +36,7 @@ import type {
   PresentationTiming,
   SerializedPrecomputedCredentialJSON,
   EcdsaPublicKey,
+  ClaimNormalization,
 } from "./types.js";
 
 const SDK_VERSION = "0.1.0";
@@ -133,6 +135,14 @@ export class Prover {
       birthdayClaim.raw,
       deviceKey,
       normalizedClaimValues,
+      // Taken from the built inputs rather than from `compiled`: the builder
+      // pads or truncates both arrays to the circuit's claim slot count, so
+      // these are what the circuit actually ran on and what its public IO
+      // reports.
+      {
+        decodeFlags: jwtInputs.decodeFlags,
+        claimFormats: jwtInputs.claimFormats.map((v) => Number(v)),
+      },
       timing as PrecomputeTiming,
     );
   }
@@ -149,6 +159,11 @@ export class Prover {
       precomputed.credential.disclosures,
     );
     const compiled = compilePredicateExpression(request.predicates, parsed.claims);
+
+    // The normalized values below were produced by an earlier precompute() run.
+    // They are only valid inputs to these predicates if that run decoded the
+    // same claims under the same formats.
+    assertNormalizationSupports(precomputed.claimNormalization, compiled);
 
     const showInputs = buildShowCircuitInputs(
       DEFAULT_SHOW_PARAMS,
@@ -273,6 +288,7 @@ export class Prover {
     birthdayClaim: string,
     deviceKey: EcdsaPublicKey,
     normalizedClaimValues: bigint[],
+    claimNormalization: ClaimNormalization,
     timing: PrecomputeTiming,
   ): PrecomputedCredential {
     const result: PrecomputedCredential = {
@@ -288,6 +304,7 @@ export class Prover {
       birthdayClaim,
       deviceKey,
       normalizedClaimValues,
+      claimNormalization,
       timing,
 
       serialize(): Uint8Array {
@@ -305,6 +322,10 @@ export class Prover {
           birthdayClaim: result.birthdayClaim,
           deviceKey: result.deviceKey,
           normalizedClaimValues: result.normalizedClaimValues.map((v) => v.toString()),
+          claimNormalization: {
+            decodeFlags: [...result.claimNormalization.decodeFlags],
+            claimFormats: [...result.claimNormalization.claimFormats],
+          },
         };
       },
     };
@@ -433,6 +454,22 @@ export function deserializePrecomputed(data: Uint8Array): PrecomputedCredential 
     new TextDecoder().decode(data),
   );
 
+  // Blobs written before claimNormalization existed carry normalized values
+  // with no record of the formats that produced them, so present() cannot tell
+  // whether they answer its predicates. Reject rather than guess.
+  const claimNormalization = json.claimNormalization;
+  if (
+    !claimNormalization ||
+    !Array.isArray(claimNormalization.decodeFlags) ||
+    !Array.isArray(claimNormalization.claimFormats)
+  ) {
+    throw new InputError(
+      "CLAIM_FORMAT_MISMATCH",
+      "Precomputed credential has no claim normalization metadata. " +
+        "It was serialized by an older SDK version; run precompute() again.",
+    );
+  }
+
   const result: PrecomputedCredential = {
     prepareProof: base64Decode(json.prepareProof),
     prepareInstance: base64Decode(json.prepareInstance),
@@ -442,6 +479,10 @@ export function deserializePrecomputed(data: Uint8Array): PrecomputedCredential 
     birthdayClaim: json.birthdayClaim,
     deviceKey: json.deviceKey,
     normalizedClaimValues: (json.normalizedClaimValues ?? []).map((s) => BigInt(s)),
+    claimNormalization: {
+      decodeFlags: [...claimNormalization.decodeFlags],
+      claimFormats: [...claimNormalization.claimFormats],
+    },
     timing: {
       parseCredentialMs: 0,
       buildInputsMs: 0,

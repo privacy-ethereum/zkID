@@ -87,9 +87,10 @@ export interface VerifyingKeys {
  * via `compilePredicateExpression` and reuse the resulting `predicates` /
  * `logicExpression` here.
  *
- * Covers freshness and policy only. Issuer trust is not part of the expected
- * statement: `verify()` reports the issuer key and leaves the decision to the
- * caller. See `VerificationResult.issuerKey`.
+ * Covers freshness, policy, and the claim normalization the policy is evaluated
+ * over. Issuer trust is not part of the expected statement: `verify()` reports
+ * the issuer key and leaves the decision to the caller. See
+ * `VerificationResult.issuerKey`.
  */
 export interface ExpectedStatement {
   /** The exact nonce/challenge the verifier issued for this session (freshness). */
@@ -98,6 +99,20 @@ export interface ExpectedStatement {
   predicates: import("./inputs/show-input-builder.js").PredicateSpec[];
   /** Postfix logic expression over predicate results (REF/AND/OR/NOT). */
   logicExpression: Array<{ type: number; value: number }>;
+  /**
+   * How each claim the policy reads must have been normalized by the credential
+   * circuit: decoded (`decodeFlags[i] === 1`) and under the format the policy
+   * compares against.
+   *
+   * The proof carries the normalization it was built under in its public IO,
+   * and `verify()` requires the two to agree. Only the slots this requires are
+   * checked, so a credential prepared for a wider set of predicates than this
+   * policy reads still verifies.
+   *
+   * `compilePredicateExpression` returns exactly these arrays as `decodeFlags`
+   * and `claimFormats`.
+   */
+  claimNormalization: ClaimNormalization;
 }
 
 /**
@@ -309,9 +324,30 @@ export interface PrecomputedCredential {
    * internally. Exposed so cached credentials survive serialize/deserialize.
    */
   normalizedClaimValues: bigint[];
+  /**
+   * The per-claim decode flags and formats the JWT circuit ran under when
+   * `normalizedClaimValues` was produced. `present()` compares these against
+   * the formats its own predicates compile to and refuses to reuse values that
+   * were normalized differently.
+   */
+  claimNormalization: ClaimNormalization;
   timing: PrecomputeTiming;
   serialize(): Uint8Array;
   toJSON(): SerializedPrecomputedCredentialJSON;
+}
+
+/**
+ * Per-claim normalization metadata, indexed by claim slot.
+ *
+ * `decodeFlags[i]` is 1 when slot i was decoded and normalized, 0 when it was
+ * skipped (a skipped slot normalizes to 0, which is not the claim's value).
+ * `claimFormats[i]` is the circuit format code the value was normalized under
+ * (0=bool, 1=uint, 2=iso_date, 3=roc_date, 4=string) and is only meaningful
+ * when `decodeFlags[i]` is 1.
+ */
+export interface ClaimNormalization {
+  decodeFlags: number[];
+  claimFormats: number[];
 }
 
 export interface PrecomputeTiming {
@@ -332,6 +368,7 @@ export interface SerializedPrecomputedCredentialJSON {
   birthdayClaim: string;
   deviceKey: EcdsaPublicKey;
   normalizedClaimValues: string[]; // bigints serialized as decimal strings
+  claimNormalization: ClaimNormalization;
 }
 
 export interface PresentRequest {

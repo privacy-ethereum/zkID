@@ -378,16 +378,23 @@ fn parse_2d_bigint_array(json: &Value, key: &str) -> Result<Vec<BigInt>, String>
 /// 1. `normalizedClaimValues[n_claims]` where `n_claims = maxMatches - 2`
 /// 2. `KeyBindingX`
 /// 3. `KeyBindingY`
-/// 4. `pubKeyX`, `pubKeyY`, the issuer key the ES256 check ran against, declared
-///    public in `circom/circuits/main/jwt*.circom`.
+/// 4. `pubKeyX`, `pubKeyY`, the issuer key the ES256 check ran against
+/// 5. `decodeFlags[n_claims]`, `claimFormats[n_claims]`, which say how each
+///    entry of `normalizedClaimValues` was produced
+///
+/// all declared public in `circom/circuits/main/jwt*.circom`.
 ///
 /// Verified against `build/jwt_1k/jwt_1k.sym`:
-///   witness[1] = main.normalizedClaimValues[0]
-///   witness[2] = main.normalizedClaimValues[1]
-///   witness[3] = main.KeyBindingX
-///   witness[4] = main.KeyBindingY
-///   witness[5] = main.pubKeyX
-///   witness[6] = main.pubKeyY
+///   witness[1]  = main.normalizedClaimValues[0]
+///   witness[2]  = main.normalizedClaimValues[1]
+///   witness[3]  = main.KeyBindingX
+///   witness[4]  = main.KeyBindingY
+///   witness[5]  = main.pubKeyX
+///   witness[6]  = main.pubKeyY
+///   witness[7]  = main.decodeFlags[0]
+///   witness[8]  = main.decodeFlags[1]
+///   witness[9]  = main.claimFormats[0]
+///   witness[10] = main.claimFormats[1]
 #[derive(Debug, Clone, Copy)]
 pub struct JwtOutputLayout {
     /// Witness index of `normalizedClaimValues[0]`. Always `1` (index 0 is the
@@ -401,6 +408,10 @@ pub struct JwtOutputLayout {
     pub issuer_key_x_index: usize,
     /// Witness index of the public issuer key coordinate `pubKeyY`.
     pub issuer_key_y_index: usize,
+    /// Witness index of `decodeFlags[0]`. The array is `claim_values_len` long.
+    pub decode_flags_start: usize,
+    /// Witness index of `claimFormats[0]`. The array is `claim_values_len` long.
+    pub claim_formats_start: usize,
 }
 
 impl JwtOutputLayout {
@@ -408,10 +419,18 @@ impl JwtOutputLayout {
         self.claim_values_start..self.claim_values_start + self.claim_values_len
     }
 
-    /// Total number of public IO signals
-    /// (`normalizedClaimValues + KeyBindingX/Y + issuer pubKeyX/Y`).
+    pub fn decode_flags_range(&self) -> Range<usize> {
+        self.decode_flags_start..self.decode_flags_start + self.claim_values_len
+    }
+
+    pub fn claim_formats_range(&self) -> Range<usize> {
+        self.claim_formats_start..self.claim_formats_start + self.claim_values_len
+    }
+
+    /// Total number of public IO signals (`normalizedClaimValues +
+    /// KeyBindingX/Y + issuer pubKeyX/Y + decodeFlags + claimFormats`).
     pub fn num_public(&self) -> usize {
-        self.claim_values_len + 4
+        3 * self.claim_values_len + 4
     }
 }
 
@@ -426,6 +445,8 @@ pub fn calculate_jwt_output_indices(
     let keybinding_y_index = keybinding_x_index + 1;
     let issuer_key_x_index = keybinding_y_index + 1;
     let issuer_key_y_index = issuer_key_x_index + 1;
+    let decode_flags_start = issuer_key_y_index + 1;
+    let claim_formats_start = decode_flags_start + claim_values_len;
 
     JwtOutputLayout {
         claim_values_start,
@@ -434,15 +455,18 @@ pub fn calculate_jwt_output_indices(
         keybinding_y_index,
         issuer_key_x_index,
         issuer_key_y_index,
+        decode_flags_start,
+        claim_formats_start,
     }
 }
 
 /// Compare the issuer key in a credential proof's public values (JWT or MDOC)
 /// against the one the caller expects.
 ///
-/// Circom orders public IO as outputs first then public inputs, and
-/// `pubKeyX`/`pubKeyY` are the only public inputs of either main component, so
-/// the issuer key is the last two values.
+/// `public_values[i]` is `witness[i + 1]`, so the caller passes the layout's
+/// `issuer_key_x_index` and the key is read from there. The key is not at a
+/// fixed offset from the end: `decodeFlags`/`claimFormats` (JWT) and
+/// `valueTypes`/`claimFlags` (MDOC) are public inputs declared after it.
 ///
 /// Verifying applications call this to establish issuer identity, which proof
 /// verification alone does not: the circuit checks the credential signature
@@ -451,13 +475,21 @@ pub fn calculate_jwt_output_indices(
 /// Returns an error when the proof carries a key other than `expected`.
 pub fn check_issuer_key_binding(
     public_values: &[Scalar],
+    issuer_key_x_index: usize,
     expected_x: BigInt,
     expected_y: BigInt,
 ) -> Result<(), String> {
-    if public_values.len() < 2 {
+    let start = issuer_key_x_index
+        .checked_sub(1)
+        .ok_or_else(|| "issuer key index must be a 1-based witness index".to_string())?;
+
+    if public_values.len() < start + 2 {
         return Err(format!(
-            "proof exposes {} public values, expected at least 2 (issuer pubKeyX, pubKeyY)",
-            public_values.len()
+            "proof exposes {} public values, expected at least {} (issuer pubKeyX, pubKeyY at \
+             witness index {})",
+            public_values.len(),
+            start + 2,
+            issuer_key_x_index,
         ));
     }
 
@@ -466,7 +498,7 @@ pub fn check_issuer_key_binding(
         .map(|v| bigint_to_scalar(v).map_err(|e| format!("invalid expected issuer key: {e:?}")))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let proven = &public_values[public_values.len() - 2..];
+    let proven = &public_values[start..start + 2];
     if proven != expected.as_slice() {
         return Err(
             "untrusted issuer: the credential was signed by a key that is not the expected \
@@ -559,8 +591,11 @@ pub fn calculate_show_witness_indices(n_claims: usize) -> ShowWitnessLayout {
 /// 2. `normalizedClaimValues[maxClaims]`
 /// 3. `deviceKeyX`
 /// 4. `deviceKeyY`
-/// 5. `pubKeyX`, `pubKeyY`, the issuer key the ES256 check ran against, declared
-///    public in `circom/circuits/main/mdoc.circom`.
+/// 5. `pubKeyX`, `pubKeyY`, the issuer key the ES256 check ran against
+/// 6. `valueTypes[maxClaims]`, `claimFlags[maxClaims]`, which say how each entry
+///    of `normalizedClaimValues` was produced
+///
+/// all declared public in `circom/circuits/main/mdoc.circom`.
 #[derive(Debug, Clone, Copy)]
 pub struct MdocOutputLayout {
     pub valid_until_index: usize,
@@ -572,6 +607,10 @@ pub struct MdocOutputLayout {
     pub issuer_key_x_index: usize,
     /// Witness index of the public issuer key coordinate `pubKeyY`.
     pub issuer_key_y_index: usize,
+    /// Witness index of `valueTypes[0]`. The array is `claim_values_len` long.
+    pub value_types_start: usize,
+    /// Witness index of `claimFlags[0]`. The array is `claim_values_len` long.
+    pub claim_flags_start: usize,
 }
 
 impl MdocOutputLayout {
@@ -579,10 +618,18 @@ impl MdocOutputLayout {
         self.claim_values_start..self.claim_values_start + self.claim_values_len
     }
 
-    /// Total number of public IO signals
-    /// (`validUntilDate + claims + deviceKeyX/Y + issuer pubKeyX/Y`).
+    pub fn value_types_range(&self) -> Range<usize> {
+        self.value_types_start..self.value_types_start + self.claim_values_len
+    }
+
+    pub fn claim_flags_range(&self) -> Range<usize> {
+        self.claim_flags_start..self.claim_flags_start + self.claim_values_len
+    }
+
+    /// Total number of public IO signals (`validUntilDate + claims +
+    /// deviceKeyX/Y + issuer pubKeyX/Y + valueTypes + claimFlags`).
     pub fn num_public(&self) -> usize {
-        1 + self.claim_values_len + 4
+        1 + 3 * self.claim_values_len + 4
     }
 }
 
@@ -594,6 +641,8 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
     let device_key_y_index = device_key_x_index + 1;
     let issuer_key_x_index = device_key_y_index + 1;
     let issuer_key_y_index = issuer_key_x_index + 1;
+    let value_types_start = issuer_key_y_index + 1;
+    let claim_flags_start = value_types_start + max_claims;
 
     MdocOutputLayout {
         valid_until_index,
@@ -603,6 +652,8 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
         device_key_y_index,
         issuer_key_x_index,
         issuer_key_y_index,
+        value_types_start,
+        claim_flags_start,
     }
 }
 
@@ -771,16 +822,25 @@ mod issuer_key_binding_tests {
             .collect()
     }
 
-    /// A proof carrying the expected key in its trailing public values is
-    /// accepted, whatever precedes it (claim outputs, device key, validUntil).
+    /// A JWT public-IO vector: 2 claim values, KeyBindingX/Y, the issuer key,
+    /// then decodeFlags and claimFormats.
+    fn jwt_public_values(key_x: u64, key_y: u64) -> Vec<Scalar> {
+        scalars(&[7, 11, 13, 17, key_x, key_y, 1, 1, 1, 3])
+    }
+
+    const JWT_KEY_INDEX: usize = 5;
+
+    /// A proof carrying the expected key at the layout's index is accepted,
+    /// whatever surrounds it (claim outputs, device key, normalization).
     #[test]
     fn accepts_the_expected_issuer_key() {
-        // Trailing pair is the issuer key; the leading values stand in for the
-        // circuit's outputs, which this check deliberately ignores.
-        let public_values = scalars(&[7, 11, 13, 17, 42, 43]);
-        assert!(
-            check_issuer_key_binding(&public_values, BigInt::from(42), BigInt::from(43)).is_ok()
-        );
+        assert!(check_issuer_key_binding(
+            &jwt_public_values(42, 43),
+            JWT_KEY_INDEX,
+            BigInt::from(42),
+            BigInt::from(43),
+        )
+        .is_ok());
     }
 
     /// A proof built under a different issuer key is rejected. This is the case
@@ -788,41 +848,56 @@ mod issuer_key_binding_tests {
     /// comparison distinguishes it.
     #[test]
     fn rejects_a_different_issuer_key() {
-        let other_issuer = scalars(&[7, 11, 13, 17, 999, 1000]);
-        let err = check_issuer_key_binding(&other_issuer, BigInt::from(42), BigInt::from(43))
-            .expect_err("proof under an unexpected issuer key must be rejected");
+        let err = check_issuer_key_binding(
+            &jwt_public_values(999, 1000),
+            JWT_KEY_INDEX,
+            BigInt::from(42),
+            BigInt::from(43),
+        )
+        .expect_err("proof under an unexpected issuer key must be rejected");
         assert!(err.contains("untrusted issuer"), "unexpected error: {err}");
     }
 
     /// Half a match is still a mismatch: both coordinates must agree.
     #[test]
     fn rejects_a_partial_key_match() {
-        let public_values = scalars(&[7, 11, 13, 17, 42, 1000]);
-        assert!(
-            check_issuer_key_binding(&public_values, BigInt::from(42), BigInt::from(43)).is_err()
-        );
+        assert!(check_issuer_key_binding(
+            &jwt_public_values(42, 1000),
+            JWT_KEY_INDEX,
+            BigInt::from(42),
+            BigInt::from(43),
+        )
+        .is_err());
     }
 
     /// A truncated public-IO vector fails closed rather than panicking.
     #[test]
     fn rejects_a_short_public_value_vector() {
         let public_values = scalars(&[42]);
-        let err = check_issuer_key_binding(&public_values, BigInt::from(42), BigInt::from(43))
-            .expect_err("a vector shorter than the issuer key must be rejected");
-        assert!(err.contains("expected at least 2"), "unexpected error: {err}");
+        let err = check_issuer_key_binding(
+            &public_values,
+            JWT_KEY_INDEX,
+            BigInt::from(42),
+            BigInt::from(43),
+        )
+        .expect_err("a vector shorter than the issuer key must be rejected");
+        assert!(err.contains("expected at least 6"), "unexpected error: {err}");
     }
 
-    /// The layouts the check relies on: the issuer key is the trailing public
-    /// pair for both credential circuits.
+    /// The issuer key sits in the middle of the public IO, not at its end:
+    /// `decodeFlags`/`claimFormats` are public inputs declared after it. Pins
+    /// the property that makes locating it by index necessary.
     #[test]
-    fn issuer_key_is_the_trailing_public_pair() {
+    fn issuer_key_is_not_the_trailing_public_pair() {
         let jwt = calculate_jwt_output_indices(4, 128);
-        assert_eq!(jwt.issuer_key_y_index, jwt.num_public());
-        assert_eq!(jwt.issuer_key_x_index, jwt.num_public() - 1);
+        assert_eq!(jwt.issuer_key_x_index, JWT_KEY_INDEX);
+        assert!(
+            jwt.issuer_key_y_index < jwt.num_public(),
+            "public inputs follow the issuer key, so it is not the trailing pair"
+        );
 
         let mdoc = calculate_mdoc_output_indices(4);
-        assert_eq!(mdoc.issuer_key_y_index, mdoc.num_public());
-        assert_eq!(mdoc.issuer_key_x_index, mdoc.num_public() - 1);
+        assert!(mdoc.issuer_key_y_index < mdoc.num_public());
     }
 }
 
@@ -857,55 +932,63 @@ mod issuer_key_layout_tests {
     }
 
     /// Catches public-IO drift between the compiled circuits and the layouts
-    /// above. The issuer key must stay the last public pair, because
-    /// `check_issuer_key_binding` locates it by position. An added output or a
-    /// reordered signal would otherwise leave it reading two unrelated field
+    /// above. Every consumer locates these signals by index, so an added output
+    /// or a reordered signal would otherwise leave them reading unrelated field
     /// elements with no other symptom.
     #[test]
-    fn issuer_key_indices_match_jwt_sym() {
+    fn public_io_indices_match_jwt_sym() {
         let Some(contents) = read_sym("../circom/build/jwt_1k/jwt_1k.sym") else {
             return;
         };
         let layout = calculate_jwt_output_indices(4, 128);
 
+        for (name, expected) in [
+            ("main.pubKeyX", layout.issuer_key_x_index),
+            ("main.pubKeyY", layout.issuer_key_y_index),
+            ("main.decodeFlags[0]", layout.decode_flags_start),
+            ("main.claimFormats[0]", layout.claim_formats_start),
+        ] {
+            assert_eq!(
+                sym_index(&contents, name),
+                Some(expected),
+                "{name} index drifted from jwt_1k.sym (recompile jwt and update utils.rs)"
+            );
+        }
+
+        // The public prefix is contiguous, so the last public signal sits at
+        // num_public(). Catches a miscounted array length.
         assert_eq!(
-            sym_index(&contents, "main.pubKeyX"),
-            Some(layout.issuer_key_x_index),
-            "pubKeyX index drifted from jwt_1k.sym (recompile jwt and update utils.rs)"
-        );
-        assert_eq!(
-            sym_index(&contents, "main.pubKeyY"),
-            Some(layout.issuer_key_y_index),
-            "pubKeyY index drifted from jwt_1k.sym (recompile jwt and update utils.rs)"
-        );
-        assert_eq!(
-            layout.issuer_key_y_index,
-            layout.num_public(),
-            "issuer key must be the trailing public pair"
+            sym_index(&contents, "main.claimFormats[1]"),
+            Some(layout.num_public()),
+            "num_public() disagrees with jwt_1k.sym"
         );
     }
 
     #[test]
-    fn issuer_key_indices_match_mdoc_sym() {
+    fn public_io_indices_match_mdoc_sym() {
         let Some(contents) = read_sym("../circom/build/mdoc/mdoc.sym") else {
             return;
         };
-        let layout = calculate_mdoc_output_indices(crate::circuits::mdoc_circuit::MDOC_MAX_CLAIMS);
+        let max_claims = crate::circuits::mdoc_circuit::MDOC_MAX_CLAIMS;
+        let layout = calculate_mdoc_output_indices(max_claims);
+
+        for (name, expected) in [
+            ("main.pubKeyX", layout.issuer_key_x_index),
+            ("main.pubKeyY", layout.issuer_key_y_index),
+            ("main.valueTypes[0]", layout.value_types_start),
+            ("main.claimFlags[0]", layout.claim_flags_start),
+        ] {
+            assert_eq!(
+                sym_index(&contents, name),
+                Some(expected),
+                "{name} index drifted from mdoc.sym (recompile mdoc and update utils.rs)"
+            );
+        }
 
         assert_eq!(
-            sym_index(&contents, "main.pubKeyX"),
-            Some(layout.issuer_key_x_index),
-            "pubKeyX index drifted from mdoc.sym (recompile mdoc and update utils.rs)"
-        );
-        assert_eq!(
-            sym_index(&contents, "main.pubKeyY"),
-            Some(layout.issuer_key_y_index),
-            "pubKeyY index drifted from mdoc.sym (recompile mdoc and update utils.rs)"
-        );
-        assert_eq!(
-            layout.issuer_key_y_index,
-            layout.num_public(),
-            "issuer key must be the trailing public pair"
+            sym_index(&contents, &format!("main.claimFlags[{}]", max_claims - 1)),
+            Some(layout.num_public()),
+            "num_public() disagrees with mdoc.sym"
         );
     }
 }

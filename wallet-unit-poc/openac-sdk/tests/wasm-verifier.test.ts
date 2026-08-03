@@ -4,7 +4,13 @@ import { existsSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
-import { OpenAC, Verifier, Credential, compilePredicateExpression } from "../src/index.js";
+import {
+  OpenAC,
+  Verifier,
+  Credential,
+  compilePredicateExpression,
+  requiredNormalization,
+} from "../src/index.js";
 import { WasmBridge } from "../src/wasm-bridge.js";
 import { generateDummyCredential } from "../src/testing/index.js";
 import type {
@@ -144,6 +150,7 @@ describe.skipIf(!HAS_1K_KEYS)("WASM Verifier: proof verification via Verifier cl
       nonce,
       predicates: compiled.predicates,
       logicExpression: compiled.logicExpression,
+      claimNormalization: requiredNormalization(compiled),
     };
 
     // The Verifier class is exercised directly (not via OpenAC) on a bridge

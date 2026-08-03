@@ -31,8 +31,9 @@ use ecdsa_spartan2::{
     verify_circuit_with_loaded_data, MdocCircuit, PathConfig, PrepareCircuit, Scalar, ShowCircuit,
     E,
 };
+use ecdsa_spartan2::utils::{calculate_jwt_output_indices, calculate_mdoc_output_indices};
 use ff::Field;
-use std::{env::args, fs, path::PathBuf, process, time::Instant};
+use std::{env::args, fs, ops::Range, path::PathBuf, process, time::Instant};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -249,21 +250,48 @@ fn print_comparison_table(results: &[BenchmarkResults]) {
     );
 }
 
-/// Print the issuer key a credential proof was built under, taken from the last
-/// two public IO values.
+/// Print the issuer key a credential proof was built under, plus how each claim
+/// value in its public IO was normalized.
 ///
-/// Printed rather than checked: this pipeline has no trust store to compare
-/// against. Applications that do have one can use
-/// `utils::check_issuer_key_binding`.
-fn print_issuer_key(public_values: &[Scalar]) {
-    match public_values.len() {
-        0 | 1 => println!("  issuer key: <unavailable: proof exposed too few public values>\n"),
-        n => println!(
-            "  issuer key: x={:?}\n              y={:?}\n",
-            public_values[n - 2],
-            public_values[n - 1]
-        ),
+/// `public_values[i]` is `witness[i + 1]`, so the 1-based layout indices are
+/// shifted by one here.
+///
+/// Printed rather than checked: this pipeline has no trust store or policy to
+/// compare against. Applications that do have one can use
+/// `utils::check_issuer_key_binding` and compare the normalization against the
+/// formats their predicates expect.
+fn print_public_statement(
+    public_values: &[Scalar],
+    issuer_key_x_index: usize,
+    flags: Range<usize>,
+    formats: Range<usize>,
+) {
+    let at = |i: usize| public_values.get(i.wrapping_sub(1));
+
+    match (at(issuer_key_x_index), at(issuer_key_x_index + 1)) {
+        (Some(x), Some(y)) => println!("  issuer key: x={x:?}\n              y={y:?}"),
+        _ => println!("  issuer key: <unavailable: proof exposed too few public values>"),
     }
+
+    // Flags and format codes are small integers; print the trailing hex digits
+    // of each scalar rather than all 64.
+    let render = |range: Range<usize>| {
+        range
+            .map(|i| match at(i) {
+                Some(v) => {
+                    let s = format!("{v:?}");
+                    format!("0x{}", s.trim_start_matches("0x").trim_start_matches('0'))
+                }
+                None => "?".to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    println!(
+        "  claim normalization: decoded=[{}] formats=[{}]\n",
+        render(flags),
+        render(formats),
+    );
 }
 
 /// Prove + reblind + verify pipeline using pre-existing keys on disk.
@@ -397,7 +425,13 @@ fn run_prove_pipeline(
     let prepare_public_values = verify_circuit_with_loaded_data(&prepare_proof, &prepare_vk);
     let verify_prepare_ms = t0.elapsed().as_millis();
     println!("✓ Prepare proof verified: {} ms", verify_prepare_ms);
-    print_issuer_key(&prepare_public_values);
+    let jwt_layout = calculate_jwt_output_indices(size.max_matches(), 0);
+    print_public_statement(
+        &prepare_public_values,
+        jwt_layout.issuer_key_x_index,
+        jwt_layout.decode_flags_range(),
+        jwt_layout.claim_formats_range(),
+    );
 
     let show_proof =
         load_proof(path_config.artifact_path(SHOW_PROOF)).expect("load show proof failed");
@@ -580,7 +614,14 @@ fn run_mdoc_prove_pipeline(
     let mdoc_public_values = verify_circuit_with_loaded_data(&mdoc_proof, &mdoc_vk);
     let verify_mdoc_ms = t0.elapsed().as_millis();
     println!("✓ MDOC proof verified: {} ms", verify_mdoc_ms);
-    print_issuer_key(&mdoc_public_values);
+    let mdoc_layout =
+        calculate_mdoc_output_indices(ecdsa_spartan2::circuits::mdoc_circuit::MDOC_MAX_CLAIMS);
+    print_public_statement(
+        &mdoc_public_values,
+        mdoc_layout.issuer_key_x_index,
+        mdoc_layout.value_types_range(),
+        mdoc_layout.claim_flags_range(),
+    );
 
     let show_proof =
         load_proof(path_config.artifact_path(SHOW_PROOF)).expect("load show proof failed");

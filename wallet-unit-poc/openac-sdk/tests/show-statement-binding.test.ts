@@ -15,6 +15,7 @@ import {
   computeMessageHash,
   buildShowStatementPublicValues,
   compilePredicateExpression,
+  requiredNormalization,
 } from "../src/index.js";
 import { issuerPublicKeyToPoint } from "../src/inputs/issuer-key.js";
 import { DEFAULT_SHOW_PARAMS } from "../src/types.js";
@@ -25,6 +26,7 @@ import {
   bigintToBase64url,
 } from "../src/utils.js";
 import type {
+  ClaimNormalization,
   DisclosedClaim,
   EcdsaPublicKey,
   ExpectedStatement,
@@ -68,19 +70,39 @@ function stubBridge(
   showPublicValues: string[],
   valid = true,
   issuerKey: EcdsaPublicKey = KNOWN_ISSUER,
+  normalization: ClaimNormalization = compiledNormalization,
 ) {
   const point = issuerPublicKeyToPoint(issuerKey);
   return {
     verify: async () => ({
       valid,
-      // Prepare public IO: [claim outputs..., deviceKeyX, deviceKeyY, pubKeyX, pubKeyY].
-      // Only the trailing issuer key is read back, so the prefix is filler.
-      preparePublicValues: [0n, 0n, 0n, 0n, point.x, point.y].map(toScalarString),
+      preparePublicValues: preparePublicValuesFor(point, normalization).map(toScalarString),
       showPublicValues,
       error: valid ? undefined : "snark failed",
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
+}
+
+/**
+ * The Prepare public IO a JWT proof with two claim slots exposes:
+ * [normalizedClaimValues[2], KeyBindingX, KeyBindingY, pubKeyX, pubKeyY,
+ *  decodeFlags[2], claimFormats[2]] = 10 values.
+ * Only the issuer key and the normalization are read back, so the rest is filler.
+ */
+function preparePublicValuesFor(
+  point: { x: bigint; y: bigint },
+  normalization: ClaimNormalization,
+): bigint[] {
+  const pad = (a: number[]) =>
+    [0, 1].map((i) => BigInt(a[i] ?? 0));
+  return [
+    0n, 0n,
+    0n, 0n,
+    point.x, point.y,
+    ...pad(normalization.decodeFlags),
+    ...pad(normalization.claimFormats),
+  ];
 }
 
 /** The public-value vector a proof for (nonce, predicates) would expose, expressionResult first. */
@@ -111,10 +133,12 @@ const OTHER_ISSUER = keyFromScalar(0x9f9fn);
 
 const NONCE = "session-nonce-abc";
 const compiledPolicy = compilePredicateExpression(POLICY, CLAIMS);
+const compiledNormalization = requiredNormalization(compiledPolicy);
 const expected: ExpectedStatement = {
   nonce: NONCE,
   predicates: compiledPolicy.predicates,
   logicExpression: compiledPolicy.logicExpression,
+  claimNormalization: compiledNormalization,
 };
 
 async function verifyWith(
@@ -244,7 +268,7 @@ describe("Issuer key reporting", () => {
     expect(result.issuerKey).toBeNull();
   });
 
-  it("fails closed when the Prepare proof exposes too few public values", async () => {
+  it("fails closed when the Prepare proof exposes a public IO size no JWT circuit produces", async () => {
     const verifier = new Verifier({
       verify: async () => ({
         valid: true,
@@ -263,6 +287,99 @@ describe("Issuer key reporting", () => {
     );
     expect(result.valid).toBe(false);
     expect(result.issuerKey).toBeNull();
-    expect(result.error).toMatch(/at least 2/i);
+    expect(result.error).toMatch(/not a valid JWT circuit public IO size/i);
+  });
+});
+
+describe("Claim normalization binding: verifier enforcement", () => {
+  // The prover picks decodeFlags/claimFormats when it builds the Prepare proof.
+  // These cases feed the verifier a proof whose SNARK verifies and whose nonce
+  // and policy match, differing only in how the claim values were produced.
+
+  async function verifyWithNormalization(normalization: ClaimNormalization) {
+    const verifier = new Verifier(
+      stubBridge(publicValuesFor(NONCE, POLICY, true), true, KNOWN_ISSUER, normalization),
+    );
+    return verifier.verifyComponents(
+      new Uint8Array(),
+      new Uint8Array(),
+      DUMMY_KEYS,
+      new Uint8Array(),
+      new Uint8Array(),
+      expected,
+    );
+  }
+
+  it("accepts a proof normalized the way the policy requires", async () => {
+    const result = await verifyWithNormalization(compiledNormalization);
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects a claim the proof left undecoded", async () => {
+    // An undecoded slot holds 0, so the policy was evaluated against 0 rather
+    // than the credential's claim value.
+    const result = await verifyWithNormalization({
+      decodeFlags: [0, 0],
+      claimFormats: compiledNormalization.claimFormats,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/normalization/i);
+    expect(result.error).toMatch(/undecoded/i);
+  });
+
+  it("rejects a claim normalized under a different format", async () => {
+    const result = await verifyWithNormalization({
+      decodeFlags: compiledNormalization.decodeFlags,
+      claimFormats: [1, 1],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/normalization/i);
+  });
+
+  it("reports no issuer key when the normalization is rejected", async () => {
+    const result = await verifyWithNormalization({
+      decodeFlags: [0, 0],
+      claimFormats: compiledNormalization.claimFormats,
+    });
+    expect(result.issuerKey).toBeNull();
+    expect(result.expressionResult).toBeNull();
+  });
+
+  it("accepts a proof that decoded more claims than the policy reads", async () => {
+    // Preparing for a wider set of predicates than this verifier asks about is
+    // legitimate: the slots this policy does not read never reach a comparison.
+    const narrowPolicy: PredicateExpression = {
+      claim: "roc_birthday",
+      op: "<=",
+      value: "0950101",
+      format: "date",
+    };
+    const narrow = compilePredicateExpression(narrowPolicy, CLAIMS);
+    const narrowExpected: ExpectedStatement = {
+      nonce: NONCE,
+      predicates: narrow.predicates,
+      logicExpression: narrow.logicExpression,
+      claimNormalization: requiredNormalization(narrow),
+    };
+    expect(narrow.decodeFlags).toEqual([1, 0]);
+
+    // The proof decoded both slots; the policy reads only the first.
+    const verifier = new Verifier(
+      stubBridge(
+        publicValuesFor(NONCE, narrowPolicy, true),
+        true,
+        KNOWN_ISSUER,
+        compiledNormalization,
+      ),
+    );
+    const result = await verifier.verifyComponents(
+      new Uint8Array(),
+      new Uint8Array(),
+      DUMMY_KEYS,
+      new Uint8Array(),
+      new Uint8Array(),
+      narrowExpected,
+    );
+    expect(result.valid).toBe(true);
   });
 });

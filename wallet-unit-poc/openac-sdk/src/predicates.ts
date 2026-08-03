@@ -14,7 +14,7 @@ import {
   LogicToken,
   type PredicateSpec,
 } from "./inputs/show-input-builder.js";
-import type { DisclosedClaim } from "./types.js";
+import type { ClaimNormalization, DisclosedClaim } from "./types.js";
 
 export type Comparator = "<=" | ">=" | "==";
 export type ClaimFormatHint = "uint" | "date" | "string";
@@ -279,4 +279,102 @@ export function compilePredicateExpression(
     claimNameToIndex,
     birthdayClaimIndex,
   };
+}
+
+const FORMAT_CODE_NAMES: Record<number, string> = {
+  0: "bool",
+  1: "uint",
+  2: "iso_date",
+  3: "roc_date",
+  4: "string",
+};
+
+/** The normalization a compiled predicate program requires of the claims it reads. */
+export function requiredNormalization(compiled: CompiledPredicates): ClaimNormalization {
+  return {
+    decodeFlags: compiled.decodeFlags,
+    claimFormats: compiled.claimFormats,
+  };
+}
+
+/** Reverse the compiled name-to-index map, for error messages. */
+export function claimNamesByIndex(compiled: CompiledPredicates): Map<number, string> {
+  const names = new Map<number, string>();
+  for (const [name, index] of compiled.claimNameToIndex) {
+    names.set(index, name);
+  }
+  return names;
+}
+
+/**
+ * Check that claim values normalized as `actual` can answer predicates that
+ * require `required`.
+ *
+ * A normalized claim value only answers a predicate if the JWT circuit decoded
+ * that claim slot and normalized it under the format the predicate compares
+ * against:
+ *
+ *   - a slot with decodeFlag 0 holds 0, not the claim's value, so any
+ *     comparison against it is a comparison against 0
+ *   - a slot normalized as "uint" holds a decimal integer, which is not
+ *     comparable to a "date" literal, and so on for every other pairing
+ *
+ * Only the slots `required` marks as read are checked. Slots no predicate
+ * refers to never reach a comparison, so a credential prepared for a wider set
+ * of predicates than this one still passes.
+ *
+ * @returns an error message, or null when `actual` answers `required`.
+ */
+export function checkNormalizationSupports(
+  actual: ClaimNormalization,
+  required: ClaimNormalization,
+  claimNames?: Map<number, string>,
+): string | null {
+  const describe = (i: number) => claimNames?.get(i) ?? `claim slot ${i}`;
+  const formatName = (code: number | undefined) =>
+    code === undefined ? "none" : (FORMAT_CODE_NAMES[code] ?? `format ${code}`);
+
+  for (let i = 0; i < required.decodeFlags.length; i++) {
+    if (required.decodeFlags[i] !== 1) continue;
+
+    if (actual.decodeFlags[i] !== 1) {
+      return (
+        `Predicate reads ${describe(i)}, but that claim was left undecoded, so its ` +
+        `normalized value is 0 rather than the credential's value.`
+      );
+    }
+
+    if (actual.claimFormats[i] !== required.claimFormats[i]) {
+      return (
+        `Predicate reads ${describe(i)} as ${formatName(required.claimFormats[i])}, ` +
+        `but it was normalized as ${formatName(actual.claimFormats[i])}.`
+      );
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Throwing form of [`checkNormalizationSupports`], for the proving side.
+ *
+ * @throws InputError CLAIM_FORMAT_MISMATCH if a slot a predicate reads was left
+ *         undecoded or was normalized under a different format.
+ */
+export function assertNormalizationSupports(
+  normalization: ClaimNormalization,
+  compiled: CompiledPredicates,
+): void {
+  const message = checkNormalizationSupports(
+    normalization,
+    requiredNormalization(compiled),
+    claimNamesByIndex(compiled),
+  );
+  if (message) {
+    throw new InputError(
+      "CLAIM_FORMAT_MISMATCH",
+      `${message} Precompute again with predicates that cover every claim this ` +
+        `presentation reads, in the formats it compares against.`,
+    );
+  }
 }
