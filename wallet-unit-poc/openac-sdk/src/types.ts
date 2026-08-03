@@ -86,6 +86,11 @@ export interface VerifyingKeys {
  * prefers the name-based DSL can compile it once against its credential schema
  * via `compilePredicateExpression` and reuse the resulting `predicates` /
  * `logicExpression` here.
+ *
+ * Covers freshness, policy, and the claim normalization the policy is evaluated
+ * over. Issuer trust is not part of the expected statement: `verify()` reports
+ * the issuer key and leaves the decision to the caller. See
+ * `VerificationResult.issuerKey`.
  */
 export interface ExpectedStatement {
   /** The exact nonce/challenge the verifier issued for this session (freshness). */
@@ -94,11 +99,64 @@ export interface ExpectedStatement {
   predicates: import("./inputs/show-input-builder.js").PredicateSpec[];
   /** Postfix logic expression over predicate results (REF/AND/OR/NOT). */
   logicExpression: Array<{ type: number; value: number }>;
+  /**
+   * How each claim the policy reads must have been normalized by the credential
+   * circuit: decoded (`decodeFlags[i] === 1`) and under the format the policy
+   * compares against.
+   *
+   * The proof carries the normalization it was built under in its public IO,
+   * and `verify()` requires the two to agree. Only the slots this requires are
+   * checked, so a credential prepared for a wider set of predicates than this
+   * policy reads still verifies.
+   *
+   * `compilePredicateExpression` returns exactly these arrays as `decodeFlags`
+   * and `claimFormats`.
+   */
+  claimNormalization: ClaimNormalization;
+}
+
+/**
+ * The issuer key a presentation was built under, read out of the Prepare proof's
+ * public IO. Given as both curve coordinates and a canonical P-256 JWK so it can
+ * be compared against a trust store holding either form.
+ */
+export interface ProvenIssuerKey {
+  /** Issuer public key x-coordinate, as proven in the circuit. */
+  x: bigint;
+  /** Issuer public key y-coordinate, as proven in the circuit. */
+  y: bigint;
+  /** The same point as a canonical P-256 JWK (32-byte base64url coordinates). */
+  jwk: EcdsaPublicKey;
 }
 
 export interface VerificationResult {
+  /**
+   * The proofs verified and are bound to the expected nonce and policy.
+   *
+   * Does not cover issuer identity. The circuit checks the credential signature
+   * against whatever key was supplied at proving time, so `valid` alone means
+   * "signed by some P-256 key", not "signed by an issuer you trust". Check
+   * `issuerKey` as well before acting on the result.
+   */
   valid: boolean;
   expressionResult: boolean | null;
+  /**
+   * The issuer key this presentation was proven under. Non-null exactly when
+   * `valid` is true.
+   *
+   * Compare it against the issuer keys your deployment trusts, resolved from
+   * your own configuration by expected `iss`/`kid`/credential type rather than
+   * from anything the holder sent. A credential signed by a key outside that set
+   * still verifies, so this comparison is what establishes issuer identity:
+   *
+   * ```ts
+   * const result = await openac.verify(proof, vks, expected);
+   * if (!result.valid || !result.issuerKey) return reject(result.error);
+   * if (!myTrustStore.isTrustedIssuer(result.issuerKey.jwk)) return reject();
+   * // only now is result.expressionResult meaningful
+   * ```
+   */
+  issuerKey: ProvenIssuerKey | null;
   /** Always null. The device-key binding flows through comm_W_shared, not a public output. */
   deviceKey: null;
   verifyMs: number;
@@ -269,9 +327,30 @@ export interface PrecomputedCredential {
    * internally. Exposed so cached credentials survive serialize/deserialize.
    */
   normalizedClaimValues: bigint[];
+  /**
+   * The per-claim decode flags and formats the JWT circuit ran under when
+   * `normalizedClaimValues` was produced. `present()` compares these against
+   * the formats its own predicates compile to and refuses to reuse values that
+   * were normalized differently.
+   */
+  claimNormalization: ClaimNormalization;
   timing: PrecomputeTiming;
   serialize(): Uint8Array;
   toJSON(): SerializedPrecomputedCredentialJSON;
+}
+
+/**
+ * Per-claim normalization metadata, indexed by claim slot.
+ *
+ * `decodeFlags[i]` is 1 when slot i was decoded and normalized, 0 when it was
+ * skipped (a skipped slot normalizes to 0, which is not the claim's value).
+ * `claimFormats[i]` is the circuit format code the value was normalized under
+ * (0=bool, 1=uint, 2=iso_date, 3=roc_date, 4=string) and is only meaningful
+ * when `decodeFlags[i]` is 1.
+ */
+export interface ClaimNormalization {
+  decodeFlags: number[];
+  claimFormats: number[];
 }
 
 export interface PrecomputeTiming {
@@ -292,6 +371,7 @@ export interface SerializedPrecomputedCredentialJSON {
   birthdayClaim: string;
   deviceKey: EcdsaPublicKey;
   normalizedClaimValues: string[]; // bigints serialized as decimal strings
+  claimNormalization: ClaimNormalization;
 }
 
 export interface PresentRequest {

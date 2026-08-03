@@ -203,13 +203,28 @@ export { WitnessCalculator } from "./witness-calculator.js";
 export { NativeBackend } from "./native-backend.js";
 export type { NativeBackendConfig } from "./native-backend.js";
 // Typed predicate DSL (recommended public API).
-export { compilePredicateExpression } from "./predicates.js";
+export {
+  compilePredicateExpression,
+  assertNormalizationSupports,
+  checkNormalizationSupports,
+  requiredNormalization,
+} from "./predicates.js";
 // Verifier-statement binding helpers (nonce hash + compiled predicate program).
 export {
   computeMessageHash,
   buildShowStatementFields,
   buildShowStatementPublicValues,
 } from "./inputs/show-statement.js";
+// Issuer-key helpers: convert a key to the coordinates the circuits use, and
+// read those coordinates back out of a proof's public values.
+export { issuerPublicKeyToPoint } from "./inputs/issuer-key.js";
+// Readers for the Prepare proof's public IO: the issuer key, and the claim
+// normalization the proof's claim values were produced under.
+export {
+  extractIssuerKeyFromPreparePublicValues,
+  extractClaimNormalizationFromPreparePublicValues,
+} from "./inputs/prepare-public-io.js";
+export type { IssuerKeyPoint } from "./inputs/prepare-public-io.js";
 // Circuit-level predicate program types/constants, for building ExpectedStatement.
 export { PredicateOp, LogicToken } from "./inputs/show-input-builder.js";
 export type { PredicateSpec, PredicateRhs } from "./inputs/show-input-builder.js";
@@ -235,6 +250,7 @@ export type {
   ProofPublicValues,
   VerificationResult,
   ExpectedStatement,
+  ProvenIssuerKey,
   VerifyingKeys,
   KeySet,
   SerializedKeySet,
@@ -248,6 +264,7 @@ export type {
   ErrorCode,
   PrecomputeRequest,
   PrecomputedCredential,
+  ClaimNormalization,
   PrecomputeTiming,
   PresentRequest,
   PresentationProof,

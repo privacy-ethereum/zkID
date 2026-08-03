@@ -3,4 +3,4 @@ pragma circom 2.2.3;
 
 include "../mdoc.circom";
 
-component main = MDOC(1792, 256, 4, 32, 64, 64);
+component main {public[pubKeyX, pubKeyY, valueTypes, claimFlags]} = MDOC(1792, 256, 4, 32, 64, 64);

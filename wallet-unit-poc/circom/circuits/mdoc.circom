@@ -19,6 +19,9 @@ template MDOC(
     signal input message[maxCredLen];
     signal input messageLength;
 
+    // Issuer public key the ES256 check runs against. Declared public on the main
+    // component, so it appears in the proof's public IO and a verifier can compare
+    // it against the issuers it trusts.
     signal input pubKeyX;
     signal input pubKeyY;
 
@@ -42,6 +45,11 @@ template MDOC(
     signal input elementValueLabelPositions[maxClaims];
     signal input valueStarts[maxClaims];
     signal input valueEnds[maxClaims];
+    // valueTypes and claimFlags decide how each value in normalizedClaimValues was
+    // produced, so they are public inputs of the main component: a verifier reading
+    // those values needs them to know what the values mean. A slot with claimFlags 0
+    // holds 0 rather than the claim, and a slot extracted under one value type is not
+    // comparable to a literal in another.
     signal input valueTypes[maxClaims];    // 0=date, 1=string, 2=integer, 3=reveal_digest
     signal input claimFlags[maxClaims];
 

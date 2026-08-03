@@ -8,16 +8,30 @@
 // match the verifier's expected nonce + policy.
 
 import { describe, it, expect } from "vitest";
+import { p256 } from "@noble/curves/nist.js";
 
 import { Verifier } from "../src/verifier.js";
 import {
   computeMessageHash,
   buildShowStatementPublicValues,
   compilePredicateExpression,
+  requiredNormalization,
 } from "../src/index.js";
+import { issuerPublicKeyToPoint } from "../src/inputs/issuer-key.js";
 import { DEFAULT_SHOW_PARAMS } from "../src/types.js";
-import { P256_SCALAR_ORDER, sha256Hash, bytesToBigInt } from "../src/utils.js";
-import type { DisclosedClaim, ExpectedStatement, VerifyingKeys } from "../src/types.js";
+import {
+  P256_SCALAR_ORDER,
+  sha256Hash,
+  bytesToBigInt,
+  bigintToBase64url,
+} from "../src/utils.js";
+import type {
+  ClaimNormalization,
+  DisclosedClaim,
+  EcdsaPublicKey,
+  ExpectedStatement,
+  VerifyingKeys,
+} from "../src/types.js";
 import type { PredicateExpression } from "../src/predicates.js";
 
 // Minimal claim set: name -> index mapping the verifier derives from the credential.
@@ -52,16 +66,43 @@ function toScalarString(v: bigint): string {
  * Build a stub WasmBridge whose `verify` returns a fixed public-value vector.
  * Only `verify` is exercised by the Verifier.
  */
-function stubBridge(showPublicValues: string[], valid = true) {
+function stubBridge(
+  showPublicValues: string[],
+  valid = true,
+  issuerKey: EcdsaPublicKey = KNOWN_ISSUER,
+  normalization: ClaimNormalization = compiledNormalization,
+) {
+  const point = issuerPublicKeyToPoint(issuerKey);
   return {
     verify: async () => ({
       valid,
-      preparePublicValues: [],
+      preparePublicValues: preparePublicValuesFor(point, normalization).map(toScalarString),
       showPublicValues,
       error: valid ? undefined : "snark failed",
     }),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
+}
+
+/**
+ * The Prepare public IO a JWT proof with two claim slots exposes:
+ * [normalizedClaimValues[2], KeyBindingX, KeyBindingY, pubKeyX, pubKeyY,
+ *  decodeFlags[2], claimFormats[2]] = 10 values.
+ * Only the issuer key and the normalization are read back, so the rest is filler.
+ */
+function preparePublicValuesFor(
+  point: { x: bigint; y: bigint },
+  normalization: ClaimNormalization,
+): bigint[] {
+  const pad = (a: number[]) =>
+    [0, 1].map((i) => BigInt(a[i] ?? 0));
+  return [
+    0n, 0n,
+    0n, 0n,
+    point.x, point.y,
+    ...pad(normalization.decodeFlags),
+    ...pad(normalization.claimFormats),
+  ];
 }
 
 /** The public-value vector a proof for (nonce, predicates) would expose, expressionResult first. */
@@ -80,16 +121,32 @@ function publicValuesFor(
   return [expressionResult ? 1n : 0n, ...statement].map(toScalarString);
 }
 
+// Two distinct P-256 keys, standing in for a known issuer and an unknown one.
+function keyFromScalar(k: bigint): EcdsaPublicKey {
+  const point = p256.ProjectivePoint.BASE.multiply(k);
+  const enc = (v: bigint) => bigintToBase64url(v);
+  return { kty: "EC", crv: "P-256", x: enc(point.x), y: enc(point.y) };
+}
+
+const KNOWN_ISSUER = keyFromScalar(0x2a2an);
+const OTHER_ISSUER = keyFromScalar(0x9f9fn);
+
 const NONCE = "session-nonce-abc";
 const compiledPolicy = compilePredicateExpression(POLICY, CLAIMS);
+const compiledNormalization = requiredNormalization(compiledPolicy);
 const expected: ExpectedStatement = {
   nonce: NONCE,
   predicates: compiledPolicy.predicates,
   logicExpression: compiledPolicy.logicExpression,
+  claimNormalization: compiledNormalization,
 };
 
-async function verifyWith(showPublicValues: string[], exp: ExpectedStatement = expected) {
-  const verifier = new Verifier(stubBridge(showPublicValues));
+async function verifyWith(
+  showPublicValues: string[],
+  exp: ExpectedStatement = expected,
+  issuerKey: EcdsaPublicKey = KNOWN_ISSUER,
+) {
+  const verifier = new Verifier(stubBridge(showPublicValues, true, issuerKey));
   return verifier.verifyComponents(
     new Uint8Array(),
     new Uint8Array(),
@@ -168,5 +225,161 @@ describe("Show statement binding: verifier enforcement", () => {
     const result = await verifyWith(truncated);
     expect(result.valid).toBe(false);
     expect(result.error).toMatch(/size mismatch/i);
+  });
+});
+
+describe("Issuer key reporting", () => {
+  it("reports the issuer key the proof was built under", async () => {
+    const result = await verifyWith(publicValuesFor(NONCE, POLICY, true));
+    expect(result.valid).toBe(true);
+    // Reported as exact coordinates and as a directly comparable JWK.
+    expect(result.issuerKey?.jwk).toEqual(KNOWN_ISSUER);
+    expect(result.issuerKey?.x).toBe(issuerPublicKeyToPoint(KNOWN_ISSUER).x);
+    expect(result.issuerKey?.y).toBe(issuerPublicKeyToPoint(KNOWN_ISSUER).y);
+  });
+
+  /**
+   * Pins the documented contract: an unknown issuer key does not by itself make
+   * a presentation invalid, so `valid` stays true and the caller is expected to
+   * act on `issuerKey`. Changing this would silently break callers that rely on
+   * `issuerKey` to make the trust decision.
+   */
+  it("reports valid with the proving key when the issuer is unknown", async () => {
+    const result = await verifyWith(
+      publicValuesFor(NONCE, POLICY, true),
+      expected,
+      OTHER_ISSUER,
+    );
+    expect(result.valid).toBe(true);
+    expect(result.issuerKey?.jwk).toEqual(OTHER_ISSUER);
+    expect(result.issuerKey?.jwk).not.toEqual(KNOWN_ISSUER);
+
+    // The comparison a caller is expected to make, and its outcome here.
+    const trustStore = [KNOWN_ISSUER];
+    const trusted = trustStore.some(
+      (k) => k.x === result.issuerKey?.jwk.x && k.y === result.issuerKey?.jwk.y,
+    );
+    expect(trusted).toBe(false);
+  });
+
+  it("reports no issuer key when verification fails", async () => {
+    const result = await verifyWith(publicValuesFor("a-stale-nonce", POLICY, true));
+    expect(result.valid).toBe(false);
+    expect(result.issuerKey).toBeNull();
+  });
+
+  it("fails closed when the Prepare proof exposes a public IO size no JWT circuit produces", async () => {
+    const verifier = new Verifier({
+      verify: async () => ({
+        valid: true,
+        preparePublicValues: ["0x01"],
+        showPublicValues: publicValuesFor(NONCE, POLICY, true),
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    const result = await verifier.verifyComponents(
+      new Uint8Array(),
+      new Uint8Array(),
+      DUMMY_KEYS,
+      new Uint8Array(),
+      new Uint8Array(),
+      expected,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.issuerKey).toBeNull();
+    expect(result.error).toMatch(/not a valid JWT circuit public IO size/i);
+  });
+});
+
+describe("Claim normalization binding: verifier enforcement", () => {
+  // The prover picks decodeFlags/claimFormats when it builds the Prepare proof.
+  // These cases feed the verifier a proof whose SNARK verifies and whose nonce
+  // and policy match, differing only in how the claim values were produced.
+
+  async function verifyWithNormalization(normalization: ClaimNormalization) {
+    const verifier = new Verifier(
+      stubBridge(publicValuesFor(NONCE, POLICY, true), true, KNOWN_ISSUER, normalization),
+    );
+    return verifier.verifyComponents(
+      new Uint8Array(),
+      new Uint8Array(),
+      DUMMY_KEYS,
+      new Uint8Array(),
+      new Uint8Array(),
+      expected,
+    );
+  }
+
+  it("accepts a proof normalized the way the policy requires", async () => {
+    const result = await verifyWithNormalization(compiledNormalization);
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects a claim the proof left undecoded", async () => {
+    // An undecoded slot holds 0, so the policy was evaluated against 0 rather
+    // than the credential's claim value.
+    const result = await verifyWithNormalization({
+      decodeFlags: [0, 0],
+      claimFormats: compiledNormalization.claimFormats,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/normalization/i);
+    expect(result.error).toMatch(/undecoded/i);
+  });
+
+  it("rejects a claim normalized under a different format", async () => {
+    const result = await verifyWithNormalization({
+      decodeFlags: compiledNormalization.decodeFlags,
+      claimFormats: [1, 1],
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/normalization/i);
+  });
+
+  it("reports no issuer key when the normalization is rejected", async () => {
+    const result = await verifyWithNormalization({
+      decodeFlags: [0, 0],
+      claimFormats: compiledNormalization.claimFormats,
+    });
+    expect(result.issuerKey).toBeNull();
+    expect(result.expressionResult).toBeNull();
+  });
+
+  it("accepts a proof that decoded more claims than the policy reads", async () => {
+    // Preparing for a wider set of predicates than this verifier asks about is
+    // legitimate: the slots this policy does not read never reach a comparison.
+    const narrowPolicy: PredicateExpression = {
+      claim: "roc_birthday",
+      op: "<=",
+      value: "0950101",
+      format: "date",
+    };
+    const narrow = compilePredicateExpression(narrowPolicy, CLAIMS);
+    const narrowExpected: ExpectedStatement = {
+      nonce: NONCE,
+      predicates: narrow.predicates,
+      logicExpression: narrow.logicExpression,
+      claimNormalization: requiredNormalization(narrow),
+    };
+    expect(narrow.decodeFlags).toEqual([1, 0]);
+
+    // The proof decoded both slots; the policy reads only the first.
+    const verifier = new Verifier(
+      stubBridge(
+        publicValuesFor(NONCE, narrowPolicy, true),
+        true,
+        KNOWN_ISSUER,
+        compiledNormalization,
+      ),
+    );
+    const result = await verifier.verifyComponents(
+      new Uint8Array(),
+      new Uint8Array(),
+      DUMMY_KEYS,
+      new Uint8Array(),
+      new Uint8Array(),
+      narrowExpected,
+    );
+    expect(result.valid).toBe(true);
   });
 });

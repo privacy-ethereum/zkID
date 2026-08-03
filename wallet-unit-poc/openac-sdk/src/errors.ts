@@ -16,6 +16,7 @@ export type ErrorCode =
   | "MISSING_DISCLOSURE"
   | "BIRTHDAY_NOT_FOUND"
   | "CLAIM_NOT_FOUND"
+  | "CLAIM_FORMAT_MISMATCH"
   | "PARAMS_EXCEEDED"
   | "WASM_LOAD_FAILED"
   | "WASM_OOM"
@@ -70,6 +71,7 @@ export class InputError extends OpenACError {
       | "MISSING_DISCLOSURE"
       | "BIRTHDAY_NOT_FOUND"
       | "CLAIM_NOT_FOUND"
+      | "CLAIM_FORMAT_MISMATCH"
       | "PARAMS_EXCEEDED",
     message: string,
     cause?: unknown

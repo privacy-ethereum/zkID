@@ -1,12 +1,19 @@
 import { WasmBridge } from "./wasm-bridge.js";
 import { deserializeProofBundle } from "./prover.js";
 import { buildShowStatementPublicValues } from "./inputs/show-statement.js";
+import {
+  extractIssuerKeyFromPreparePublicValues,
+  extractClaimNormalizationFromPreparePublicValues,
+} from "./inputs/prepare-public-io.js";
+import { checkNormalizationSupports } from "./predicates.js";
+import { bigintToBase64url } from "./utils.js";
 import { DEFAULT_SHOW_PARAMS } from "./types.js";
 import type {
   VerificationResult,
   VerifyingKeys,
   SerializedProof,
   ExpectedStatement,
+  ProvenIssuerKey,
 } from "./types.js";
 
 /**
@@ -25,8 +32,42 @@ function parseScalar(value: string): bigint {
   return 0n;
 }
 
+/**
+ * Read the issuer key out of the Prepare proof's public values, in both forms a
+ * trust store is likely to hold: curve coordinates, and the canonical P-256 JWK
+ * (32-byte big-endian base64url), which compares field by field against a stored
+ * `EcdsaPublicKey` without further conversion.
+ */
+function provenIssuerKey(preparePublicValues: bigint[]): ProvenIssuerKey {
+  const { x, y } = extractIssuerKeyFromPreparePublicValues(preparePublicValues);
+  return {
+    x,
+    y,
+    jwk: {
+      kty: "EC",
+      crv: "P-256",
+      x: bigintToBase64url(x),
+      y: bigintToBase64url(y),
+    },
+  };
+}
+
 export class Verifier {
   private bridge: WasmBridge;
+
+  private static failure(
+    error: string,
+    startTime: number,
+  ): VerificationResult {
+    return {
+      valid: false,
+      expressionResult: null,
+      deviceKey: null,
+      issuerKey: null,
+      verifyMs: performance.now() - startTime,
+      error,
+    };
+  }
 
   constructor(bridge: WasmBridge) {
     this.bridge = bridge;
@@ -43,13 +84,7 @@ export class Verifier {
     try {
       bundle = deserializeProofBundle(proof);
     } catch {
-      return {
-        valid: false,
-        expressionResult: null,
-        deviceKey: null,
-        verifyMs: performance.now() - startTime,
-        error: "Invalid proof format",
-      };
+      return Verifier.failure("Invalid proof format", startTime);
     }
 
     return this.verifyInternal(
@@ -98,10 +133,22 @@ export class Verifier {
    * predicate program) and require them to match the proof's public IO
    * index-by-index. Any mismatch fails verification, so a `valid` result also
    * means the proof was produced for this exact nonce and predicate program.
+   *
+   * The predicate program says which claim slots the policy reads, and the
+   * Prepare proof's public IO says how each of those slots was decoded and
+   * normalized. Both are required to match the expected statement, since the
+   * same predicate over the same slot means different things under different
+   * normalization.
+   *
+   * Issuer identity is reported, not decided: the key the circuit ran its ES256
+   * check against is read out of the Prepare public IO and returned as
+   * `issuerKey`, leaving the trust decision to the caller. See
+   * `VerificationResult.issuerKey`.
    */
   private async verifyInternal(
     runVerify: () => Promise<{
       valid: boolean;
+      preparePublicValues: string[];
       showPublicValues: string[];
       error?: string;
     }>,
@@ -122,25 +169,52 @@ export class Verifier {
         expected.logicExpression,
       );
     } catch (e) {
-      return {
-        valid: false,
-        expressionResult: null,
-        deviceKey: null,
-        verifyMs: performance.now() - startTime,
-        error: `Invalid expected statement: ${e instanceof Error ? e.message : String(e)}`,
-      };
+      return Verifier.failure(
+        `Invalid expected statement: ${e instanceof Error ? e.message : String(e)}`,
+        startTime,
+      );
     }
 
     const result = await runVerify();
 
     if (!result.valid) {
-      return {
-        valid: false,
-        expressionResult: null,
-        deviceKey: null,
-        verifyMs: performance.now() - startTime,
-        error: result.error ?? "Proof verification failed",
-      };
+      return Verifier.failure(
+        result.error ?? "Proof verification failed",
+        startTime,
+      );
+    }
+
+    // The Prepare proof's public IO carries the (pubKeyX, pubKeyY) the ES256
+    // check inside the circuit ran against, and the decodeFlags/claimFormats the
+    // claim values were normalized under.
+    const preparePublicValues = result.preparePublicValues.map(parseScalar);
+    let issuerKey;
+    let claimNormalization;
+    try {
+      // The issuer key is reported as-is; the caller decides whether it belongs
+      // to an issuer it trusts.
+      issuerKey = provenIssuerKey(preparePublicValues);
+      claimNormalization =
+        extractClaimNormalizationFromPreparePublicValues(preparePublicValues);
+    } catch (e) {
+      return Verifier.failure(
+        e instanceof Error ? e.message : String(e),
+        startTime,
+      );
+    }
+
+    // The normalization is checked here rather than reported, because the
+    // policy binding below compares predicates against claim values whose
+    // meaning depends on it.
+    const normalizationError = checkNormalizationSupports(
+      claimNormalization,
+      expected.claimNormalization,
+    );
+    if (normalizationError) {
+      return Verifier.failure(
+        `Claim normalization mismatch: ${normalizationError}`,
+        startTime,
+      );
     }
 
     // Public IO layout: index 0 = expressionResult, indices 1.. = the bound
@@ -150,13 +224,10 @@ export class Verifier {
 
     const boundValues = publicValues.slice(1);
     if (boundValues.length !== expectedStatementValues.length) {
-      return {
-        valid: false,
-        expressionResult: null,
-        deviceKey: null,
-        verifyMs: performance.now() - startTime,
-        error: `Statement binding size mismatch: proof exposes ${boundValues.length} bound values, expected ${expectedStatementValues.length}`,
-      };
+      return Verifier.failure(
+        `Statement binding size mismatch: proof exposes ${boundValues.length} bound values, expected ${expectedStatementValues.length}`,
+        startTime,
+      );
     }
 
     for (let i = 0; i < expectedStatementValues.length; i++) {
@@ -164,13 +235,10 @@ export class Verifier {
         // Index 0 of the bound values is messageHash (freshness); the rest are
         // the predicate program (policy).
         const kind = i === 0 ? "nonce" : "policy";
-        return {
-          valid: false,
-          expressionResult: null,
-          deviceKey: null,
-          verifyMs: performance.now() - startTime,
-          error: `Statement binding mismatch (${kind}): proof was not generated for the expected nonce and policy`,
-        };
+        return Verifier.failure(
+          `Statement binding mismatch (${kind}): proof was not generated for the expected nonce and policy`,
+          startTime,
+        );
       }
     }
 
@@ -178,6 +246,7 @@ export class Verifier {
       valid: true,
       expressionResult,
       deviceKey: null,
+      issuerKey,
       verifyMs: performance.now() - startTime,
     };
   }
