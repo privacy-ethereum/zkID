@@ -86,6 +86,10 @@ export interface VerifyingKeys {
  * prefers the name-based DSL can compile it once against its credential schema
  * via `compilePredicateExpression` and reuse the resulting `predicates` /
  * `logicExpression` here.
+ *
+ * Covers freshness and policy only. Issuer trust is not part of the expected
+ * statement: `verify()` reports the issuer key and leaves the decision to the
+ * caller. See `VerificationResult.issuerKey`.
  */
 export interface ExpectedStatement {
   /** The exact nonce/challenge the verifier issued for this session (freshness). */
@@ -96,9 +100,48 @@ export interface ExpectedStatement {
   logicExpression: Array<{ type: number; value: number }>;
 }
 
+/**
+ * The issuer key a presentation was built under, read out of the Prepare proof's
+ * public IO. Given as both curve coordinates and a canonical P-256 JWK so it can
+ * be compared against a trust store holding either form.
+ */
+export interface ProvenIssuerKey {
+  /** Issuer public key x-coordinate, as proven in the circuit. */
+  x: bigint;
+  /** Issuer public key y-coordinate, as proven in the circuit. */
+  y: bigint;
+  /** The same point as a canonical P-256 JWK (32-byte base64url coordinates). */
+  jwk: EcdsaPublicKey;
+}
+
 export interface VerificationResult {
+  /**
+   * The proofs verified and are bound to the expected nonce and policy.
+   *
+   * Does not cover issuer identity. The circuit checks the credential signature
+   * against whatever key was supplied at proving time, so `valid` alone means
+   * "signed by some P-256 key", not "signed by an issuer you trust". Check
+   * `issuerKey` as well before acting on the result.
+   */
   valid: boolean;
   expressionResult: boolean | null;
+  /**
+   * The issuer key this presentation was proven under. Non-null exactly when
+   * `valid` is true.
+   *
+   * Compare it against the issuer keys your deployment trusts, resolved from
+   * your own configuration by expected `iss`/`kid`/credential type rather than
+   * from anything the holder sent. A credential signed by a key outside that set
+   * still verifies, so this comparison is what establishes issuer identity:
+   *
+   * ```ts
+   * const result = await openac.verify(proof, vks, expected);
+   * if (!result.valid || !result.issuerKey) return reject(result.error);
+   * if (!myTrustStore.isTrustedIssuer(result.issuerKey.jwk)) return reject();
+   * // only now is result.expressionResult meaningful
+   * ```
+   */
+  issuerKey: ProvenIssuerKey | null;
   /** Always null. The device-key binding flows through comm_W_shared, not a public output. */
   deviceKey: null;
   verifyMs: number;

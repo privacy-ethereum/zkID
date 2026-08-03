@@ -182,7 +182,7 @@ impl SpartanCircuit<E> for PrepareCircuit {
             }
             Err(_) => {
                 // Prepare circuit public signals (in witness order):
-                //   normalizedClaimValues[0..n_claims], KeyBindingX, KeyBindingY
+                //   normalizedClaimValues[0..n_claims], KeyBindingX, KeyBindingY, pubKeyX, pubKeyY
                 let layout = calculate_jwt_output_indices(
                     self.path_config.circuit_size.max_matches(),
                     self.path_config.circuit_size.max_claims_length(),

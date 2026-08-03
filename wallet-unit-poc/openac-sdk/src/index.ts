@@ -209,6 +209,13 @@ export {
   buildShowStatementFields,
   buildShowStatementPublicValues,
 } from "./inputs/show-statement.js";
+// Issuer-key helpers: convert a key to the coordinates the circuits use, and
+// read those coordinates back out of a proof's public values.
+export {
+  issuerPublicKeyToPoint,
+  extractIssuerKeyFromPreparePublicValues,
+} from "./inputs/issuer-key.js";
+export type { IssuerKeyPoint } from "./inputs/issuer-key.js";
 // Circuit-level predicate program types/constants, for building ExpectedStatement.
 export { PredicateOp, LogicToken } from "./inputs/show-input-builder.js";
 export type { PredicateSpec, PredicateRhs } from "./inputs/show-input-builder.js";
@@ -234,6 +241,7 @@ export type {
   ProofPublicValues,
   VerificationResult,
   ExpectedStatement,
+  ProvenIssuerKey,
   VerifyingKeys,
   KeySet,
   SerializedKeySet,

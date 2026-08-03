@@ -11,6 +11,8 @@ import {
   Credential,
   DEFAULT_SHOW_PARAMS,
   circuitInputsToJson,
+  extractIssuerKeyFromPreparePublicValues,
+  issuerPublicKeyToPoint,
 } from "../src/index.js";
 import { buildJwtCircuitInputs } from "../src/inputs/jwt-input-builder.js";
 import {
@@ -95,6 +97,12 @@ function derivePublicKey(privateKeyBytes: Uint8Array) {
   let hex = "";
   for (const b of privateKeyBytes) hex += b.toString(16).padStart(2, "0");
   return p256.ProjectivePoint.BASE.multiply(BigInt("0x" + hex));
+}
+
+/** Parse a WASM public value (Rust `{:?}` on a field element) into a bigint. */
+function parseScalar(value: string): bigint {
+  const hex = value.match(/0x([0-9a-fA-F]+)/);
+  return hex ? BigInt("0x" + hex[1]) : BigInt(value.match(/-?\d+/)?.[0] ?? "0");
 }
 
 const ISSUER_PRIVATE_KEY_HEX =
@@ -404,8 +412,13 @@ describe.skipIf(!checkArtifactsExist())(
     // (messageHash + predicate program) = 28 values. The device key remains in
     // the shared witness commitment, not a public output.
     expect(verifyResult.showPublicValues.length).toBe(28);
-    // JWT 1k circuit: maxClaims(2) + 2 (KeyBindingX, KeyBindingY) = 4 public values
-    expect(verifyResult.preparePublicValues.length).toBe(4);
+    // JWT 1k circuit public IO: outputs maxClaims(2) + 2 (KeyBindingX,
+    // KeyBindingY), then the public issuer key inputs (pubKeyX, pubKeyY) = 6.
+    expect(verifyResult.preparePublicValues.length).toBe(6);
+    const provenIssuer = extractIssuerKeyFromPreparePublicValues(
+      verifyResult.preparePublicValues.map(parseScalar),
+    );
+    expect(provenIssuer).toEqual(issuerPublicKeyToPoint(ISSUER_PUBLIC_KEY));
   }, 900_000);
 },
 );

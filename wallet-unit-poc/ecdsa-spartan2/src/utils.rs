@@ -373,16 +373,21 @@ fn parse_2d_bigint_array(json: &Value, key: &str) -> Result<Vec<BigInt>, String>
 
 /// Layout of the JWT (Prepare) circuit's public outputs within the witness vector.
 ///
-/// JWT circuit outputs (in order, derived from `circom/circuits/jwt.circom`):
+/// Circom lays public IO out as outputs first, then public inputs (in template
+/// declaration order), so for the JWT circuit:
 /// 1. `normalizedClaimValues[n_claims]` where `n_claims = maxMatches - 2`
 /// 2. `KeyBindingX`
 /// 3. `KeyBindingY`
+/// 4. `pubKeyX`, `pubKeyY`, the issuer key the ES256 check ran against, declared
+///    public in `circom/circuits/main/jwt*.circom`.
 ///
 /// Verified against `build/jwt_1k/jwt_1k.sym`:
 ///   witness[1] = main.normalizedClaimValues[0]
 ///   witness[2] = main.normalizedClaimValues[1]
 ///   witness[3] = main.KeyBindingX
 ///   witness[4] = main.KeyBindingY
+///   witness[5] = main.pubKeyX
+///   witness[6] = main.pubKeyY
 #[derive(Debug, Clone, Copy)]
 pub struct JwtOutputLayout {
     /// Witness index of `normalizedClaimValues[0]`. Always `1` (index 0 is the
@@ -392,6 +397,10 @@ pub struct JwtOutputLayout {
     pub claim_values_len: usize,
     pub keybinding_x_index: usize,
     pub keybinding_y_index: usize,
+    /// Witness index of the public issuer key coordinate `pubKeyX`.
+    pub issuer_key_x_index: usize,
+    /// Witness index of the public issuer key coordinate `pubKeyY`.
+    pub issuer_key_y_index: usize,
 }
 
 impl JwtOutputLayout {
@@ -399,9 +408,10 @@ impl JwtOutputLayout {
         self.claim_values_start..self.claim_values_start + self.claim_values_len
     }
 
-    /// Total number of public outputs (`normalizedClaimValues + KeyBindingX + KeyBindingY`).
+    /// Total number of public IO signals
+    /// (`normalizedClaimValues + KeyBindingX/Y + issuer pubKeyX/Y`).
     pub fn num_public(&self) -> usize {
-        self.claim_values_len + 2
+        self.claim_values_len + 4
     }
 }
 
@@ -414,13 +424,57 @@ pub fn calculate_jwt_output_indices(
     let claim_values_start = 1;
     let keybinding_x_index = claim_values_start + claim_values_len;
     let keybinding_y_index = keybinding_x_index + 1;
+    let issuer_key_x_index = keybinding_y_index + 1;
+    let issuer_key_y_index = issuer_key_x_index + 1;
 
     JwtOutputLayout {
         claim_values_start,
         claim_values_len,
         keybinding_x_index,
         keybinding_y_index,
+        issuer_key_x_index,
+        issuer_key_y_index,
     }
+}
+
+/// Compare the issuer key in a credential proof's public values (JWT or MDOC)
+/// against the one the caller expects.
+///
+/// Circom orders public IO as outputs first then public inputs, and
+/// `pubKeyX`/`pubKeyY` are the only public inputs of either main component, so
+/// the issuer key is the last two values.
+///
+/// Verifying applications call this to establish issuer identity, which proof
+/// verification alone does not: the circuit checks the credential signature
+/// against whatever key was supplied at proving time.
+///
+/// Returns an error when the proof carries a key other than `expected`.
+pub fn check_issuer_key_binding(
+    public_values: &[Scalar],
+    expected_x: BigInt,
+    expected_y: BigInt,
+) -> Result<(), String> {
+    if public_values.len() < 2 {
+        return Err(format!(
+            "proof exposes {} public values, expected at least 2 (issuer pubKeyX, pubKeyY)",
+            public_values.len()
+        ));
+    }
+
+    let expected = [expected_x, expected_y]
+        .into_iter()
+        .map(|v| bigint_to_scalar(v).map_err(|e| format!("invalid expected issuer key: {e:?}")))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let proven = &public_values[public_values.len() - 2..];
+    if proven != expected.as_slice() {
+        return Err(
+            "untrusted issuer: the credential was signed by a key that is not the expected \
+             issuer key"
+                .to_string(),
+        );
+    }
+    Ok(())
 }
 
 /// Show circuit template parameters (`Show(nClaims, maxPredicates, maxLogicTokens, valueBits)`).
@@ -499,11 +553,14 @@ pub fn calculate_show_witness_indices(n_claims: usize) -> ShowWitnessLayout {
 
 /// Layout of the MDOC circuit's public outputs within the witness vector.
 ///
-/// MDOC circuit outputs (in order, derived from `circom/circuits/mdoc.circom`):
+/// Circom lays public IO out as outputs first, then public inputs (in template
+/// declaration order), so for the MDOC circuit:
 /// 1. `validUntilDate`
 /// 2. `normalizedClaimValues[maxClaims]`
 /// 3. `deviceKeyX`
 /// 4. `deviceKeyY`
+/// 5. `pubKeyX`, `pubKeyY`, the issuer key the ES256 check ran against, declared
+///    public in `circom/circuits/main/mdoc.circom`.
 #[derive(Debug, Clone, Copy)]
 pub struct MdocOutputLayout {
     pub valid_until_index: usize,
@@ -511,6 +568,10 @@ pub struct MdocOutputLayout {
     pub claim_values_len: usize,
     pub device_key_x_index: usize,
     pub device_key_y_index: usize,
+    /// Witness index of the public issuer key coordinate `pubKeyX`.
+    pub issuer_key_x_index: usize,
+    /// Witness index of the public issuer key coordinate `pubKeyY`.
+    pub issuer_key_y_index: usize,
 }
 
 impl MdocOutputLayout {
@@ -518,9 +579,10 @@ impl MdocOutputLayout {
         self.claim_values_start..self.claim_values_start + self.claim_values_len
     }
 
-    /// Total number of public outputs (`validUntilDate + claims + deviceKeyX + deviceKeyY`).
+    /// Total number of public IO signals
+    /// (`validUntilDate + claims + deviceKeyX/Y + issuer pubKeyX/Y`).
     pub fn num_public(&self) -> usize {
-        1 + self.claim_values_len + 2
+        1 + self.claim_values_len + 4
     }
 }
 
@@ -530,6 +592,8 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
     let claim_values_start = valid_until_index + 1;
     let device_key_x_index = claim_values_start + max_claims;
     let device_key_y_index = device_key_x_index + 1;
+    let issuer_key_x_index = device_key_y_index + 1;
+    let issuer_key_y_index = issuer_key_x_index + 1;
 
     MdocOutputLayout {
         valid_until_index,
@@ -537,6 +601,8 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
         claim_values_len: max_claims,
         device_key_x_index,
         device_key_y_index,
+        issuer_key_x_index,
+        issuer_key_y_index,
     }
 }
 
@@ -690,6 +756,156 @@ mod show_witness_indices_tests {
         assert_eq!(
             layout.claim_values_start, claim0,
             "claimValues[0] witness index mismatch with show.sym"
+        );
+    }
+}
+
+#[cfg(test)]
+mod issuer_key_binding_tests {
+    use super::*;
+
+    fn scalars(values: &[u64]) -> Vec<Scalar> {
+        values
+            .iter()
+            .map(|v| bigint_to_scalar(BigInt::from(*v)).unwrap())
+            .collect()
+    }
+
+    /// A proof carrying the expected key in its trailing public values is
+    /// accepted, whatever precedes it (claim outputs, device key, validUntil).
+    #[test]
+    fn accepts_the_expected_issuer_key() {
+        // Trailing pair is the issuer key; the leading values stand in for the
+        // circuit's outputs, which this check deliberately ignores.
+        let public_values = scalars(&[7, 11, 13, 17, 42, 43]);
+        assert!(
+            check_issuer_key_binding(&public_values, BigInt::from(42), BigInt::from(43)).is_ok()
+        );
+    }
+
+    /// A proof built under a different issuer key is rejected. This is the case
+    /// the check exists for: such a proof verifies normally, so only the key
+    /// comparison distinguishes it.
+    #[test]
+    fn rejects_a_different_issuer_key() {
+        let other_issuer = scalars(&[7, 11, 13, 17, 999, 1000]);
+        let err = check_issuer_key_binding(&other_issuer, BigInt::from(42), BigInt::from(43))
+            .expect_err("proof under an unexpected issuer key must be rejected");
+        assert!(err.contains("untrusted issuer"), "unexpected error: {err}");
+    }
+
+    /// Half a match is still a mismatch: both coordinates must agree.
+    #[test]
+    fn rejects_a_partial_key_match() {
+        let public_values = scalars(&[7, 11, 13, 17, 42, 1000]);
+        assert!(
+            check_issuer_key_binding(&public_values, BigInt::from(42), BigInt::from(43)).is_err()
+        );
+    }
+
+    /// A truncated public-IO vector fails closed rather than panicking.
+    #[test]
+    fn rejects_a_short_public_value_vector() {
+        let public_values = scalars(&[42]);
+        let err = check_issuer_key_binding(&public_values, BigInt::from(42), BigInt::from(43))
+            .expect_err("a vector shorter than the issuer key must be rejected");
+        assert!(err.contains("expected at least 2"), "unexpected error: {err}");
+    }
+
+    /// The layouts the check relies on: the issuer key is the trailing public
+    /// pair for both credential circuits.
+    #[test]
+    fn issuer_key_is_the_trailing_public_pair() {
+        let jwt = calculate_jwt_output_indices(4, 128);
+        assert_eq!(jwt.issuer_key_y_index, jwt.num_public());
+        assert_eq!(jwt.issuer_key_x_index, jwt.num_public() - 1);
+
+        let mdoc = calculate_mdoc_output_indices(4);
+        assert_eq!(mdoc.issuer_key_y_index, mdoc.num_public());
+        assert_eq!(mdoc.issuer_key_x_index, mdoc.num_public() - 1);
+    }
+}
+
+#[cfg(test)]
+mod issuer_key_layout_tests {
+    use super::*;
+
+    /// Look up a signal's witness index in a compiled circuit's `.sym` file.
+    fn sym_index(contents: &str, name: &str) -> Option<usize> {
+        for line in contents.lines() {
+            let mut parts = line.split(',');
+            let _ = parts.next();
+            let witness_idx = parts.next()?;
+            let _ = parts.next();
+            if parts.next()?.trim() == name {
+                return witness_idx.parse::<i64>().ok().filter(|i| *i >= 0).map(|i| i as usize);
+            }
+        }
+        None
+    }
+
+    fn read_sym(relative: &str) -> Option<String> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(relative);
+        if !path.exists() {
+            eprintln!(
+                "{} not found; skipping (recompile the circuit first).",
+                path.display()
+            );
+            return None;
+        }
+        Some(std::fs::read_to_string(&path).expect("read .sym"))
+    }
+
+    /// Catches public-IO drift between the compiled circuits and the layouts
+    /// above. The issuer key must stay the last public pair, because
+    /// `check_issuer_key_binding` locates it by position. An added output or a
+    /// reordered signal would otherwise leave it reading two unrelated field
+    /// elements with no other symptom.
+    #[test]
+    fn issuer_key_indices_match_jwt_sym() {
+        let Some(contents) = read_sym("../circom/build/jwt_1k/jwt_1k.sym") else {
+            return;
+        };
+        let layout = calculate_jwt_output_indices(4, 128);
+
+        assert_eq!(
+            sym_index(&contents, "main.pubKeyX"),
+            Some(layout.issuer_key_x_index),
+            "pubKeyX index drifted from jwt_1k.sym (recompile jwt and update utils.rs)"
+        );
+        assert_eq!(
+            sym_index(&contents, "main.pubKeyY"),
+            Some(layout.issuer_key_y_index),
+            "pubKeyY index drifted from jwt_1k.sym (recompile jwt and update utils.rs)"
+        );
+        assert_eq!(
+            layout.issuer_key_y_index,
+            layout.num_public(),
+            "issuer key must be the trailing public pair"
+        );
+    }
+
+    #[test]
+    fn issuer_key_indices_match_mdoc_sym() {
+        let Some(contents) = read_sym("../circom/build/mdoc/mdoc.sym") else {
+            return;
+        };
+        let layout = calculate_mdoc_output_indices(crate::circuits::mdoc_circuit::MDOC_MAX_CLAIMS);
+
+        assert_eq!(
+            sym_index(&contents, "main.pubKeyX"),
+            Some(layout.issuer_key_x_index),
+            "pubKeyX index drifted from mdoc.sym (recompile mdoc and update utils.rs)"
+        );
+        assert_eq!(
+            sym_index(&contents, "main.pubKeyY"),
+            Some(layout.issuer_key_y_index),
+            "pubKeyY index drifted from mdoc.sym (recompile mdoc and update utils.rs)"
+        );
+        assert_eq!(
+            layout.issuer_key_y_index,
+            layout.num_public(),
+            "issuer key must be the trailing public pair"
         );
     }
 }

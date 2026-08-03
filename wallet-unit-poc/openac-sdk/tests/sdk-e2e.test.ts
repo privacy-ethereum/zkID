@@ -98,7 +98,11 @@ function expectedStatement(
 ): ExpectedStatement {
   const schema = Credential.parse(cred.jwt, cred.disclosures).claims;
   const compiled = compilePredicateExpression(predicates, schema);
-  return { nonce, predicates: compiled.predicates, logicExpression: compiled.logicExpression };
+  return {
+    nonce,
+    predicates: compiled.predicates,
+    logicExpression: compiled.logicExpression,
+  };
 }
 
 describe("OpenAC: initialization", () => {
@@ -466,6 +470,90 @@ describe.skipIf(!HAS_LOCAL_1K)("Typed predicate DSL", () => {
     expect(swapped.valid).toBe(false);
     expect(swapped.expressionResult).toBeNull();
     expect(swapped.error).toMatch(/policy/i);
+  }, 600_000);
+
+  it("reports the proving issuer key for a credential signed by another key", async () => {
+    const keys = loadLocalKeySet("1k");
+
+    // A credential signed by a key other than the expected issuer's, whose
+    // claims satisfy the policy.
+    const otherIssuerCred = generateDummyCredential({
+      size: "1k",
+      issuerPrivateKey:
+        "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+      claims: [
+        { key: "roc_birthday", value: "0900101" },
+        { key: "roc_max", value: "0950101" },
+      ],
+    });
+    const expectedIssuerCred = makeDummy1k();
+    expect(otherIssuerCred.issuerPublicKey.x).not.toBe(expectedIssuerCred.issuerPublicKey.x);
+
+    const precomputed = await openac.precompute({
+      jwt: otherIssuerCred.jwt,
+      disclosures: otherIssuerCred.disclosures,
+      issuerPublicKey: otherIssuerCred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "other-issuer-nonce",
+      devicePrivateKey: otherIssuerCred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const result = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(otherIssuerCred, "other-issuer-nonce", claimToClaimPredicate),
+    );
+
+    // The credential is internally consistent, so the proofs verify and the
+    // predicate is true. Issuer identity is not part of that result.
+    expect(result.valid).toBe(true);
+    expect(result.expressionResult).toBe(true);
+
+    // issuerKey reports the key actually used, which is what lets a caller
+    // comparing against its trust store reject this presentation.
+    expect(result.issuerKey?.jwk.x).toBe(otherIssuerCred.issuerPublicKey.x);
+    expect(result.issuerKey?.jwk.y).toBe(otherIssuerCred.issuerPublicKey.y);
+    expect(result.issuerKey?.jwk.x).not.toBe(expectedIssuerCred.issuerPublicKey.x);
+  }, 600_000);
+
+  it("reports the issuer key for a credential signed by the expected issuer", async () => {
+    const cred = makeDummy1k();
+    const keys = loadLocalKeySet("1k");
+
+    const precomputed = await openac.precompute({
+      jwt: cred.jwt,
+      disclosures: cred.disclosures,
+      issuerPublicKey: cred.issuerPublicKey,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+    const proof = await openac.present({
+      precomputed,
+      verifierNonce: "issuer-report-nonce",
+      devicePrivateKey: cred.devicePrivateKeyHex,
+      keys,
+      predicates: claimToClaimPredicate,
+    });
+
+    const result = await openac.verify(
+      proof,
+      keys.verifyingKeys(),
+      expectedStatement(cred, "issuer-report-nonce", claimToClaimPredicate),
+    );
+
+    expect(result.valid).toBe(true);
+    // Directly comparable to a trust store holding the issuer's JWK.
+    expect(result.issuerKey?.jwk.x).toBe(cred.issuerPublicKey.x);
+    expect(result.issuerKey?.jwk.y).toBe(cred.issuerPublicKey.y);
+    expect(result.issuerKey?.jwk.kty).toBe("EC");
+    expect(result.issuerKey?.jwk.crv).toBe("P-256");
   }, 600_000);
 
   it("rejects a replay: proof for an old nonce fails against a fresh challenge", async () => {

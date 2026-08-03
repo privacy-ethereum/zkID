@@ -19,6 +19,9 @@ template MDOC(
     signal input message[maxCredLen];
     signal input messageLength;
 
+    // Issuer public key the ES256 check runs against. Declared public on the main
+    // component, so it appears in the proof's public IO and a verifier can compare
+    // it against the issuers it trusts.
     signal input pubKeyX;
     signal input pubKeyY;
 

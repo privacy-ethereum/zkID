@@ -14,6 +14,9 @@ include "components/claim-value-normalizer.circom";
 /// @notice Verifies an ES256-signed SD-JWT and extracts normalized claim values.
 /// @notice match slots 0 and 1 are reserved for device binding key extraction (x/y patterns).
 /// @notice Claim arrays are claim-only and map directly to normalizedClaimValues.
+/// @notice pubKeyX/pubKeyY (the issuer key the ES256 check runs against) are public
+///         inputs of the main component, so they appear in the proof's public IO and
+///         a verifier can compare them against the issuers it trusts.
 /// @output normalizedClaimValues: one integer per claim slot; 0 for undecoded slots.
 /// @output KeyBindingX, KeyBindingY: extracted device binding public key coordinates.
 template JWT(

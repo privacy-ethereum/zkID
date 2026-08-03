@@ -1,0 +1,155 @@
+// Decoding of an issuer public key to and from the P-256 affine coordinates the
+// credential circuits use as `pubKeyX` / `pubKeyY`.
+//
+// Both directions live here so they stay in sync:
+//   issuerPublicKeyToPoint()                    JWK or PEM -> coordinates, for
+//                                               the prover's witness.
+//   extractIssuerKeyFromPreparePublicValues()   proof public IO -> coordinates,
+//                                               for verify().
+//
+// `pubKeyX`/`pubKeyY` are public inputs of the JWT and MDOC main components (see
+// circom/circuits/main/), which is what makes the second direction possible.
+// Callers comparing a proof against a trust store use both: convert the stored
+// key with issuerPublicKeyToPoint(), then compare.
+
+import { p256 } from "@noble/curves/nist.js";
+
+import {
+  base64urlToBase64,
+  base64Decode,
+  base64ToBigInt,
+  base64urlEncode,
+  bytesToBigInt,
+} from "../utils.js";
+import { InputError, VerificationError } from "../errors.js";
+import type {
+  EcdsaPublicKey,
+  PemPublicKey,
+  IssuerPublicKey,
+} from "../types.js";
+
+export interface IssuerKeyPoint {
+  x: bigint;
+  y: bigint;
+}
+
+/**
+ * Convert a PEM-encoded ECDSA P-256 public key to JWK format.
+ * Handles SubjectPublicKeyInfo (SPKI) format commonly used in X.509 certificates.
+ */
+export function pemToJwk(pem: string): EcdsaPublicKey {
+  // Remove PEM headers and whitespace
+  const base64 = pem
+    .replace(/-----BEGIN PUBLIC KEY-----/, "")
+    .replace(/-----END PUBLIC KEY-----/, "")
+    .replace(/-----BEGIN EC PUBLIC KEY-----/, "")
+    .replace(/-----END EC PUBLIC KEY-----/, "")
+    .replace(/\s/g, "");
+
+  const der = base64Decode(base64);
+
+  // Find the uncompressed point in the DER structure
+  // P-256 uncompressed points are 65 bytes: 0x04 || 32-byte X || 32-byte Y
+  // In SPKI format, this appears after the algorithm identifier
+  let pointStart = -1;
+  for (let i = 0; i < der.length - 64; i++) {
+    if (der[i] === 0x04 && der.length - i >= 65) {
+      // Verify this looks like a valid uncompressed point position
+      // The byte before 0x04 in SPKI should be the BIT STRING content
+      pointStart = i;
+      break;
+    }
+  }
+
+  if (pointStart === -1) {
+    throw new InputError(
+      "INVALID_KEY",
+      "Could not parse PEM public key: uncompressed point marker (0x04) not found",
+    );
+  }
+
+  const x = der.slice(pointStart + 1, pointStart + 33);
+  const y = der.slice(pointStart + 33, pointStart + 65);
+
+  // Validate the point is on the P-256 curve
+  const xBigInt = bytesToBigInt(x);
+  const yBigInt = bytesToBigInt(y);
+
+  try {
+    p256.ProjectivePoint.fromAffine({ x: xBigInt, y: yBigInt });
+  } catch {
+    throw new InputError(
+      "INVALID_KEY",
+      "PEM public key is not a valid P-256 curve point",
+    );
+  }
+
+  return {
+    kty: "EC",
+    crv: "P-256",
+    x: base64urlEncode(x),
+    y: base64urlEncode(y),
+  };
+}
+
+/**
+ * Decode a JWK- or PEM-encoded issuer public key into affine coordinates.
+ * Throws `InputError("INVALID_KEY")` for anything that is not a valid P-256
+ * point.
+ */
+export function issuerPublicKeyToPoint(key: IssuerPublicKey): IssuerKeyPoint {
+  let x: bigint;
+  let y: bigint;
+
+  if ("pem" in key) {
+    const jwk = pemToJwk((key as PemPublicKey).pem);
+    x = base64ToBigInt(base64urlToBase64(jwk.x));
+    y = base64ToBigInt(base64urlToBase64(jwk.y));
+  } else {
+    const jwk = key as EcdsaPublicKey;
+    if (jwk.kty !== "EC" || jwk.crv !== "P-256") {
+      throw new InputError(
+        "INVALID_KEY",
+        "Issuer public key must be P-256 EC key",
+      );
+    }
+    x = base64ToBigInt(base64urlToBase64(jwk.x));
+    y = base64ToBigInt(base64urlToBase64(jwk.y));
+  }
+
+  try {
+    p256.ProjectivePoint.fromAffine({ x, y }).assertValidity();
+  } catch {
+    throw new InputError(
+      "INVALID_KEY",
+      "Issuer public key is not a valid P-256 curve point",
+    );
+  }
+
+  return { x, y };
+}
+
+/**
+ * Extract (pubKeyX, pubKeyY) from a credential proof's public-value vector.
+ *
+ * Circom lays public IO out as `[outputs..., public inputs...]`. The only public
+ * inputs of the JWT and MDOC main components are `pubKeyX` and `pubKeyY`
+ * (declared in that order), so the issuer key is the last two entries whatever
+ * else a given circuit or size variant exposes. Confirmed against `jwt_1k.sym`
+ * (indices 5 and 6 of 6) and `mdoc.sym` (indices 8 and 9 of 9); the Rust tests
+ * in `ecdsa-spartan2/src/utils.rs` assert this against the compiled circuits.
+ */
+export function extractIssuerKeyFromPreparePublicValues(
+  publicValues: bigint[],
+): IssuerKeyPoint {
+  if (publicValues.length < 2) {
+    throw new VerificationError(
+      "INVALID_PROOF_FORMAT",
+      `Proof exposes ${publicValues.length} public values, expected at least 2 (issuer pubKeyX, pubKeyY)`,
+    );
+  }
+  return {
+    x: publicValues[publicValues.length - 2]!,
+    y: publicValues[publicValues.length - 1]!,
+  };
+}

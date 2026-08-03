@@ -28,7 +28,8 @@ use ecdsa_spartan2::{
     },
     prove_circuit, prove_circuit_with_pk, reblind, reblind_with_loaded_data, run_circuit,
     save_keys, setup_circuit_keys, setup_circuit_keys_no_save, verify_circuit,
-    verify_circuit_with_loaded_data, MdocCircuit, PathConfig, PrepareCircuit, ShowCircuit, E,
+    verify_circuit_with_loaded_data, MdocCircuit, PathConfig, PrepareCircuit, Scalar, ShowCircuit,
+    E,
 };
 use ff::Field;
 use std::{env::args, fs, path::PathBuf, process, time::Instant};
@@ -248,6 +249,23 @@ fn print_comparison_table(results: &[BenchmarkResults]) {
     );
 }
 
+/// Print the issuer key a credential proof was built under, taken from the last
+/// two public IO values.
+///
+/// Printed rather than checked: this pipeline has no trust store to compare
+/// against. Applications that do have one can use
+/// `utils::check_issuer_key_binding`.
+fn print_issuer_key(public_values: &[Scalar]) {
+    match public_values.len() {
+        0 | 1 => println!("  issuer key: <unavailable: proof exposed too few public values>\n"),
+        n => println!(
+            "  issuer key: x={:?}\n              y={:?}\n",
+            public_values[n - 2],
+            public_values[n - 1]
+        ),
+    }
+}
+
 /// Prove + reblind + verify pipeline using pre-existing keys on disk.
 fn run_prove_pipeline(
     path_config: &PathConfig,
@@ -376,9 +394,10 @@ fn run_prove_pipeline(
 
     info!("Verifying Prepare proof...");
     let t0 = Instant::now();
-    let _prepare_public_values = verify_circuit_with_loaded_data(&prepare_proof, &prepare_vk);
+    let prepare_public_values = verify_circuit_with_loaded_data(&prepare_proof, &prepare_vk);
     let verify_prepare_ms = t0.elapsed().as_millis();
-    println!("✓ Prepare proof verified: {} ms\n", verify_prepare_ms);
+    println!("✓ Prepare proof verified: {} ms", verify_prepare_ms);
+    print_issuer_key(&prepare_public_values);
 
     let show_proof =
         load_proof(path_config.artifact_path(SHOW_PROOF)).expect("load show proof failed");
@@ -558,9 +577,10 @@ fn run_mdoc_prove_pipeline(
         load_proof(path_config.artifact_path(MDOC_PROOF)).expect("load mdoc proof failed");
     info!("Verifying MDOC proof...");
     let t0 = Instant::now();
-    let _mdoc_public_values = verify_circuit_with_loaded_data(&mdoc_proof, &mdoc_vk);
+    let mdoc_public_values = verify_circuit_with_loaded_data(&mdoc_proof, &mdoc_vk);
     let verify_mdoc_ms = t0.elapsed().as_millis();
-    println!("✓ MDOC proof verified: {} ms\n", verify_mdoc_ms);
+    println!("✓ MDOC proof verified: {} ms", verify_mdoc_ms);
+    print_issuer_key(&mdoc_public_values);
 
     let show_proof =
         load_proof(path_config.artifact_path(SHOW_PROOF)).expect("load show proof failed");

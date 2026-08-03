@@ -27,6 +27,7 @@ import {
   circuitInputsToJson,
   base64urlToBigInt,
 } from "../../openac-sdk/src/utils.js";
+import { extractIssuerKeyFromPreparePublicValues } from "../../openac-sdk/src/inputs/issuer-key.js";
 import { DEFAULT_SHOW_PARAMS } from "../../openac-sdk/src/types.js";
 import type { JwtCircuitParams } from "../../openac-sdk/src/types.js";
 
@@ -89,6 +90,8 @@ export interface VerifyResult {
   valid: boolean;
   ageAbove18: boolean;
   deviceKey: { x: string; y: string } | null;
+  /** True when the Prepare proof was built under the demo's expected issuer key. */
+  issuerTrusted: boolean;
   error?: string;
   logs: StepLog[];
   totalMs: number;
@@ -519,6 +522,14 @@ export async function present(
 // Step 4: Verify
 // ---------------------------------------------------------------------------
 
+/** Parse a WASM-formatted public value (Rust `{:?}` on a field element) into a bigint. */
+function parseScalarString(value: string): bigint {
+  const hex = value.match(/0x([0-9a-fA-F]+)/);
+  if (hex) return BigInt("0x" + hex[1]);
+  const dec = value.match(/-?\d+/);
+  return dec ? BigInt(dec[0]) : 0n;
+}
+
 export async function verify(
   onProgress?: ProgressCallback
 ): Promise<VerifyResult> {
@@ -548,6 +559,19 @@ export async function verify(
   // Extract public values from verification result
   let ageAbove18 = false;
   let deviceKey: { x: string; y: string } | null = null;
+  // The Prepare proof's public IO ends with the (pubKeyX, pubKeyY) the circuit
+  // ran its ES256 check against. Proof validity does not cover issuer identity,
+  // so compare that key against the issuer this demo expects.
+  let issuerTrusted = false;
+
+  if (verifyResult.valid) {
+    const provenIssuer = extractIssuerKeyFromPreparePublicValues(
+      verifyResult.preparePublicValues.map(parseScalarString),
+    );
+    issuerTrusted =
+      provenIssuer.x === base64urlToBigInt(ISSUER_PUBLIC_KEY.x) &&
+      provenIssuer.y === base64urlToBigInt(ISSUER_PUBLIC_KEY.y);
+  }
 
   if (verifyResult.valid) {
     // showPublicValues: [ageAbove18, deviceKeyX, deviceKeyY]
@@ -562,10 +586,14 @@ export async function verify(
   }
 
   return {
-    valid: verifyResult.valid,
+    valid: verifyResult.valid && issuerTrusted,
     ageAbove18,
     deviceKey,
-    error: verifyResult.error,
+    issuerTrusted,
+    error:
+      verifyResult.valid && !issuerTrusted
+        ? "Untrusted issuer: credential was not signed by the expected issuer key"
+        : verifyResult.error,
     logs,
     totalMs: performance.now() - t0,
   };

@@ -140,7 +140,11 @@ describe.skipIf(!HAS_1K_KEYS)("WASM Verifier: proof verification via Verifier cl
 
     const schema = Credential.parse(cred.jwt, cred.disclosures).claims;
     const compiled = compilePredicateExpression(claimToClaimPredicate, schema);
-    expected = { nonce, predicates: compiled.predicates, logicExpression: compiled.logicExpression };
+    expected = {
+      nonce,
+      predicates: compiled.predicates,
+      logicExpression: compiled.logicExpression,
+    };
 
     // The Verifier class is exercised directly (not via OpenAC) on a bridge
     // sharing the same WASM module instance.
