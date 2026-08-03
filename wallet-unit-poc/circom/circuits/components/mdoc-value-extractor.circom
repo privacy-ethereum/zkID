@@ -134,14 +134,55 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
     uintAccum[0] <== 0;
 
     component uintLenGt[maxValueLen];
+    signal uintScaled[maxValueLen];
     for (var i = 0; i < maxValueLen; i++) {
         uintLenGt[i] = GreaterThan(log2Ceil(maxValueLen + 1));
         uintLenGt[i].in[0] <== dataLen;
         uintLenGt[i].in[1] <== i;
 
-        uintAccum[i + 1] <== uintAccum[i] * 10 + (value[i] - 48) * uintLenGt[i].out;
+        // Scale by 10 only within dataLen; past the value the multiplier is 1
+        // so trailing padding does not inflate the result by 10^(maxValueLen - dataLen).
+        uintScaled[i] <== uintAccum[i] * (9 * uintLenGt[i].out + 1);
+        uintAccum[i + 1] <== uintScaled[i] + (value[i] - 48) * uintLenGt[i].out;
     }
     signal uintValue <== uintAccum[maxValueLen];
+
+    // Same field-wrap reasoning as ClaimValueNormalizer: bound the digit count
+    // so no partial product can exceed 10^19 - 1 < 2^64 < q, and constrain
+    // each active byte to be an ASCII digit so no term aliases mod q.
+    var maxUintDigits = maxValueLen < 19 ? maxValueLen : 19;
+    signal isUintActive <== formatEq[2].out * isActive;
+
+    component uintLenLe = LessEqThan(OFFSET_BITS);
+    uintLenLe.in[0] <== dataLen;
+    uintLenLe.in[1] <== maxUintDigits;
+    isUintActive * (1 - uintLenLe.out) === 0;
+
+    component digitGe48[maxUintDigits];
+    component digitLe57[maxUintDigits];
+    signal digitActive[maxUintDigits];
+    for (var i = 0; i < maxUintDigits; i++) {
+        digitActive[i] <== isUintActive * uintLenGt[i].out;
+
+        digitGe48[i] = GreaterEqThan(9);
+        digitGe48[i].in[0] <== value[i];
+        digitGe48[i].in[1] <== 48;
+
+        digitLe57[i] = LessEqThan(9);
+        digitLe57[i].in[0] <== value[i];
+        digitLe57[i].in[1] <== 57;
+
+        digitActive[i] * (1 - digitGe48[i].out) === 0;
+        digitActive[i] * (1 - digitLe57[i].out) === 0;
+    }
+
+    // The string branch packs bytes at base 256, so 32+ bytes wrap the 254-bit
+    // field and two distinct signed values can share a residue under `==`.
+    signal isStrActive <== formatEq[1].out * isActive;
+    component strLenLe31 = LessEqThan(OFFSET_BITS);
+    strLenLe31.in[0] <== dataLen;
+    strLenLe31.in[1] <== 31;
+    isStrActive * (1 - strLenLe31.out) === 0;
 
     // Inactive claims feed a dummy padded-zero input to Sha256Bytes.
     signal input digestInputPadded[maxValueLen];

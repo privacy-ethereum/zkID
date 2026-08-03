@@ -85,6 +85,40 @@ template ClaimValueNormalizer(valueLen) {
     }
     signal uintValue <== uintAccum[valueLen];
 
+    // The accumulator is field arithmetic, so without the two checks below an
+    // over-long decimal (>= 77 digits) or a non-digit byte wraps mod q and
+    // aliases a large signed value onto a small residue, which then satisfies
+    // a comparison it should fail. Bounding the digit count keeps every
+    // partial product under 10^19 - 1 < 2^64 < q, and the digit checks keep
+    // each term in [0, 9]. Together they make EvalPredicate's documented
+    // [0, 2^VALUE_BITS) precondition hold rather than be assumed.
+    var maxUintDigits = valueLen < 19 ? valueLen : 19;
+
+    component uintLenLe = LessEqThan(log2Ceil(valueLen + 1));
+    uintLenLe.in[0] <== valueLength;
+    uintLenLe.in[1] <== maxUintDigits;
+    isUintFormat * (1 - uintLenLe.out) === 0;
+
+    // Slots at or past maxUintDigits are inactive under the bound above, so
+    // only the leading slots need digit checks.
+    component digitGe48[maxUintDigits];
+    component digitLe57[maxUintDigits];
+    signal digitActive[maxUintDigits];
+    for (var i = 0; i < maxUintDigits; i++) {
+        digitActive[i] <== isUintFormat * valueLenGt[i].out;
+
+        digitGe48[i] = GreaterEqThan(9);
+        digitGe48[i].in[0] <== value[i];
+        digitGe48[i].in[1] <== 48;
+
+        digitLe57[i] = LessEqThan(9);
+        digitLe57[i].in[0] <== value[i];
+        digitLe57[i].in[1] <== 57;
+
+        digitActive[i] * (1 - digitGe48[i].out) === 0;
+        digitActive[i] * (1 - digitLe57[i].out) === 0;
+    }
+
     // ===== Format 2: ISO Date (YYYY-MM-DD) → YYYYMMDD integer =====
     signal isoDateValue <==
         ((value[0] - 48) * 1000 + (value[1] - 48) * 100 + (value[2] - 48) * 10 + (value[3] - 48)) * 10000

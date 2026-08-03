@@ -10,11 +10,14 @@ export const MDOC_PARAMS = [1792, 256, 4, 32, 64, 64] as const;
 
 export type MdocClaimConfig = Record<string, { type: MdocClaimType }>;
 
-export async function buildMdocWitness(claimConfig: MdocClaimConfig): Promise<{
+export async function buildMdocWitness(
+  claimConfig: MdocClaimConfig,
+  claimValues?: Record<string, string>,
+): Promise<{
   cred: TestMdocCredential;
   inputs: ReturnType<typeof generateMdocInputs>;
 }> {
-  const cred = await createTestMdocCredential();
+  const cred = await createTestMdocCredential(claimValues);
   const params = generateMdocCircuitParams([...MDOC_PARAMS]);
   const { claims, deviceKeyPrefixData } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, claimConfig);
   const inputs = generateMdocInputs(

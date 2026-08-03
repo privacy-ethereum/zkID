@@ -113,7 +113,27 @@ function formatToCircuitCodes(f: ClaimFormatHint): { decodeFlag: number; claimFo
   }
 }
 
+// EvalPredicate compares over [0, 2^VALUE_BITS) and the circuits are
+// instantiated with valueBits = 64. A literal outside that domain cannot be
+// compared soundly, so reject it here instead of producing an unsatisfiable
+// witness later.
+const VALUE_DOMAIN_MAX = 1n << 64n;
+
 function normalizeLiteralValue(
+  v: bigint | number | Date | string,
+  format: ClaimFormatHint,
+): bigint {
+  const out = normalizeLiteralValueUnchecked(v, format);
+  if (out < 0n || out >= VALUE_DOMAIN_MAX) {
+    throw new InputError(
+      "INVALID_KEY",
+      `Predicate value ${out} is outside the comparable range [0, 2^64)`,
+    );
+  }
+  return out;
+}
+
+function normalizeLiteralValueUnchecked(
   v: bigint | number | Date | string,
   format: ClaimFormatHint,
 ): bigint {
