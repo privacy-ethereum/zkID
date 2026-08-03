@@ -53,7 +53,11 @@ export class Prover {
     const timing: Partial<PrecomputeTiming> = {};
 
     let t1 = performance.now();
-    const credential = Credential.parse(request.jwt, request.disclosures);
+    const credential = Credential.parse(
+      request.jwt,
+      request.disclosures,
+      request.profile,
+    );
     timing.parseCredentialMs = performance.now() - t1;
 
     const deviceKey = credential.deviceBindingKey;
@@ -147,6 +151,7 @@ export class Prover {
     const parsed = Credential.parse(
       precomputed.credential.jwt,
       precomputed.credential.disclosures,
+      request.profile,
     );
     const compiled = compilePredicateExpression(request.predicates, parsed.claims);
 

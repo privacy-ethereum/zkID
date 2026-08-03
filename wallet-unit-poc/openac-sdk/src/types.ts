@@ -243,6 +243,9 @@ export interface PrecomputeRequest {
 
   /** Predicates the holder wants to prove. Drives format inference and vcSize selection. */
   predicates: import("./predicates.js").PredicateExpression;
+
+  /** Trusted clock / profile policy for JWT validity checks. */
+  profile?: import("./credential.js").CredentialProfileOptions;
 }
 
 export interface SerializedCredential {
@@ -299,6 +302,9 @@ export interface PresentRequest {
 
   /** Predicates to evaluate against the precomputed credential. */
   predicates: import("./predicates.js").PredicateExpression;
+
+  /** Trusted clock / profile policy for JWT validity checks (re-checked at present time). */
+  profile?: import("./credential.js").CredentialProfileOptions;
 }
 
 export interface PresentationProof {

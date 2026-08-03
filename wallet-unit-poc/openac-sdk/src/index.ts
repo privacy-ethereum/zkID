@@ -196,6 +196,7 @@ function createKeySet(
 
 // Re-exports
 export { Credential } from "./credential.js";
+export type { CredentialProfileOptions } from "./credential.js";
 export { Prover, deserializePrecomputed } from "./prover.js";
 export { Verifier } from "./verifier.js";
 export { WitnessCalculator } from "./witness-calculator.js";
