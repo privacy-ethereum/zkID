@@ -36,6 +36,25 @@ export const JWT_PARAMS_BY_SIZE: Record<VcSize, JwtCircuitParams> = {
 
 export const VC_SIZES: readonly VcSize[] = ["1k", "2k", "4k", "8k"] as const;
 
+/**
+ * Witness index of `main.normalizedClaimValues[0]` in each compiled JWT circuit.
+ *
+ * The JWT circuit publishes nothing. Claim values would reveal the exact
+ * attribute; the device key (KeyBindingX/Y, immediately after these) would be a
+ * constant identifier linking every presentation. Both are private signals, so
+ * their offsets shift with `maxMessageLength` — hence the per-size table.
+ *
+ * Mirrors `CircuitSize::claim_values_witness_start` in ecdsa-spartan2. Both are
+ * re-derived from the circuits' `.sym` files by their respective layout tests,
+ * so a recompile that moves these fails loudly.
+ */
+export const CLAIM_VALUES_WITNESS_START: Record<VcSize, number> = {
+  "1k": 2472,
+  "2k": 4020,
+  "4k": 7568,
+  "8k": 14664,
+};
+
 export function selectVcSizeForSigningInput(byteLength: number): VcSize {
   for (const size of VC_SIZES) {
     if (byteLength <= JWT_PARAMS_BY_SIZE[size].maxMessageLength) return size;

@@ -57,7 +57,9 @@ template MDOC(
     signal input digestInputsPaddedLen[maxClaims];
 
     signal output validUntilDate;
-    signal output normalizedClaimValues[maxClaims];
+    // Private — see the note in jwt.circom: these are predicate operands that
+    // reach Show via comm_W_shared, not values the verifier is meant to learn.
+    signal normalizedClaimValues[maxClaims];
 
     signal output deviceKeyX;
     signal output deviceKeyY;

@@ -1,7 +1,7 @@
-use super::synthesize_witness_only;
+use super::{bind_shared, synthesize_all_vars, synthesize_witness_only};
 use crate::{paths::PathConfig, utils::*, Scalar, E};
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
-use circom_scotia::{reader::load_r1cs, synthesize};
+use circom_scotia::reader::load_r1cs;
 use ff::Field;
 use spartan2::traits::circuit::SpartanCircuit;
 #[cfg(feature = "native-witness")]
@@ -140,17 +140,19 @@ impl SpartanCircuit<E> for ShowCircuit {
     fn synthesize<CS: ConstraintSystem<Scalar>>(
         &self,
         cs: &mut CS,
-        _: &[AllocatedNum<Scalar>],
+        shared: &[AllocatedNum<Scalar>],
         _: &[AllocatedNum<Scalar>],
         _: Option<&[Scalar]>,
     ) -> Result<(), SynthesisError> {
         let cs_type = type_name::<CS>();
         let is_setup_phase = cs_type.contains("ShapeCS");
+        let layout = calculate_show_witness_indices(self.path_config.circuit_size.n_claims());
 
         if is_setup_phase {
             let r1cs =
                 load_r1cs(&self.r1cs_path()).map_err(|_| SynthesisError::AssignmentMissing)?;
-            synthesize(cs, r1cs, None)?;
+            let vars = synthesize_all_vars(cs, r1cs, None)?;
+            bind_shared(cs, shared, &vars, &layout.shared_witness_indices())?;
             return Ok(());
         }
 
@@ -162,13 +164,11 @@ impl SpartanCircuit<E> for ShowCircuit {
         // values from the CS during proving, so constraints are not needed here.
         match load_r1cs::<Scalar>(&self.r1cs_path()) {
             Ok(r1cs) => {
-                synthesize(cs, r1cs, Some(witness))?;
+                let vars = synthesize_all_vars(cs, r1cs, Some(witness))?;
+                bind_shared(cs, shared, &vars, &layout.shared_witness_indices())?;
             }
             Err(_) => {
-                let num_public =
-                    calculate_show_witness_indices(self.path_config.circuit_size.n_claims())
-                        .num_public();
-                synthesize_witness_only(cs, &witness, num_public)?;
+                synthesize_witness_only(cs, &witness, layout.num_public())?;
             }
         }
         Ok(())
@@ -203,11 +203,13 @@ impl SpartanCircuit<E> for ShowCircuit {
             let cache = self.cached_witness.lock().unwrap();
             cache.clone()
         }
-        .or_else(|| {
-            self.input_path
-                .as_ref()
-                .and_then(|_| self.get_or_generate_witness().ok())
-        });
+        // Not gated on `input_path`: it is `None` on every native pipeline path,
+        // which used to leave the shared partition all zeros while `synthesize`
+        // used the real witness. Nothing caught it because the shared variables
+        // were unconstrained, so `comm_W_shared` compared commitments to zeros
+        // and matched trivially. `bind_shared` now constrains these, so they
+        // must come from the same witness `synthesize` sees.
+        .or_else(|| self.get_or_generate_witness().ok());
 
         let device_key_x = witness
             .as_ref()

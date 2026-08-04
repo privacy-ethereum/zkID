@@ -62,8 +62,12 @@ export interface PemPublicKey {
 export type IssuerPublicKey = EcdsaPublicKey | PemPublicKey;
 
 export interface ProofPublicValues {
+  /**
+   * The only thing a verifier learns. Claim values are deliberately absent:
+   * they are private predicate operands carried in the shared witness
+   * commitment, not proof outputs.
+   */
   expressionResult: boolean;
-  normalizedClaimValues: bigint[];
 }
 
 export interface VerifyingKeys {

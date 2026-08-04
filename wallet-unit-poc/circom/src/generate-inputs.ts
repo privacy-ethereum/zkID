@@ -53,24 +53,30 @@ async function generateInputsForSize(sizeName: string): Promise<void> {
 
   const showParams = generateShowCircuitParams(params);
 
-  const rocBirthdayClaim = mockData.claims[1];
-  if (!rocBirthdayClaim) {
-    throw new Error(`Expected mock data to include a roc_birthday claim at index 1`);
+  const ROC_BIRTHDAY_SLOT = 1;
+  if (!mockData.claims[ROC_BIRTHDAY_SLOT]) {
+    throw new Error(`Expected mock data to include a roc_birthday claim at index ${ROC_BIRTHDAY_SLOT}`);
   }
 
   const nonce = nodeCrypto.randomBytes(24).toString("base64url");
   const deviceSignature = signDeviceNonce(nonce, mockData.devicePrivateKey);
 
-  // Show predicate: claim[0] (roc_birthday) <= 1070101 (ROC adult cutoff).
+  // Pass every claim, in JWT slot order. Show's claimValues must equal the JWT
+  // circuit's normalizedClaimValues slot for slot: both go into the shared
+  // witness partition, and `comm_W_shared` only matches if the vectors are
+  // identical. (Passing just the birthday put it in slot 0 here but slot 1 in
+  // the JWT circuit — which went unnoticed while the shared partition was zeros.)
   const showInputs = generateShowInputs(
     showParams,
     nonce,
     deviceSignature,
     mockData.deviceKey,
-    [rocBirthdayClaim],
+    mockData.claims,
   );
+
+  // Show predicate: claim[ROC_BIRTHDAY_SLOT] <= 1070101 (ROC adult cutoff).
   showInputs.predicateLen = 1n;
-  showInputs.predicateClaimRefs[0] = 0n;
+  showInputs.predicateClaimRefs[0] = BigInt(ROC_BIRTHDAY_SLOT);
   showInputs.predicateOps[0] = BigInt(OP_LE);
   showInputs.predicateRhsValues[0] = 1070101n;
   showInputs.tokenTypes[0] = 0n;

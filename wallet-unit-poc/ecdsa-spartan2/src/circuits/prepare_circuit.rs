@@ -1,10 +1,10 @@
-use super::synthesize_witness_only;
+use super::{bind_shared, synthesize_all_vars, synthesize_witness_only};
 use crate::{
-    paths::PathConfig, prover::generate_prepare_witness, utils::calculate_jwt_output_indices,
-    Scalar, E,
+    circuit_size::CircuitSize, paths::PathConfig, prover::generate_prepare_witness,
+    utils::calculate_jwt_output_indices, Scalar, E,
 };
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
-use circom_scotia::{reader::load_r1cs, synthesize};
+use circom_scotia::reader::load_r1cs;
 use ff::Field;
 use spartan2::traits::circuit::SpartanCircuit;
 use std::{
@@ -117,8 +117,17 @@ impl PrepareCircuit {
     /// Create with pre-computed witness (for WASM usage where witness is generated externally).
     /// This bypasses filesystem I/O entirely.
     pub fn with_witness(witness: Vec<Scalar>) -> Self {
+        Self::with_witness_for_size(witness, CircuitSize::default())
+    }
+
+    /// Same, but for a specific circuit size.
+    ///
+    /// The size is load-bearing: `shared()` reads `normalizedClaimValues` from a
+    /// per-size witness offset, so proving a 2k credential as the default 1k
+    /// size reads the wrong slots and the shared commitment will not match Show.
+    pub fn with_witness_for_size(witness: Vec<Scalar>, circuit_size: CircuitSize) -> Self {
         Self {
-            path_config: PathConfig::default(),
+            path_config: PathConfig::development_with_size(circuit_size),
             input_path: None,
             cached_witness: Arc::new(Mutex::new(Some(witness))),
         }
@@ -160,17 +169,19 @@ impl SpartanCircuit<E> for PrepareCircuit {
     fn synthesize<CS: ConstraintSystem<Scalar>>(
         &self,
         cs: &mut CS,
-        _: &[AllocatedNum<Scalar>],
+        shared: &[AllocatedNum<Scalar>],
         _: &[AllocatedNum<Scalar>],
         _: Option<&[Scalar]>,
     ) -> Result<(), SynthesisError> {
         let cs_type = type_name::<CS>();
         let is_setup_phase = cs_type.contains("ShapeCS");
+        let layout = calculate_jwt_output_indices(self.path_config.circuit_size);
 
         if is_setup_phase {
             let r1cs =
                 load_r1cs(&self.r1cs_path()).map_err(|_| SynthesisError::AssignmentMissing)?;
-            synthesize(cs, r1cs, None)?;
+            let vars = synthesize_all_vars(cs, r1cs, None)?;
+            bind_shared(cs, shared, &vars, &layout.shared_witness_indices())?;
             return Ok(());
         }
 
@@ -178,15 +189,13 @@ impl SpartanCircuit<E> for PrepareCircuit {
 
         match load_r1cs::<Scalar>(&self.r1cs_path()) {
             Ok(r1cs) => {
-                synthesize(cs, r1cs, Some(witness))?;
+                let vars = synthesize_all_vars(cs, r1cs, Some(witness))?;
+                bind_shared(cs, shared, &vars, &layout.shared_witness_indices())?;
             }
             Err(_) => {
                 // Prepare circuit public signals (in witness order):
-                //   normalizedClaimValues[0..n_claims], KeyBindingX, KeyBindingY, pubKeyX, pubKeyY
-                let layout = calculate_jwt_output_indices(
-                    self.path_config.circuit_size.max_matches(),
-                    self.path_config.circuit_size.max_claims_length(),
-                );
+                //   pubKeyX, pubKeyY, decodeFlags[..], claimFormats[..].
+                //   Claim values and the device key are private.
                 synthesize_witness_only(cs, &witness, layout.num_public())?;
             }
         }
@@ -194,10 +203,7 @@ impl SpartanCircuit<E> for PrepareCircuit {
     }
 
     fn public_values(&self) -> Result<Vec<Scalar>, SynthesisError> {
-        let layout = calculate_jwt_output_indices(
-            self.path_config.circuit_size.max_matches(),
-            self.path_config.circuit_size.max_claims_length(),
-        );
+        let layout = calculate_jwt_output_indices(self.path_config.circuit_size);
         let num_public = layout.num_public();
 
         let witness = self.get_or_generate_witness().ok();
@@ -213,10 +219,7 @@ impl SpartanCircuit<E> for PrepareCircuit {
         &self,
         cs: &mut CS,
     ) -> Result<Vec<AllocatedNum<Scalar>>, SynthesisError> {
-        let layout = calculate_jwt_output_indices(
-            self.path_config.circuit_size.max_matches(),
-            self.path_config.circuit_size.max_claims_length(),
-        );
+        let layout = calculate_jwt_output_indices(self.path_config.circuit_size);
 
         // Check cached witness first (covers with_witness() path), then try
         // generating from input_path (native path). Returns None during setup.
@@ -224,11 +227,13 @@ impl SpartanCircuit<E> for PrepareCircuit {
             let cache = self.cached_witness.lock().unwrap();
             cache.clone()
         }
-        .or_else(|| {
-            self.input_path
-                .as_ref()
-                .and_then(|_| self.get_or_generate_witness().ok())
-        });
+        // Not gated on `input_path`: it is `None` on every native pipeline path,
+        // which used to leave the shared partition all zeros while `synthesize`
+        // used the real witness. Nothing caught it because the shared variables
+        // were unconstrained, so `comm_W_shared` compared commitments to zeros
+        // and matched trivially. `bind_shared` now constrains these, so they
+        // must come from the same witness `synthesize` sees.
+        .or_else(|| self.get_or_generate_witness().ok());
 
         let keybinding_x = witness
             .as_ref()

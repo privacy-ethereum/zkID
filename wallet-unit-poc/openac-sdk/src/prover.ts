@@ -15,6 +15,7 @@ import {
   DEFAULT_SHOW_PARAMS,
 } from "./types.js";
 import {
+  CLAIM_VALUES_WITNESS_START,
   JWT_PARAMS_BY_SIZE,
   selectVcSizeForSigningInput,
   type VcSize,
@@ -113,17 +114,22 @@ export class Prover {
     timing.prepareWitnessMs = performance.now() - t1;
 
     // Extract normalized claim values from the JWT witness so present() doesn't
-    // have to recompute them. The witness lays out claim values at positions
-    // [1, 1 + maxClaims). Done in parallel with the SNARK prove below.
+    // have to recompute them. They are private signals (see
+    // CLAIM_VALUES_WITNESS_START) — the public IO holds only KeyBindingX/Y.
+    // Done in parallel with the SNARK prove below.
     const maxClaims = jwtParams.maxMatches - 2;
+    const claimStart = CLAIM_VALUES_WITNESS_START[vcSize];
     const normalizedClaimValuesPromise = this.witnessCalculator
-      ? this.calculateJwtWitness(jwtInputsJson, vcSize).then((w) => w.slice(1, 1 + maxClaims))
+      ? this.calculateJwtWitness(jwtInputsJson, vcSize).then((w) =>
+          w.slice(claimStart, claimStart + maxClaims),
+        )
       : Promise.resolve<bigint[]>([]);
 
     t1 = performance.now();
     const prepareResult = await this.bridge.precomputeFromWitness(
       request.keys.prepareProvingKey,
       prepareWitnessBytes,
+      vcSize,
     );
     timing.prepareProveMs = performance.now() - t1;
 
@@ -213,10 +219,7 @@ export class Prover {
       expressionResult = showWitness[1] === 1n;
     }
 
-    const publicValues: ProofPublicValues = {
-      expressionResult,
-      normalizedClaimValues: [],
-    };
+    const publicValues: ProofPublicValues = { expressionResult };
 
     return this.buildPresentationProof(
       presentResult.prepareProof,
