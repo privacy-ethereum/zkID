@@ -182,9 +182,11 @@ impl SpartanCircuit<E> for MdocCircuit {
         let dk_y_alloc = AllocatedNum::alloc(cs.namespace(|| "deviceKeyY"), || Ok(device_key_y))?;
 
         // Shared layout (must match `ShowCircuit::shared`):
-        //   [deviceKeyX, deviceKeyY, normalizedClaimValues[0..MDOC_SHARED_CLAIMS]]
+        //   [deviceKeyX, deviceKeyY,
+        //    normalizedClaimValues[0..MDOC_SHARED_CLAIMS],
+        //    claimIdentifierHashes[0..MDOC_SHARED_CLAIMS]]
         let shared_claims = MDOC_SHARED_CLAIMS.min(layout.claim_values_len);
-        let mut shared_values = Vec::with_capacity(2 + shared_claims);
+        let mut shared_values = Vec::with_capacity(2 + 2 * shared_claims);
         shared_values.push(dk_x_alloc);
         shared_values.push(dk_y_alloc);
 
@@ -198,6 +200,18 @@ impl SpartanCircuit<E> for MdocCircuit {
                     Ok(claim_scalar)
                 })?;
             shared_values.push(claim_alloc);
+        }
+
+        for idx in 0..shared_claims {
+            let id_scalar = witness
+                .as_ref()
+                .map(|w| w[layout.claim_identifier_hashes_start + idx])
+                .unwrap_or(Scalar::ZERO);
+            let id_alloc = AllocatedNum::alloc(
+                cs.namespace(|| format!("ClaimIdentifierHash{idx}")),
+                move || Ok(id_scalar),
+            )?;
+            shared_values.push(id_alloc);
         }
 
         Ok(shared_values)

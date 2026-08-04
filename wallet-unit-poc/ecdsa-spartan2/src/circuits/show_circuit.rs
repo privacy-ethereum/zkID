@@ -223,9 +223,12 @@ impl SpartanCircuit<E> for ShowCircuit {
         let kb_x = AllocatedNum::alloc(cs.namespace(|| "KeyBindingX"), || Ok(device_key_x))?;
         let kb_y = AllocatedNum::alloc(cs.namespace(|| "KeyBindingY"), || Ok(device_key_y))?;
 
-        // Shared layout (must match `PrepareCircuit::shared`):
-        //   [KeyBindingX, KeyBindingY, claimValues[0..n_claims]]
-        let mut shared_values = Vec::with_capacity(2 + layout.claim_values_len);
+        // Shared layout (must match `PrepareCircuit::shared` and
+        // `MdocCircuit::shared`):
+        //   [KeyBindingX, KeyBindingY,
+        //    claimValues[0..n_claims],
+        //    claimIdentifierHashes[0..n_claims]]
+        let mut shared_values = Vec::with_capacity(2 + 2 * layout.claim_values_len);
         shared_values.push(kb_x);
         shared_values.push(kb_y);
 
@@ -239,6 +242,18 @@ impl SpartanCircuit<E> for ShowCircuit {
                     Ok(claim_scalar)
                 })?;
             shared_values.push(claim_alloc);
+        }
+
+        for idx in 0..layout.claim_values_len {
+            let id_scalar = witness
+                .as_ref()
+                .map(|w| w[layout.claim_identifier_hashes_start + idx])
+                .unwrap_or(Scalar::ZERO);
+            let id_alloc = AllocatedNum::alloc(
+                cs.namespace(|| format!("ClaimIdentifierHash{idx}")),
+                move || Ok(id_scalar),
+            )?;
+            shared_values.push(id_alloc);
         }
 
         Ok(shared_values)

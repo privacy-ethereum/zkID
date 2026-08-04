@@ -27,6 +27,8 @@ template Show(nClaims, maxPredicates, maxLogicTokens, valueBits) {
     signal input predicateOps[maxPredicates]; // Operator per predicate: 0<=, 1>=, 2==.
     signal input predicateRhsIsRef[maxPredicates]; // Right-hand side (RHS) mode per predicate: 0=literal, 1=claim reference.
     signal input predicateRhsValues[maxPredicates]; // RHS operand: claim index when predicateRhsIsRef is 1, literal value when 0.
+    signal input claimIdentifierHashes[nClaims]; // Attribute identity per slot, bound to MDOC via the shared segment.
+    signal input predicateClaimIdentifiers[maxPredicates]; // Public: identity the verifier bound each predicate to.
 
     // Logical expression over predicate results in Reverse Polish Notation.
     signal input tokenTypes[maxLogicTokens]; // Postfix token kind: 0=REF, 1=AND, 2=OR, 3=NOT.
@@ -51,6 +53,8 @@ template Show(nClaims, maxPredicates, maxLogicTokens, valueBits) {
     expressionEval.predicateOps <== predicateOps;
     expressionEval.predicateRhsIsRef <== predicateRhsIsRef;
     expressionEval.predicateRhsValues <== predicateRhsValues;
+    expressionEval.claimIdentifierHashes <== claimIdentifierHashes;
+    expressionEval.predicateClaimIdentifiers <== predicateClaimIdentifiers;
     expressionEval.tokenTypes <== tokenTypes;
     expressionEval.tokenValues <== tokenValues;
     expressionEval.exprLen <== exprLen;

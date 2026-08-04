@@ -61,6 +61,10 @@ template MDOC(
     // reach Show via comm_W_shared, not values the verifier is meant to learn.
     signal normalizedClaimValues[maxClaims];
 
+    // Carried to Show alongside the values so a predicate can be bound to the
+    // requested attribute. Inactive slots are 0 so padding cannot impersonate one.
+    signal claimIdentifierHashes[maxClaims];
+
     signal output deviceKeyX;
     signal output deviceKeyY;
 
@@ -74,12 +78,17 @@ template MDOC(
 
     // CHECK 3: per-claim preimage authenticity + value extraction
     signal preimageHashesPoseidon[maxClaims];
+    signal idHash[maxClaims];
 
     for (var i = 0; i < maxClaims; i++) {
         // claimFlags[i] must be 0 or 1; fractional values bypass gated assertions.
         claimFlags[i] * (1 - claimFlags[i]) === 0;
 
         preimageHashesPoseidon[i] <== HashBytesToFieldWithLen(maxPreimageLen)(preimages[i], preimageLengths[i]);
+
+        // MdocClaimVerifier already proved this identifier is in the signed preimage.
+        idHash[i] <== HashBytesToFieldWithLen(maxIdentifierLen)(identifierCbor[i], identifierLengths[i]);
+        claimIdentifierHashes[i] <== idHash[i] * claimFlags[i];
 
         MdocClaimVerifier(maxCredLen, maxPreimageLen, maxIdentifierLen)(
             message,

@@ -87,6 +87,39 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
     valueEndLe.in[1] <== preimageLength;
     (1 - valueEndLe.out) * isActive === 0;
 
+    // Bind dataLen to the signed CBOR header; a free valueEnd lets a holder
+    // prove a predicate over a prefix of the signed value. preimage[valueStart-1]
+    // is the text-string header for every form we accept, bare or tag-wrapped,
+    // so this covers all four branches.
+    // Gated on isActive: padding slots have valueStart = 0 and would underflow.
+    signal hdrShift <== isActive * (valueStart - 2);
+    component hdrShifter = VarShiftLeft(maxPreimageLen, 2);
+    hdrShifter.in <== preimage;
+    hdrShifter.shift <== hdrShift;
+    signal hdrB2 <== hdrShifter.out[0];   // preimage[valueStart - 2]
+    signal hdrB1 <== hdrShifter.out[1];   // preimage[valueStart - 1]
+
+    component cborLenLt24 = LessThan(OFFSET_BITS);
+    cborLenLt24.in[0] <== dataLen;
+    cborLenLt24.in[1] <== 24;
+
+    // text(n), n < 24: single byte 0x60 | n
+    component shortHdrOk = IsZero();
+    shortHdrOk.in <== hdrB1 - 0x60 - dataLen;
+
+    // text(n), 24 <= n <= 255: 0x78 then the length byte
+    component longPfxOk = IsZero();
+    longPfxOk.in <== hdrB2 - 0x78;
+    component longLenOk = IsZero();
+    longLenOk.in <== hdrB1 - dataLen;
+    signal longHdrOk <== longPfxOk.out * longLenOk.out;
+
+    signal caseShort <== cborLenLt24.out * shortHdrOk.out;
+    signal caseLong <== (1 - cborLenLt24.out) * longHdrOk;
+
+    // Unrecognised header forms must reject, not fall through to a free dataLen.
+    isActive * (1 - caseShort - caseLong) === 0;
+
     component formatEq[4];
     for (var i = 0; i < 4; i++) {
         formatEq[i] = IsEqual();
@@ -187,6 +220,44 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
     // Inactive claims feed a dummy padded-zero input to Sha256Bytes.
     signal input digestInputPadded[maxValueLen];
     signal input digestInputPaddedLen;
+
+    // Pin every byte of the SHA input: message bytes to value[i], then the 0x80
+    // marker, zeros, and the big-endian bit length. Free padding would let the
+    // holder vary the length field and prove a suffix-extension of the slice.
+    // Single-block layout only -- a longer input moves the length field.
+    assert(maxValueLen == 64);
+
+    signal isDigestActive <== formatEq[3].out * isActive;
+
+    // 55 message bytes + 0x80 + 8-byte length = one 64 B block
+    component digestLenLe55 = LessEqThan(OFFSET_BITS);
+    digestLenLe55.in[0] <== dataLen;
+    digestLenLe55.in[1] <== 55;
+    isDigestActive * (1 - digestLenLe55.out) === 0;
+    isDigestActive * (digestInputPaddedLen - 64) === 0;
+
+    // (dataLen > i) is monotone decreasing, so (dataLen == i) is the drop
+    // between neighbours -- no IsEqual components needed.
+    signal prevLenGt[56];
+    prevLenGt[0] <== 1;                       // (dataLen > -1) is always true
+    for (var i = 1; i < 56; i++) {
+        prevLenGt[i] <== uintLenGt[i - 1].out;
+    }
+
+    signal msgByte[56];
+    signal expectedByte[56];
+    for (var i = 0; i < 56; i++) {
+        msgByte[i] <== uintLenGt[i].out * value[i];
+        expectedByte[i] <== msgByte[i] + (prevLenGt[i] - uintLenGt[i].out) * 128;
+        isDigestActive * (digestInputPadded[i] - expectedByte[i]) === 0;
+    }
+
+    // dataLen <= 55 so the bit length fits the low two bytes; Sha256Bytes
+    // range-checks each byte, making the split unique.
+    for (var i = 56; i < 62; i++) {
+        isDigestActive * digestInputPadded[i] === 0;
+    }
+    isDigestActive * (digestInputPadded[62] * 256 + digestInputPadded[63] - dataLen * 8) === 0;
 
     signal digestSha[256] <== Sha256Bytes(maxValueLen)(digestInputPadded, digestInputPaddedLen);
 

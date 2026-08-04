@@ -82,7 +82,11 @@ export function generateShowInputs(
   deviceKey: JwkEcdsaPublicKey,
   encodedClaims: string[] = [],
   logicExpr: number[] = [],
-  normalizedClaimValues: bigint[] = []
+  normalizedClaimValues: bigint[] = [],
+  // Default 0 leaves the binding vacuous for flows with no attribute names (JWT);
+  // mdoc callers pass real hashes.
+  claimIdentifierHashes: bigint[] = [],
+  predicateClaimIdentifiers: bigint[] = []
 ): {
   deviceKeyX: bigint;
   deviceKeyY: bigint;
@@ -95,6 +99,8 @@ export function generateShowInputs(
   predicateOps: bigint[];
   predicateRhsIsRef: bigint[];
   predicateRhsValues: bigint[];
+  claimIdentifierHashes: bigint[];
+  predicateClaimIdentifiers: bigint[];
   tokenTypes: bigint[];
   tokenValues: bigint[];
   exprLen: bigint;
@@ -153,6 +159,14 @@ export function generateShowInputs(
   const predicateOps = Array(params.maxPredicates).fill(2n);
   const predicateRhsIsRef = Array(params.maxPredicates).fill(0n);
   const predicateRhsValues = Array(params.maxPredicates).fill(primaryClaimValue);
+  const claimIdHashes = Array(params.nClaims).fill(0n);
+  const predicateClaimIds = Array(params.maxPredicates).fill(0n);
+  for (let i = 0; i < Math.min(params.nClaims, claimIdentifierHashes.length); i++) {
+    claimIdHashes[i] = claimIdentifierHashes[i];
+  }
+  for (let i = 0; i < Math.min(params.maxPredicates, predicateClaimIdentifiers.length); i++) {
+    predicateClaimIds[i] = predicateClaimIdentifiers[i];
+  }
 
   assert.ok(
     normalizedValues.length <= params.nClaims,
@@ -224,6 +238,8 @@ export function generateShowInputs(
     predicateOps,
     predicateRhsIsRef,
     predicateRhsValues,
+    claimIdentifierHashes: claimIdHashes,
+    predicateClaimIdentifiers: predicateClaimIds,
     tokenTypes,
     tokenValues,
     exprLen,

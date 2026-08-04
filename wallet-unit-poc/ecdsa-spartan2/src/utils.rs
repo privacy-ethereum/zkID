@@ -541,10 +541,14 @@ pub const SHOW_MAX_LOGIC_TOKENS: usize = 8;
 ///          tokenTypes[maxLogicTokens]
 ///          tokenValues[maxLogicTokens]
 ///          exprLen
-/// = 4 + 4*maxPredicates + 2*maxLogicTokens
-///   (with maxPredicates=2, maxLogicTokens=8: 4 + 8 + 16 = 28).
+///          predicateClaimIdentifiers[maxPredicates]
+/// = 4 + 5*maxPredicates + 2*maxLogicTokens
+///   (with maxPredicates=2, maxLogicTokens=8: 4 + 10 + 16 = 30).
+///
+/// `predicateClaimIdentifiers` is public so the verifier sees which attribute
+/// each predicate was bound to.
 pub const SHOW_NUM_PUBLIC: usize =
-    4 + 4 * SHOW_MAX_PREDICATES + 2 * SHOW_MAX_LOGIC_TOKENS;
+    4 + 5 * SHOW_MAX_PREDICATES + 2 * SHOW_MAX_LOGIC_TOKENS;
 
 /// Layout of the Show circuit's witness vector.
 ///
@@ -556,7 +560,8 @@ pub const SHOW_NUM_PUBLIC: usize =
 ///   witness[30]       = main.deviceKeyY       (private, shared)
 ///   witness[31]       = main.sig_r            (private)
 ///   witness[32]       = main.sig_s_inverse    (private)
-///   witness[33..33+n_claims] = main.claimValues[..] (private, shared)
+///   witness[35..35+n_claims] = main.claimValues[..] (private, shared)
+///   witness[35+n_claims..]   = main.claimIdentifierHashes[..] (private, shared)
 #[derive(Debug, Clone, Copy)]
 pub struct ShowWitnessLayout {
     pub expression_result_index: usize,
@@ -564,11 +569,17 @@ pub struct ShowWitnessLayout {
     pub device_key_y_index: usize,
     pub claim_values_start: usize,
     pub claim_values_len: usize,
+    pub claim_identifier_hashes_start: usize,
 }
 
 impl ShowWitnessLayout {
     pub fn claim_values_range(&self) -> Range<usize> {
         self.claim_values_start..self.claim_values_start + self.claim_values_len
+    }
+
+    pub fn claim_identifier_hashes_range(&self) -> Range<usize> {
+        self.claim_identifier_hashes_start
+            ..self.claim_identifier_hashes_start + self.claim_values_len
     }
 
     /// Number of public IO signals (`expressionResult` + bound statement).
@@ -581,6 +592,7 @@ impl ShowWitnessLayout {
     pub fn shared_witness_indices(&self) -> Vec<usize> {
         let mut idx = vec![self.device_key_x_index, self.device_key_y_index];
         idx.extend(self.claim_values_range());
+        idx.extend(self.claim_identifier_hashes_range());
         idx
     }
 }
@@ -592,12 +604,14 @@ pub fn calculate_show_witness_indices(n_claims: usize) -> ShowWitnessLayout {
     // Private signals follow the public prefix: deviceKeyX, deviceKeyY, sig_r,
     // sig_s_inverse, then claimValues[..].
     let device_key_x_index = SHOW_NUM_PUBLIC + 1;
+    let claim_values_start = device_key_x_index + 4;
     ShowWitnessLayout {
         expression_result_index: 1,
         device_key_x_index,
         device_key_y_index: device_key_x_index + 1,
-        claim_values_start: device_key_x_index + 4,
+        claim_values_start,
         claim_values_len: n_claims,
+        claim_identifier_hashes_start: claim_values_start + n_claims,
     }
 }
 
@@ -619,6 +633,7 @@ pub struct MdocOutputLayout {
     pub valid_until_index: usize,
     pub claim_values_start: usize,
     pub claim_values_len: usize,
+    pub claim_identifier_hashes_start: usize,
     pub device_key_x_index: usize,
     pub device_key_y_index: usize,
     /// Witness index of the public issuer key coordinate `pubKeyX`.
@@ -656,6 +671,10 @@ impl MdocOutputLayout {
     pub fn shared_witness_indices(&self, shared_claims: usize) -> Vec<usize> {
         let mut idx = vec![self.device_key_x_index, self.device_key_y_index];
         idx.extend(self.claim_values_start..self.claim_values_start + shared_claims);
+        idx.extend(
+            self.claim_identifier_hashes_start
+                ..self.claim_identifier_hashes_start + shared_claims,
+        );
         idx
     }
 }
@@ -666,7 +685,8 @@ impl MdocOutputLayout {
 ///   witness[1]    = main.validUntilDate  (public output)
 ///   witness[2]    = main.deviceKeyX      (public output)
 ///   witness[3]    = main.deviceKeyY      (public output)
-///   witness[3036] = main.normalizedClaimValues[0] (private, shared)
+///   witness[3321] = main.normalizedClaimValues[0] (private, shared)
+///   witness[3325] = main.claimIdentifierHashes[0]  (private, shared)
 pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
     // Public outputs occupy witness[1..=3]; the public inputs follow.
     let issuer_key_x_index = 4;
@@ -679,6 +699,7 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
         valid_until_index: 1,
         claim_values_start: MDOC_CLAIM_VALUES_WITNESS_START,
         claim_values_len: max_claims,
+        claim_identifier_hashes_start: MDOC_CLAIM_IDENTIFIER_HASHES_WITNESS_START,
         device_key_x_index: 2,
         device_key_y_index: 3,
         issuer_key_x_index,
@@ -690,7 +711,11 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
 
 /// Witness index of `main.normalizedClaimValues[0]` in the compiled MDOC circuit.
 /// Re-derived from `build/mdoc/mdoc.sym` by `tests/witness_layout.rs`.
-pub const MDOC_CLAIM_VALUES_WITNESS_START: usize = 3036;
+pub const MDOC_CLAIM_VALUES_WITNESS_START: usize = 3321;
+
+/// Witness index of `main.claimIdentifierHashes[0]` in the compiled MDOC circuit.
+/// Re-derived from `build/mdoc/mdoc.sym` by `tests/witness_layout.rs`.
+pub const MDOC_CLAIM_IDENTIFIER_HASHES_WITNESS_START: usize = 3325;
 
 /// Parse MDOC circuit inputs from JSON.
 ///

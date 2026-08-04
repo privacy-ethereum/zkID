@@ -23,7 +23,15 @@ template EvalPredicates(N_CLAIMS, MAX_PREDICATES, VALUE_BITS) {
     signal input predicateRhsIsRef[MAX_PREDICATES]; // Right-hand side (RHS) mode: 0=literal, 1=claim reference.
     signal input predicateRhsValues[MAX_PREDICATES]; // RHS operand: claim index when predicateRhsIsRef is 1, literal value when 0.
 
+    // A claim slot is otherwise just a number, so a holder could satisfy a
+    // policy using a different signed attribute with a friendlier value.
+    signal input claimIdentifierHashes[N_CLAIMS]; // Attribute identity per slot.
+    signal input predicateClaimIdentifiers[MAX_PREDICATES]; // Identity the policy requires.
+
     signal output predicateResults[MAX_PREDICATES];
+
+    signal idProduct[MAX_PREDICATES][N_CLAIMS];
+    signal idAccum[MAX_PREDICATES][N_CLAIMS + 1];
 
     component claimRefEq[MAX_PREDICATES][N_CLAIMS];
     signal refSelected[MAX_PREDICATES][N_CLAIMS];
@@ -67,6 +75,7 @@ template EvalPredicates(N_CLAIMS, MAX_PREDICATES, VALUE_BITS) {
 
         refCount[i][0] <== 0;
         refAccum[i][0] <== 0;
+        idAccum[i][0] <== 0;
         rhsRefCount[i][0] <== 0;
         rhsRefAccum[i][0] <== 0;
 
@@ -79,6 +88,10 @@ template EvalPredicates(N_CLAIMS, MAX_PREDICATES, VALUE_BITS) {
             refProduct[i][j] <== refSelected[i][j] * claimValues[j];
             refCount[i][j + 1] <== refCount[i][j] + refSelected[i][j];
             refAccum[i][j + 1] <== refAccum[i][j] + refProduct[i][j];
+
+            // Same one-hot selector, applied to the slot's identity.
+            idProduct[i][j] <== refSelected[i][j] * claimIdentifierHashes[j];
+            idAccum[i][j + 1] <== idAccum[i][j] + idProduct[i][j];
 
             rhsRefEq[i][j] = IsEqual();
             rhsRefEq[i][j].in[0] <== predicateRhsValues[i];
@@ -94,6 +107,9 @@ template EvalPredicates(N_CLAIMS, MAX_PREDICATES, VALUE_BITS) {
         // Inactive predicates must reference none (count 0).
         refCount[i][N_CLAIMS] - isActive[i] === 0;
         rhsRefCount[i][N_CLAIMS] - rhsRefActive[i] === 0;
+
+        // The referenced slot must hold the attribute the policy names.
+        isActive[i] * (idAccum[i][N_CLAIMS] - predicateClaimIdentifiers[i]) === 0;
 
         selectedClaimValues[i] <== refAccum[i][N_CLAIMS];
         selectedRhsRefValues[i] <== rhsRefAccum[i][N_CLAIMS];
