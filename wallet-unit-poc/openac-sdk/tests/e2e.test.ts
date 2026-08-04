@@ -386,13 +386,23 @@ describe("JWT (Prepare) Circuit via SDK", () => {
 
     // Witness sanity checks
     expect(witness[0]).toBe(1n); // valid constraint system
-    // JWT circuit (maxMatches=4, maxClaims=2):
-    //   w[1..2] = normalizedClaimValues[0..1], w[3] = KeyBindingX, w[4] = KeyBindingY
-    expect(witness.length).toBeGreaterThan(4);
+    // The JWT circuit has no public outputs. Claim values would reveal the exact
+    // attribute; the device key would be a constant identifier linking every
+    // presentation. Both are private, reaching Show via comm_W_shared, and sit
+    // at CLAIM_VALUES_WITNESS_START with KeyBindingX/Y immediately after.
+    // This exercises the default `jwt` circuit (maxMessageLength 1920), not a
+    // VcSize variant, so it needs its own offset — verified against
+    // circom/build/jwt/jwt.sym.
+    const claimStart = 3817;
+    const maxClaims = DEFAULT_JWT_PARAMS.maxMatches - 2;
+    expect(witness.length).toBeGreaterThan(claimStart + maxClaims + 1);
 
-    // KeyBindingX and KeyBindingY should be the device public key
-    expect(witness[3]).toBe(base64urlToBigInt(data.devicePublicKey.x));
-    expect(witness[4]).toBe(base64urlToBigInt(data.devicePublicKey.y));
+    expect(witness[claimStart + maxClaims]).toBe(
+      base64urlToBigInt(data.devicePublicKey.x),
+    );
+    expect(witness[claimStart + maxClaims + 1]).toBe(
+      base64urlToBigInt(data.devicePublicKey.y),
+    );
   }, 120_000);
 
   it("proves and verifies via NativeBackend", async () => {

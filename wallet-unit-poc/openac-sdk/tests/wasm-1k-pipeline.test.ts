@@ -412,11 +412,10 @@ describe.skipIf(!checkArtifactsExist())(
     // (messageHash + predicate program) = 28 values. The device key remains in
     // the shared witness commitment, not a public output.
     expect(verifyResult.showPublicValues.length).toBe(28);
-    // JWT 1k circuit public IO: outputs maxClaims(2) + 2 (KeyBindingX,
-    // KeyBindingY), then the public issuer key inputs (pubKeyX, pubKeyY) = 6.
-    // 3n + 4 for n = 2 claim slots: claim values, KeyBindingX/Y, the issuer
-    // key, then decodeFlags and claimFormats.
-    expect(verifyResult.preparePublicValues.length).toBe(10);
+    // Prepare public IO is 2n + 2 for n = 2 claim slots: the issuer key
+    // (pubKeyX, pubKeyY) then decodeFlags and claimFormats. Claim values and the
+    // device key are private -- they used to hand the verifier the exact claim.
+    expect(verifyResult.preparePublicValues.length).toBe(6);
     const provenIssuer = extractIssuerKeyFromPreparePublicValues(
       verifyResult.preparePublicValues.map(parseScalar),
     );
