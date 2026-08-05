@@ -148,6 +148,22 @@ template JWT(
         matchIndex
     );
 
+    // Pin device-key slots 0/1 to the literal "x":" / "y":" anchors so the
+    // extractor can't be aimed off cnf.jwk. Both bytes and length must be fixed.
+    matchLength[0] === 5;
+    matchSubstring[0][0] === 34;  // "
+    matchSubstring[0][1] === 120; // x
+    matchSubstring[0][2] === 34;  // "
+    matchSubstring[0][3] === 58;  // :
+    matchSubstring[0][4] === 34;  // "
+
+    matchLength[1] === 5;
+    matchSubstring[1][0] === 34;  // "
+    matchSubstring[1][1] === 121; // y
+    matchSubstring[1][2] === 34;  // "
+    matchSubstring[1][3] === 58;  // :
+    matchSubstring[1][4] === 34;  // "
+
     // Extract the device binding public key from the payload
     component ecExtractor = ECPublicKeyExtractor_Optimized(maxPayloadLength, 32);
     ecExtractor.payload <== payload;
