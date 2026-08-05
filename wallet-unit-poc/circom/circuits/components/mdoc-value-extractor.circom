@@ -146,6 +146,30 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
     signal dateDay   <== (value[8] - 48) * 10 + (value[9] - 48);
     signal dateValue <== dateYear * 10000 + dateMonth * 100 + dateDay;
 
+    // Same reasoning as the uint branch below, for the fixed date positions.
+    // A signed value shorter than "YYYY-MM-DD" leaves value[dataLen..9] reading
+    // whatever CBOR follows, and any byte below '0' makes (value[i] - 48) wrap
+    // to a huge residue that satisfies LessEqThan(64) against any comparison
+    // value. Pin the width to the CBOR-bound dataLen and the alphabet to digits.
+    signal isDateActive <== formatEq[0].out * isActive;
+    isDateActive * (dataLen - 10) === 0;
+
+    var DATE_DIGIT_POS[8] = [0, 1, 2, 3, 5, 6, 8, 9];
+    component dateGe48[8];
+    component dateLe57[8];
+    for (var i = 0; i < 8; i++) {
+        dateGe48[i] = GreaterEqThan(9);
+        dateGe48[i].in[0] <== value[DATE_DIGIT_POS[i]];
+        dateGe48[i].in[1] <== 48;
+
+        dateLe57[i] = LessEqThan(9);
+        dateLe57[i].in[0] <== value[DATE_DIGIT_POS[i]];
+        dateLe57[i].in[1] <== 57;
+
+        isDateActive * (1 - dateGe48[i].out) === 0;
+        isDateActive * (1 - dateLe57[i].out) === 0;
+    }
+
     signal strAccum[maxValueLen + 1];
     strAccum[maxValueLen] <== 0;
 

@@ -131,6 +131,45 @@ template ClaimValueNormalizer(valueLen) {
         + ((value[3] - 48) * 10 + (value[4] - 48)) * 100
         + ((value[5] - 48) * 10 + (value[6] - 48));
 
+    // Both date branches read fixed byte positions, so they need the same two
+    // checks the uint branch has. The extractor zero-masks bytes past
+    // valueLength, so a short value makes every unread slot contribute
+    // (0 - 48) = q - 48 and the branch normalizes to a huge negative residue --
+    // which satisfies LessEqThan(64) against ANY comparison value, including 0.
+    // Pinning the exact width and the digit alphabet keeps the result in
+    // [0, 99999999], well inside EvalPredicate's [0, 2^VALUE_BITS) precondition.
+    component isoLenEq = IsEqual();
+    isoLenEq.in[0] <== valueLength;
+    isoLenEq.in[1] <== 10; // "YYYY-MM-DD"
+    isIsoDateFormat * (1 - isoLenEq.out) === 0;
+
+    component rocLenEq = IsEqual();
+    rocLenEq.in[0] <== valueLength;
+    rocLenEq.in[1] <== 7; // "YYYMMDD"
+    isRocDateFormat * (1 - rocLenEq.out) === 0;
+
+    // ISO reads 0-3, 5, 6, 8, 9; ROC reads 0-6. Index 7 is read by neither.
+    var isoUsesDigit[10] = [1, 1, 1, 1, 0, 1, 1, 0, 1, 1];
+    var rocUsesDigit[10] = [1, 1, 1, 1, 1, 1, 1, 0, 0, 0];
+
+    component dateGe48[10];
+    component dateLe57[10];
+    signal dateDigitActive[10];
+    for (var i = 0; i < 10; i++) {
+        dateDigitActive[i] <== isIsoDateFormat * isoUsesDigit[i] + isRocDateFormat * rocUsesDigit[i];
+
+        dateGe48[i] = GreaterEqThan(9);
+        dateGe48[i].in[0] <== value[i];
+        dateGe48[i].in[1] <== 48;
+
+        dateLe57[i] = LessEqThan(9);
+        dateLe57[i].in[0] <== value[i];
+        dateLe57[i].in[1] <== 57;
+
+        dateDigitActive[i] * (1 - dateGe48[i].out) === 0;
+        dateDigitActive[i] * (1 - dateLe57[i].out) === 0;
+    }
+
     // ===== Select based on format =====
     // Format 4: String — pack ASCII bytes big-endian into a single field element.
     // "TW" → 84*256 + 87 = 21591. For compatibility with VALUE_BITS=64 comparisons,
