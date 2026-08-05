@@ -11,6 +11,7 @@ export type ErrorCode =
   | "INVALID_PROOF_FORMAT"
   | "COMMITMENT_MISMATCH"
   | "INVALID_JWT"
+  | "AMBIGUOUS_PAYLOAD"
   | "INVALID_KEY"
   | "INVALID_SIGNATURE"
   | "MISSING_DISCLOSURE"
@@ -66,6 +67,7 @@ export class InputError extends OpenACError {
   constructor(
     code:
       | "INVALID_JWT"
+      | "AMBIGUOUS_PAYLOAD"
       | "INVALID_KEY"
       | "INVALID_SIGNATURE"
       | "MISSING_DISCLOSURE"
