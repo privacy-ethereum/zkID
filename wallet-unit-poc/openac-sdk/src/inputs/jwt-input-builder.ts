@@ -14,6 +14,10 @@ import {
 import { InputError } from "../errors.js";
 import { Credential } from "../credential.js";
 import { issuerPublicKeyToPoint } from "./issuer-key.js";
+import {
+  assertUnambiguousPayload,
+  DEVICE_KEY_ANCHORS,
+} from "./payload-anchors.js";
 import type {
   JwtCircuitParams,
   JwtCircuitInputs,
@@ -87,8 +91,13 @@ export function buildJwtCircuitInputs(
   // payload matching
   const decodedPayload = utf8Decode(base64Decode(b64Payload));
 
+  // The circuit matches these patterns anywhere in the payload, so it can only
+  // extract the intended values when each pattern has a single possible
+  // position. Reject the payload otherwise.
+  assertUnambiguousPayload(credential, decodedPayload, additionalMatches);
+
   // first two patterns are always "x":" and "y":" for device key extraction
-  const patterns = ['"x":"', '"y":"', ...additionalMatches];
+  const patterns = [...DEVICE_KEY_ANCHORS, ...additionalMatches];
 
   if (patterns.length > params.maxMatches) {
     throw new InputError(

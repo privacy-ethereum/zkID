@@ -13,6 +13,23 @@ include "components/claim-value-normalizer.circom";
 /// @title JWT
 /// @notice Verifies an ES256-signed SD-JWT and extracts normalized claim values.
 /// @notice match slots 0 and 1 are reserved for device binding key extraction (x/y patterns).
+/// @notice PRECONDITION on the signed payload. Matching here is positional: the template
+///         proves that a substring occurs at the supplied index, not that the index lies
+///         at the JSON path the substring is meant to come from. The device binding key
+///         and the disclosure digests are only well defined when each match has a single
+///         possible position, so the decoded payload must satisfy:
+///           - "x":" occurs exactly once, directly before cnf.jwk.x
+///           - "y":" occurs exactly once, directly before cnf.jwk.y
+///           - "_sd":[ occurs exactly once, so there is one disclosure array and no
+///             nested ones
+///           - every disclosure digest occurs exactly once, as an element of that array
+///         A nested object with an x or y key, a nested _sd array, or a signed string
+///         that repeats a digest each add a second position and leave the match
+///         undetermined. The payload bytes are fixed by the ES256 check below, so this
+///         is a property of what the issuer signed rather than of the witness, and it
+///         holds for schemas reviewed against the rules above. assertUnambiguousPayload()
+///         in openac-sdk/src/inputs/payload-anchors.ts enforces it before match indices
+///         are built.
 /// @notice Claim arrays are claim-only and map directly to normalizedClaimValues.
 /// @notice pubKeyX/pubKeyY (the issuer key the ES256 check runs against) are public
 ///         inputs of the main component, so they appear in the proof's public IO and
