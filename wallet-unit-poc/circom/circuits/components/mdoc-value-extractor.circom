@@ -48,24 +48,8 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
         isActive
     );
 
-    // Offset between label and value: 13 (label itself) to 18 (label + up to
-    // 5 B of CBOR header for tagged dates).
     signal offset <== valueStart - elementValueLabelPos;
     var OFFSET_BITS = log2Ceil(maxPreimageLen + 1);
-
-    // Range-check offset so a valueStart < labelPos underflow can't wrap past LessEqThan.
-    component offsetBits = Num2Bits(OFFSET_BITS);
-    offsetBits.in <== offset;
-
-    component offsetGe13 = GreaterEqThan(OFFSET_BITS);
-    offsetGe13.in[0] <== offset;
-    offsetGe13.in[1] <== LABEL_LEN;
-    (1 - offsetGe13.out) * isActive === 0;
-
-    component offsetLe18 = LessEqThan(OFFSET_BITS);
-    offsetLe18.in[0] <== offset;
-    offsetLe18.in[1] <== LABEL_LEN + 5;
-    (1 - offsetLe18.out) * isActive === 0;
 
     signal dataLen <== valueEnd - valueStart;
 
@@ -87,38 +71,75 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
     valueEndLe.in[1] <== preimageLength;
     (1 - valueEndLe.out) * isActive === 0;
 
-    // Bind dataLen to the signed CBOR header; a free valueEnd lets a holder
-    // prove a predicate over a prefix of the signed value. preimage[valueStart-1]
-    // is the text-string header for every form we accept, bare or tag-wrapped,
-    // so this covers all four branches.
-    // Gated on isActive: padding slots have valueStart = 0 and would underflow.
-    signal hdrShift <== isActive * (valueStart - 2);
-    component hdrShifter = VarShiftLeft(maxPreimageLen, 2);
+    // Bind dataLen AND valueStart to the signed CBOR header.
+    //
+    // Reading the header at preimage[valueStart-1] was circular: valueStart chose
+    // the byte that then defined dataLen, so a prover shifted the window onto any
+    // byte that happened to parse as a text header. At offset 13 that was the
+    // label's own trailing 'e' (0x65 = text(5)), available on every claim of every
+    // credential; at offsets 15-18 it was any value byte in 0x60..0x77, i.e. any
+    // ASCII 'a'..'w'.
+    //
+    // The header is instead read at a fixed distance from elementValueLabelPos,
+    // which CheckSubstrInclusionPoly above pins to the 13-byte label constant. The
+    // form of that header then *determines* valueStart rather than following from
+    // it, so there is no window left to re-aim.
+    var HDR_LEN = 4;
+    signal hdrStart <== elementValueLabelPos + LABEL_LEN;
+    component hdrShifter = VarShiftLeft(maxPreimageLen, HDR_LEN);
     hdrShifter.in <== preimage;
-    hdrShifter.shift <== hdrShift;
-    signal hdrB2 <== hdrShifter.out[0];   // preimage[valueStart - 2]
-    signal hdrB1 <== hdrShifter.out[1];   // preimage[valueStart - 1]
+    hdrShifter.shift <== hdrStart;
+
+    signal hdr[HDR_LEN];
+    for (var i = 0; i < HDR_LEN; i++) {
+        hdr[i] <== hdrShifter.out[i];
+    }
 
     component cborLenLt24 = LessThan(OFFSET_BITS);
     cborLenLt24.in[0] <== dataLen;
     cborLenLt24.in[1] <== 24;
 
-    // text(n), n < 24: single byte 0x60 | n
+    // Form A -- bare text(n), n < 24: one header byte, value at label + 14.
     component shortHdrOk = IsZero();
-    shortHdrOk.in <== hdrB1 - 0x60 - dataLen;
-
-    // text(n), 24 <= n <= 255: 0x78 then the length byte
-    component longPfxOk = IsZero();
-    longPfxOk.in <== hdrB2 - 0x78;
-    component longLenOk = IsZero();
-    longLenOk.in <== hdrB1 - dataLen;
-    signal longHdrOk <== longPfxOk.out * longLenOk.out;
-
+    shortHdrOk.in <== hdr[0] - 0x60 - dataLen;
     signal caseShort <== cborLenLt24.out * shortHdrOk.out;
+
+    // Form B -- bare text(n), 24 <= n <= 255: 0x78 then the length, value at + 15.
+    component longPfxOk = IsZero();
+    longPfxOk.in <== hdr[0] - 0x78;
+    component longLenOk = IsZero();
+    longLenOk.in <== hdr[1] - dataLen;
+    signal longHdrOk <== longPfxOk.out * longLenOk.out;
     signal caseLong <== (1 - cborLenLt24.out) * longHdrOk;
 
+    // Form C -- tag(1004) full-date then text(n), n < 24: value at label + 17.
+    // This is what the mdoc encoder emits for birth_date and friends.
+    component dateTagOk[3];
+    var DATE_TAG[3] = [0xd9, 0x03, 0xec];
+    signal dateTagAcc[4];
+    dateTagAcc[0] <== 1;
+    for (var i = 0; i < 3; i++) {
+        dateTagOk[i] = IsZero();
+        dateTagOk[i].in <== hdr[i] - DATE_TAG[i];
+        dateTagAcc[i + 1] <== dateTagAcc[i] * dateTagOk[i].out;
+    }
+    component dateTextOk = IsZero();
+    dateTextOk.in <== hdr[3] - 0x60 - dataLen;
+    signal dateHdrOk <== dateTagAcc[3] * dateTextOk.out;
+    signal caseDate <== cborLenLt24.out * dateHdrOk;
+
+    // hdr[0] is one determined byte, and the three forms need it to be
+    // 0x60..0x77, 0x78 and 0xd9 respectively, so at most one case can hold.
     // Unrecognised header forms must reject, not fall through to a free dataLen.
-    isActive * (1 - caseShort - caseLong) === 0;
+    isActive * (1 - caseShort - caseLong - caseDate) === 0;
+
+    // The matched form fixes where the value starts. This is the constraint the
+    // old offset range check [13,18] was standing in for -- it allowed six
+    // positions where only one is correct for a given header.
+    signal expectedOffset <== caseShort * (LABEL_LEN + 1)
+                            + caseLong  * (LABEL_LEN + 2)
+                            + caseDate  * (LABEL_LEN + 4);
+    isActive * (offset - expectedOffset) === 0;
 
     component formatEq[4];
     for (var i = 0; i < 4; i++) {
