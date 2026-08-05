@@ -110,7 +110,7 @@ describe("OpenAC mdoc semantic binding PoC", () => {
   it("rejects reveal_digest bytes that are not the signed element value slice", async () => {
     const cred = await createTestMdocCredential();
     const params = generateMdocCircuitParams([...MDOC_PARAMS]);
-    const { claims, deviceKeyPrefixData } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
+    const { claims, deviceKeyPos } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
       family_name: { type: "reveal_digest" },
     });
     assert.equal(claims.length, 1, "fixture should contain family_name");
@@ -121,7 +121,7 @@ describe("OpenAC mdoc semantic binding PoC", () => {
       cred.signature,
       cred.issuerPubRaw,
       claims,
-      deviceKeyPrefixData,
+      deviceKeyPos,
     );
     await assertMdocProves(mdocCircuit, honest);
 
@@ -160,7 +160,7 @@ describe("OpenAC mdoc semantic binding PoC", () => {
       cred.signature,
       cred.issuerPubRaw,
       issueParsed.claims,
-      issueParsed.deviceKeyPrefixData,
+      issueParsed.deviceKeyPos,
     );
     const issueValue = ymdToYyyymmdd("1990-01-01");
     await assertMdocNormalizes(mdocCircuit, issueInputs, issueValue);
@@ -175,7 +175,7 @@ describe("OpenAC mdoc semantic binding PoC", () => {
       cred.signature,
       cred.issuerPubRaw,
       birthParsed.claims,
-      birthParsed.deviceKeyPrefixData,
+      birthParsed.deviceKeyPos,
     );
     const birthValue = ymdToYyyymmdd("2015-01-01");
     await assertMdocNormalizes(mdocCircuit, birthInputs, birthValue);

@@ -165,6 +165,16 @@ fn mdoc_claim_value_offsets_match_sym() {
             "mdoc: normalizedClaimValues[..] is inside the public IO"
         );
     }
+
+    // The device key is a per-credential constant that survives reblinding, so
+    // publishing it would let two verifiers correlate every presentation from one
+    // credential. Same assertion the JWT layout makes for KeyBindingX/Y.
+    for idx in [layout.device_key_x_index, layout.device_key_y_index] {
+        assert!(
+            idx > layout.num_public(),
+            "mdoc: deviceKey is inside the public IO — unlinkability is broken"
+        );
+    }
 }
 
 #[test]

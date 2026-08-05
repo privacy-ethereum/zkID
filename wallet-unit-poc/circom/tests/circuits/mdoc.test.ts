@@ -41,7 +41,7 @@ describe("MDOC Circuit", () => {
   it("rejects a tampered signature", async () => {
     const cred = await createTestMdocCredential();
     const params = generateMdocCircuitParams([...MDOC_PARAMS]);
-    const { claims, deviceKeyPrefixData } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
+    const { claims, deviceKeyPos } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
       birth_date: { type: "date" },
     });
 
@@ -49,7 +49,7 @@ describe("MDOC Circuit", () => {
     tampered[0] ^= 0xff;
 
     assert.throws(
-      () => generateMdocInputs(params, cred.tbsData, tampered, cred.issuerPubRaw, claims, deviceKeyPrefixData),
+      () => generateMdocInputs(params, cred.tbsData, tampered, cred.issuerPubRaw, claims, deviceKeyPos),
       /Internal ECDSA signature verification failed/,
     );
   });

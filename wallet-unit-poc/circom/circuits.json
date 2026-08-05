@@ -57,7 +57,7 @@
   "mdoc": {
     "file": "mdoc",
     "template": "MDOC",
-    "params": [1792, 256, 4, 32, 64, 64],
+    "params": [1792, 256, 4, 32, 64],
     "pubs": ["pubKeyX", "pubKeyY", "valueTypes", "claimFlags"]
   }
 }

@@ -6,7 +6,7 @@ import {
 } from "../../src/mdoc.ts";
 import { createTestMdocCredential, type TestMdocCredential } from "../../src/mdoc-fixture.ts";
 
-export const MDOC_PARAMS = [1792, 256, 4, 32, 64, 64] as const;
+export const MDOC_PARAMS = [1792, 256, 4, 32, 64] as const;
 
 export type MdocClaimConfig = Record<string, { type: MdocClaimType }>;
 
@@ -19,14 +19,14 @@ export async function buildMdocWitness(
 }> {
   const cred = await createTestMdocCredential(claimValues);
   const params = generateMdocCircuitParams([...MDOC_PARAMS]);
-  const { claims, deviceKeyPrefixData } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, claimConfig);
+  const { claims, deviceKeyPos } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, claimConfig);
   const inputs = generateMdocInputs(
     params,
     cred.tbsData,
     cred.signature,
     cred.issuerPubRaw,
     claims,
-    deviceKeyPrefixData,
+    deviceKeyPos,
   );
   return { cred, inputs };
 }

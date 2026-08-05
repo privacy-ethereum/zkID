@@ -37,7 +37,7 @@ describe("mdoc reveal_digest padding binding", () => {
   it("rejects dataLen=0 with an attacker-chosen digest preimage", async () => {
     const cred = await createTestMdocCredential();
     const params = generateMdocCircuitParams([...MDOC_PARAMS]);
-    const { claims, deviceKeyPrefixData } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
+    const { claims, deviceKeyPos } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
       family_name: { type: "reveal_digest" },
     });
     const honest = generateMdocInputs(
@@ -46,7 +46,7 @@ describe("mdoc reveal_digest padding binding", () => {
       cred.signature,
       cred.issuerPubRaw,
       claims,
-      deviceKeyPrefixData,
+      deviceKeyPos,
     );
 
     const attack = structuredClone(honest);
@@ -76,7 +76,7 @@ describe("mdoc reveal_digest padding binding", () => {
   it("rejects a truncated dataLen that would prove a value prefix", async () => {
     const cred = await createTestMdocCredential();
     const params = generateMdocCircuitParams([...MDOC_PARAMS]);
-    const { claims, deviceKeyPrefixData } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
+    const { claims, deviceKeyPos } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
       family_name: { type: "reveal_digest" },
     });
     const honest = generateMdocInputs(
@@ -85,7 +85,7 @@ describe("mdoc reveal_digest padding binding", () => {
       cred.signature,
       cred.issuerPubRaw,
       claims,
-      deviceKeyPrefixData,
+      deviceKeyPos,
     );
 
     const claim = claims[0];

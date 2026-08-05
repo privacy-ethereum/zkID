@@ -16,7 +16,6 @@ export interface MdocCircuitParams {
   maxClaims: number;
   maxIdentifierLen: number;
   maxValueLen: number;
-  maxDeviceKeyPrefixLen: number;
 }
 
 export interface MdocClaimConfig {
@@ -30,12 +29,6 @@ export interface MdocClaimConfig {
   valueEnd: number;
 }
 
-export interface MdocDeviceKeyPrefixData {
-  prefix: Uint8Array;
-  prefixPos: number;
-  yPrefixLen: number;
-}
-
 export interface ParsedIssuerSignedItem {
   identifier: string;
   digestId: number;
@@ -47,14 +40,13 @@ export interface ParsedIssuerSignedItem {
 }
 
 export function generateMdocCircuitParams(params: number[]): MdocCircuitParams {
-  assert.equal(params.length, 6, `Expected 6 MDOC params, got ${params.length}`);
+  assert.equal(params.length, 5, `Expected 5 MDOC params, got ${params.length}`);
   return {
     maxCredLen: params[0],
     maxPreimageLen: params[1],
     maxClaims: params[2],
     maxIdentifierLen: params[3],
     maxValueLen: params[4],
-    maxDeviceKeyPrefixLen: params[5],
   };
 }
 
@@ -212,17 +204,13 @@ export function generateMdocInputs(
   signature: Uint8Array,
   issuerPubKeyRaw: Uint8Array,
   claims: MdocClaimConfig[],
-  deviceKeyPrefixData: MdocDeviceKeyPrefixData,
+  deviceKeyPos: number,
 ) {
   assert.ok(tbsData.length <= params.maxCredLen, `tbsData too long: ${tbsData.length} > ${params.maxCredLen}`);
   assert.ok(claims.length <= params.maxClaims, `Too many claims: ${claims.length} > ${params.maxClaims}`);
   assert.equal(signature.length, 64, `Signature must be 64 bytes (R||S), got ${signature.length}`);
   assert.equal(issuerPubKeyRaw.length, 65, `Issuer pubkey must be 65 bytes (04||x||y), got ${issuerPubKeyRaw.length}`);
   assert.equal(issuerPubKeyRaw[0], 0x04, "Issuer pubkey must start with 0x04");
-  assert.ok(
-    deviceKeyPrefixData.prefix.length <= params.maxDeviceKeyPrefixLen,
-    `Device key prefix too long: ${deviceKeyPrefixData.prefix.length} > ${params.maxDeviceKeyPrefixLen}`,
-  );
 
   assertSignatureValid(tbsData, signature, issuerPubKeyRaw);
 
@@ -246,10 +234,7 @@ export function generateMdocInputs(
     sig_r: sigR,
     sig_s_inverse: Fn.inv(sigS),
     validUntilPrefixPos: BigInt(validUntilPrefixPos),
-    deviceKeyPrefix: zeroPad(deviceKeyPrefixData.prefix, params.maxDeviceKeyPrefixLen),
-    deviceKeyPrefixLen: BigInt(deviceKeyPrefixData.prefix.length),
-    deviceKeyPrefixPos: BigInt(deviceKeyPrefixData.prefixPos),
-    yPrefixLen: BigInt(deviceKeyPrefixData.yPrefixLen),
+    deviceKeyPos: BigInt(deviceKeyPos),
     preimages: slots.map((s) => s.preimage),
     preimageLengths: slots.map((s) => s.preimageLength),
     identifierCbor: slots.map((s) => s.identifierCbor),
@@ -267,21 +252,27 @@ export function generateMdocInputs(
   };
 }
 
-function locateDeviceKeyPrefix(tbsData: Uint8Array, deviceKeyX: Uint8Array): MdocDeviceKeyPrefixData {
-  const dkXPos = mustFind(tbsData, deviceKeyX, "device key x-coord");
-  const dkiTextPos = mustFind(tbsData, UTF8.encode("deviceKeyInfo"), "deviceKeyInfo text");
-  // Step back over the CBOR text-length byte preceding "deviceKeyInfo".
-  const prefixStart = dkiTextPos - 1;
-  const prefix = tbsData.slice(prefixStart, dkXPos);
+// COSE_Key EC2 coordinate markers: `-2: bytes(32)` and `-3: bytes(32)`.
+const COSE_X_MARKER = Uint8Array.of(0x21, 0x58, 0x20);
+const COSE_Y_MARKER = Uint8Array.of(0x22, 0x58, 0x20);
 
-  // Find the bytes(32) header (0x58 0x20) that precedes the y-coord.
-  const afterX = dkXPos + 32;
-  for (let i = afterX; i < Math.min(afterX + 10, tbsData.length - 1); i++) {
-    if (tbsData[i] === 0x58 && tbsData[i + 1] === 0x20) {
-      return { prefix, prefixPos: prefixStart, yPrefixLen: i + 2 - afterX };
-    }
-  }
-  throw new Error("Could not find y-coordinate bytes(32) header after x-coordinate");
+function matchesAt(haystack: Uint8Array, needle: Uint8Array, pos: number): boolean {
+  if (pos < 0 || pos + needle.length > haystack.length) return false;
+  return needle.every((b, i) => haystack[pos + i] === b);
+}
+
+// Returns the index of the 0x21 marker, i.e. 3 bytes before the x coordinate.
+// The circuit constrains both markers, so a credential whose COSE_Key uses a
+// non-canonical encoding must fail here rather than at witness generation.
+function locateDeviceKeyPos(tbsData: Uint8Array, deviceKeyX: Uint8Array): number {
+  const dkXPos = mustFind(tbsData, deviceKeyX, "device key x-coord");
+  const pos = dkXPos - 3;
+  assert.ok(matchesAt(tbsData, COSE_X_MARKER, pos), "device key x is not preceded by COSE -2: bytes(32)");
+  assert.ok(
+    matchesAt(tbsData, COSE_Y_MARKER, dkXPos + 32),
+    "device key y does not follow x at the canonical COSE -3: bytes(32) offset",
+  );
+  return pos;
 }
 
 export function parseMdocClaims(
@@ -289,7 +280,7 @@ export function parseMdocClaims(
   items: ParsedIssuerSignedItem[],
   deviceKeyX: Uint8Array,
   claimConfig: Record<string, { type: MdocClaimType }>,
-): { claims: MdocClaimConfig[]; deviceKeyPrefixData: MdocDeviceKeyPrefixData } {
+): { claims: MdocClaimConfig[]; deviceKeyPos: number } {
   const claims: MdocClaimConfig[] = [];
   for (const item of items) {
     const cfg = claimConfig[item.identifier];
@@ -305,5 +296,5 @@ export function parseMdocClaims(
       valueEnd: item.valueEnd,
     });
   }
-  return { claims, deviceKeyPrefixData: locateDeviceKeyPrefix(tbsData, deviceKeyX) };
+  return { claims, deviceKeyPos: locateDeviceKeyPos(tbsData, deviceKeyX) };
 }

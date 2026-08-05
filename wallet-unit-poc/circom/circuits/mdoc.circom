@@ -13,8 +13,7 @@ template MDOC(
     maxPreimageLen,
     maxClaims,
     maxIdentifierLen,
-    maxValueLen,
-    maxDeviceKeyPrefixLen
+    maxValueLen
 ) {
     signal input message[maxCredLen];
     signal input messageLength;
@@ -30,10 +29,9 @@ template MDOC(
 
     signal input validUntilPrefixPos;
 
-    signal input deviceKeyPrefix[maxDeviceKeyPrefixLen];
-    signal input deviceKeyPrefixLen;
-    signal input deviceKeyPrefixPos;
-    signal input yPrefixLen;
+    // Position of the COSE `-2: bytes(32)` marker that precedes the device key's
+    // x coordinate. The marker bytes themselves are circuit constants.
+    signal input deviceKeyPos;
 
     signal input preimages[maxClaims][maxPreimageLen];
     signal input preimageLengths[maxClaims];
@@ -65,8 +63,13 @@ template MDOC(
     // requested attribute. Inactive slots are 0 so padding cannot impersonate one.
     signal claimIdentifierHashes[maxClaims];
 
-    signal output deviceKeyX;
-    signal output deviceKeyY;
+    // Private, for the same reason as normalizedClaimValues above: the device key
+    // reaches Show through comm_W_shared, and the verifier never needs to read it.
+    // As a main output it would be public regardless of the `public[...]` list, and
+    // it is a per-credential constant that survives reblinding — so two verifiers
+    // could join on it and correlate every presentation from one credential.
+    signal deviceKeyX;
+    signal deviceKeyY;
 
     // CHECK 1: ECDSA-P256 signature
     ES256(maxCredLen)(message, messageLength, sig_r, sig_s_inverse, pubKeyX, pubKeyY);
@@ -120,13 +123,9 @@ template MDOC(
     }
 
     // CHECK 4: device key extraction
-    (deviceKeyX, deviceKeyY) <== MdocDeviceKeyExtractor(maxCredLen, maxDeviceKeyPrefixLen)(
+    (deviceKeyX, deviceKeyY) <== MdocDeviceKeyExtractor(maxCredLen)(
         message,
-        messageHash,
         messageLength,
-        deviceKeyPrefix,
-        deviceKeyPrefixLen,
-        deviceKeyPrefixPos,
-        yPrefixLen
+        deviceKeyPos
     );
 }

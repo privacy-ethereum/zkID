@@ -146,7 +146,7 @@ describe("Complete Flow: Register (MDOC) → Show Circuit", () => {
   it("rejects a tampered issuer-signed preimage in the mdoc circuit inputs", async () => {
     const cred = await createTestMdocCredential();
     const params = generateMdocCircuitParams([...MDOC_PARAMS]);
-    const { claims, deviceKeyPrefixData } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
+    const { claims, deviceKeyPos } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, {
       birth_date: { type: "date" },
     });
 
@@ -154,7 +154,7 @@ describe("Complete Flow: Register (MDOC) → Show Circuit", () => {
     tampered[0].preimage[5] ^= 0xff;
 
     assert.throws(
-      () => generateMdocInputs(params, cred.tbsData, cred.signature, cred.issuerPubRaw, tampered, deviceKeyPrefixData),
+      () => generateMdocInputs(params, cred.tbsData, cred.signature, cred.issuerPubRaw, tampered, deviceKeyPos),
       /encoded digest.*not found/,
     );
   });

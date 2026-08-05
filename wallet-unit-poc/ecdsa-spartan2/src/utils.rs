@@ -649,16 +649,16 @@ pub fn calculate_show_witness_indices(n_claims: usize) -> ShowWitnessLayout {
 /// Layout of the MDOC circuit's public outputs within the witness vector.
 ///
 /// Circom lays public IO out as outputs first, then public inputs (in template
-/// declaration order), so for the MDOC circuit:
-/// 1. `validUntilDate`
-/// 2. `normalizedClaimValues[maxClaims]`
-/// 3. `deviceKeyX`
-/// 4. `deviceKeyY`
-/// 5. `pubKeyX`, `pubKeyY`, the issuer key the ES256 check ran against
-/// 6. `valueTypes[maxClaims]`, `claimFlags[maxClaims]`, which say how each entry
+/// declaration order), so for the MDOC circuit the public prefix is:
+/// 1. `validUntilDate`, the only output
+/// 2. `pubKeyX`, `pubKeyY`, the issuer key the ES256 check ran against
+/// 3. `valueTypes[maxClaims]`, `claimFlags[maxClaims]`, which say how each entry
 ///    of `normalizedClaimValues` was produced
 ///
-/// all declared public in `circom/circuits/main/mdoc.circom`.
+/// declared public in `circom/circuits/main/mdoc.circom`. `normalizedClaimValues`
+/// and `deviceKeyX`/`deviceKeyY` are private and reach Show through the shared
+/// witness segment; their indices are hardcoded constants below because nothing
+/// about the public prefix implies them.
 #[derive(Debug, Clone, Copy)]
 pub struct MdocOutputLayout {
     pub valid_until_index: usize,
@@ -690,11 +690,11 @@ impl MdocOutputLayout {
         self.claim_flags_start..self.claim_flags_start + self.claim_values_len
     }
 
-    /// Public IO: validUntilDate + deviceKeyX/Y outputs, then issuer pubKeyX/Y +
-    /// valueTypes + claimFlags inputs. Claim values are private — see
+    /// Public IO: the validUntilDate output, then issuer pubKeyX/Y + valueTypes +
+    /// claimFlags inputs. Claim values and the device key are private — see
     /// [`JwtOutputLayout::num_public`].
     pub fn num_public(&self) -> usize {
-        2 * self.claim_values_len + 5
+        2 * self.claim_values_len + 3
     }
 
     /// Witness indices the shared partition must equal, in the order
@@ -712,17 +712,17 @@ impl MdocOutputLayout {
 
 /// Calculate MDOC circuit witness layout from `maxClaims`.
 ///
-/// Verified against `build/mdoc/mdoc.sym` (`MDOC(1792, 256, 4, 32, 64, 64)`):
+/// Verified against `build/mdoc/mdoc.sym` (`MDOC(1792, 256, 4, 32, 64)`):
 ///   witness[1]    = main.validUntilDate  (public output)
-///   witness[2]    = main.deviceKeyX      (public output)
-///   witness[3]    = main.deviceKeyY      (public output)
-///   witness[3036] = main.normalizedClaimValues[0] (private, shared)
-///   witness[3040] = main.claimIdentifierHashes[0]  (private, shared)
+///   witness[2]    = main.pubKeyX         (public input)
+///   witness[2970] = main.normalizedClaimValues[0] (private, shared)
+///   witness[2974] = main.claimIdentifierHashes[0]  (private, shared)
+///   witness[2978] = main.deviceKeyX      (private, shared)
 pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
-    // Public outputs occupy witness[1..=3]; the public inputs follow.
-    let issuer_key_x_index = 4;
-    let issuer_key_y_index = 5;
-    let value_types_start = 6;
+    // The lone public output occupies witness[1]; the public inputs follow.
+    let issuer_key_x_index = 2;
+    let issuer_key_y_index = 3;
+    let value_types_start = 4;
     let claim_flags_start = value_types_start + max_claims;
 
 
@@ -731,8 +731,8 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
         claim_values_start: MDOC_CLAIM_VALUES_WITNESS_START,
         claim_values_len: max_claims,
         claim_identifier_hashes_start: MDOC_CLAIM_IDENTIFIER_HASHES_WITNESS_START,
-        device_key_x_index: 2,
-        device_key_y_index: 3,
+        device_key_x_index: MDOC_DEVICE_KEY_WITNESS_START,
+        device_key_y_index: MDOC_DEVICE_KEY_WITNESS_START + 1,
         issuer_key_x_index,
         issuer_key_y_index,
         value_types_start,
@@ -742,15 +742,21 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
 
 /// Witness index of `main.normalizedClaimValues[0]` in the compiled MDOC circuit.
 /// Re-derived from `build/mdoc/mdoc.sym` by `tests/witness_layout.rs`.
-pub const MDOC_CLAIM_VALUES_WITNESS_START: usize = 3036;
+pub const MDOC_CLAIM_VALUES_WITNESS_START: usize = 2970;
 
 /// Witness index of `main.claimIdentifierHashes[0]` in the compiled MDOC circuit.
 /// Re-derived from `build/mdoc/mdoc.sym` by `tests/witness_layout.rs`.
-pub const MDOC_CLAIM_IDENTIFIER_HASHES_WITNESS_START: usize = 3040;
+pub const MDOC_CLAIM_IDENTIFIER_HASHES_WITNESS_START: usize = 2974;
+
+/// Witness index of `main.deviceKeyX` in the compiled MDOC circuit; `deviceKeyY`
+/// follows it. Private since the unlinkability fix, so the index is no longer
+/// implied by the public prefix and must be re-derived from
+/// `build/mdoc/mdoc.sym` by `tests/witness_layout.rs`.
+pub const MDOC_DEVICE_KEY_WITNESS_START: usize = 2978;
 
 /// Parse MDOC circuit inputs from JSON.
 ///
-/// Matches `MDOC(maxCredLen, maxPreimageLen, maxClaims, maxIdentifierLen, maxValueLen, maxDeviceKeyPrefixLen)`
+/// Matches `MDOC(maxCredLen, maxPreimageLen, maxClaims, maxIdentifierLen, maxValueLen)`
 /// in `circom/circuits/mdoc.circom`.
 pub fn parse_mdoc_inputs(
     json_value: &Value,
@@ -762,11 +768,8 @@ pub fn parse_mdoc_inputs(
         ("sig_s_inverse", FieldParser::BigIntScalar),
         ("messageLength", FieldParser::BigIntScalar),
         ("validUntilPrefixPos", FieldParser::BigIntScalar),
-        ("deviceKeyPrefixLen", FieldParser::BigIntScalar),
-        ("deviceKeyPrefixPos", FieldParser::BigIntScalar),
-        ("yPrefixLen", FieldParser::BigIntScalar),
+        ("deviceKeyPos", FieldParser::BigIntScalar),
         ("message", FieldParser::BigIntArray),
-        ("deviceKeyPrefix", FieldParser::BigIntArray),
         ("preimageLengths", FieldParser::BigIntArray),
         ("identifierLengths", FieldParser::BigIntArray),
         ("identifierPositions", FieldParser::BigIntArray),
