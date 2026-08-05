@@ -69,8 +69,18 @@ export interface ShowStatementFields {
   exprLen: bigint;
 }
 
+/** Minimum verifier-nonce length. Below this an attacker could precompute the
+ *  messageHash offline, and `undefined`/"" both collapse to the same constant. */
+export const MIN_NONCE_LENGTH = 16;
+
 /** Reduce sha256(nonce) into the P-256 scalar field, matching the Show circuit's messageHash. */
 export function computeMessageHash(nonce: string): bigint {
+  if (typeof nonce !== "string" || nonce.length < MIN_NONCE_LENGTH) {
+    throw new InputError(
+      "INVALID_NONCE",
+      `nonce must be a string of at least ${MIN_NONCE_LENGTH} characters`,
+    );
+  }
   const digest = sha256(new TextEncoder().encode(nonce));
   return bytesToBigInt(digest) % P256_SCALAR_ORDER;
 }

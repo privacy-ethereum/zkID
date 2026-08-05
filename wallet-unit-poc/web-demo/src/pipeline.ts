@@ -574,15 +574,17 @@ export async function verify(
   }
 
   if (verifyResult.valid) {
-    // showPublicValues: [ageAbove18, deviceKeyX, deviceKeyY]
+    // Show public IO is now [expressionResult, messageHash, predicate program,
+    // attribute names, ...] (156 signals). Only index 0 (expressionResult) is a
+    // consumer value here. The device key is PRIVATE (reaches Show via
+    // comm_W_shared), so it is intentionally NOT in showPublicValues and must
+    // not be read from spv[1]/spv[2] (that used to read the old 3-value layout).
     const spv = verifyResult.showPublicValues;
     if (spv.length >= 1) {
       const cleaned = (spv[0] ?? "").replace(/^0x/, "").replace(/[^0-9a-fA-F]/g, "");
       ageAbove18 = cleaned.length > 0 && !/^0+$/.test(cleaned);
     }
-    if (spv.length >= 3) {
-      deviceKey = { x: spv[1] ?? "", y: spv[2] ?? "" };
-    }
+    // deviceKey stays null: it is private and not exposed by the proof.
   }
 
   return {

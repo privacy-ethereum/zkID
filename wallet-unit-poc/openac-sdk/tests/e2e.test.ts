@@ -313,12 +313,16 @@ describe("Show Circuit via SDK", () => {
     const signature = signDeviceNonce(VERIFIER_NONCE, data.devicePrivateKeyHex);
 
     // Build Show circuit inputs via SDK with a simple predicate
+    // Empty policy: no active predicate, so the claim-identity binding (which
+    // needs real H(name) from the Prepare witness, unavailable in this isolated
+    // Show-only smoke test) is gated off. This just checks the SDK builds a
+    // witness-satisfiable Show input.
     const showInputs = buildShowCircuitInputs(
       DEFAULT_SHOW_PARAMS,
       VERIFIER_NONCE,
       signature,
       data.devicePublicKey,
-      { normalizedClaimValues: [42n] },
+      { normalizedClaimValues: [42n], predicates: [] },
     );
 
     // Calculate witness via SDK WitnessCalculator
@@ -326,14 +330,13 @@ describe("Show Circuit via SDK", () => {
 
     // Witness sanity checks
     expect(witness[0]).toBe(1n); // valid constraint system
-    // Witness layout after binding the verifier statement into the public IO:
-    // w[1] = expressionResult, w[2..=30] = messageHash + predicate program
-    // (public, now including predicateClaimIdentifiers), then private signals
-    // w[31] = deviceKeyX, w[32] = deviceKeyY.
-    // The device key stays in the shared-witness commitment with Prepare.
+    // Witness layout: w[1] = expressionResult, w[2..=156] = messageHash +
+    // predicate program + verifier attribute names (156 public signals now that
+    // names replaced the scalar identifier), then private signals: w[157] =
+    // deviceKeyX, w[158] = deviceKeyY (they stay in comm_W_shared with Prepare).
     expect(witness[2]).toBe(showInputs.messageHash); // messageHash (public)
-    expect(witness[31]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
-    expect(witness[32]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
+    expect(witness[157]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
+    expect(witness[158]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
   }, 30_000);
 
   it("proves and verifies via NativeBackend", async () => {

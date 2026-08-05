@@ -38,8 +38,14 @@ function parseScalar(value: string): bigint {
  * (32-byte big-endian base64url), which compares field by field against a stored
  * `EcdsaPublicKey` without further conversion.
  */
-function provenIssuerKey(preparePublicValues: bigint[]): ProvenIssuerKey {
-  const { x, y } = extractIssuerKeyFromPreparePublicValues(preparePublicValues);
+function provenIssuerKey(
+  preparePublicValues: bigint[],
+  expectedClaimCount: number,
+): ProvenIssuerKey {
+  const { x, y } = extractIssuerKeyFromPreparePublicValues(
+    preparePublicValues,
+    expectedClaimCount,
+  );
   return {
     x,
     y,
@@ -191,16 +197,31 @@ export class Verifier {
     let issuerKey;
     let claimNormalization;
     try {
-      // The issuer key is reported as-is; the caller decides whether it belongs
-      // to an issuer it trusts.
-      issuerKey = provenIssuerKey(preparePublicValues);
-      claimNormalization =
-        extractClaimNormalizationFromPreparePublicValues(preparePublicValues);
+      // Cross-check the Prepare public-IO length against the claim-slot count
+      // the verifier expects (Item 10): the vector length is prover-controlled,
+      // so a forked prover could truncate it to a different valid shape.
+      const expectedClaimCount = DEFAULT_SHOW_PARAMS.nClaims;
+      issuerKey = provenIssuerKey(preparePublicValues, expectedClaimCount);
+      claimNormalization = extractClaimNormalizationFromPreparePublicValues(
+        preparePublicValues,
+        expectedClaimCount,
+      );
     } catch (e) {
       return Verifier.failure(
         e instanceof Error ? e.message : String(e),
         startTime,
       );
+    }
+
+    // Item 13: if the verifier pinned a trusted-issuer set, the credential's
+    // issuer key (recovered above, SNARK-authenticated) must be one of them.
+    if (expected.trustedIssuers && expected.trustedIssuers.length > 0) {
+      const trusted = expected.trustedIssuers.some(
+        (k) => issuerKey.jwk.x === k.x && issuerKey.jwk.y === k.y,
+      );
+      if (!trusted) {
+        return Verifier.failure("Issuer key is not in the trusted set", startTime);
+      }
     }
 
     // The normalization is checked here rather than reported, because the
@@ -215,6 +236,27 @@ export class Verifier {
         `Claim normalization mismatch: ${normalizationError}`,
         startTime,
       );
+    }
+
+    // Item 11: the normalization that actually ran must cover the slots the
+    // policy reads. A predicate over an undecoded slot compares against 0 (a
+    // vacuous pass), so require every referenced slot to be normalized.
+    for (const spec of expected.predicates) {
+      if (claimNormalization.decodeFlags[spec.claimRef] !== 1) {
+        return Verifier.failure(
+          `Policy references claim slot ${spec.claimRef} which was not normalized`,
+          startTime,
+        );
+      }
+      if (
+        spec.rhs.kind === "claimRef" &&
+        claimNormalization.decodeFlags[spec.rhs.index] !== 1
+      ) {
+        return Verifier.failure(
+          `Policy RHS references claim slot ${spec.rhs.index} which was not normalized`,
+          startTime,
+        );
+      }
     }
 
     // Public IO layout: index 0 = expressionResult, indices 1.. = the bound

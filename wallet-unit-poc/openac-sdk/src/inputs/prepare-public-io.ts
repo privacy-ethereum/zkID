@@ -42,13 +42,25 @@ interface PreparePublicIoLayout {
  * circuit can produce, which is the symptom of a proof from a different circuit
  * or a stale key.
  */
-function layoutOf(publicValues: bigint[]): PreparePublicIoLayout {
+function layoutOf(
+  publicValues: bigint[],
+  expectedClaimCount?: number,
+): PreparePublicIoLayout {
   const claimCount = (publicValues.length - 2) / 2;
   if (!Number.isInteger(claimCount) || claimCount < 1) {
     throw new VerificationError(
       "INVALID_PROOF_FORMAT",
       `Proof exposes ${publicValues.length} public values, which is not a valid JWT circuit ` +
         `public IO size (expected 2n + 2 for n claim slots)`,
+    );
+  }
+  // The vector length is attacker-controlled (spartan2's validate() never checks
+  // it against S.num_public), so a forked prover can truncate to a different but
+  // still well-formed length. Cross-check against the count the verifier expects.
+  if (expectedClaimCount !== undefined && claimCount !== expectedClaimCount) {
+    throw new VerificationError(
+      "INVALID_PROOF_FORMAT",
+      `Proof exposes ${claimCount} claim slots but the verifier expects ${expectedClaimCount}`,
     );
   }
   return {
@@ -65,8 +77,9 @@ function layoutOf(publicValues: bigint[]): PreparePublicIoLayout {
  */
 export function extractIssuerKeyFromPreparePublicValues(
   publicValues: bigint[],
+  expectedClaimCount?: number,
 ): IssuerKeyPoint {
-  const { issuerKeyXIndex } = layoutOf(publicValues);
+  const { issuerKeyXIndex } = layoutOf(publicValues, expectedClaimCount);
   return {
     x: publicValues[issuerKeyXIndex]!,
     y: publicValues[issuerKeyXIndex + 1]!,
@@ -82,8 +95,12 @@ export function extractIssuerKeyFromPreparePublicValues(
  */
 export function extractClaimNormalizationFromPreparePublicValues(
   publicValues: bigint[],
+  expectedClaimCount?: number,
 ): ClaimNormalization {
-  const { claimCount, decodeFlagsStart, claimFormatsStart } = layoutOf(publicValues);
+  const { claimCount, decodeFlagsStart, claimFormatsStart } = layoutOf(
+    publicValues,
+    expectedClaimCount,
+  );
   const slice = (start: number) =>
     publicValues.slice(start, start + claimCount).map((v) => Number(v));
 

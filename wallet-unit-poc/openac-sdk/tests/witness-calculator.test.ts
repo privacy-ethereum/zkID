@@ -31,9 +31,10 @@ describe("WitnessCalculator", () => {
         predicateLen: BigInt(inputJson.predicateLen),
         claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
         claimIdentifierHashes: inputJson.claimIdentifierHashes.map((v: string) => BigInt(v)),
-        predicateClaimIdentifiers: inputJson.predicateClaimIdentifiers.map((v: string) =>
-          BigInt(v),
-        ),
+        predicateClaimNames: inputJson.predicateClaimNames.map((r: string[]) => r.map((v) => BigInt(v))),
+        predicateClaimNameLens: inputJson.predicateClaimNameLens.map((v: string) => BigInt(v)),
+        predicateRhsClaimNames: inputJson.predicateRhsClaimNames.map((r: string[]) => r.map((v) => BigInt(v))),
+        predicateRhsClaimNameLens: inputJson.predicateRhsClaimNameLens.map((v: string) => BigInt(v)),
         predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
         predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
         predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),
@@ -49,10 +50,11 @@ describe("WitnessCalculator", () => {
       // Witness layout after binding the verifier statement into the public IO:
       // w[1] = expressionResult, w[2..=30] = messageHash + predicate program
       // (public, now including predicateClaimIdentifiers), then the private
-      // signals: w[31] = deviceKeyX, w[32] = deviceKeyY.
+      // Show now has 156 public signals (names replaced the scalar identifier),
+      // so the private device key sits at witness[157]/[158] (SHOW_NUM_PUBLIC+1).
       expect(witness[2]).toBe(BigInt(inputJson.messageHash));
-      expect(witness[31]).toBe(BigInt(inputJson.deviceKeyX));
-      expect(witness[32]).toBe(BigInt(inputJson.deviceKeyY));
+      expect(witness[157]).toBe(BigInt(inputJson.deviceKeyX));
+      expect(witness[158]).toBe(BigInt(inputJson.deviceKeyY));
     }, 30_000);
 
     it("should generate WTNS binary from show inputs", async () => {
@@ -69,9 +71,10 @@ describe("WitnessCalculator", () => {
         predicateLen: BigInt(inputJson.predicateLen),
         claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
         claimIdentifierHashes: inputJson.claimIdentifierHashes.map((v: string) => BigInt(v)),
-        predicateClaimIdentifiers: inputJson.predicateClaimIdentifiers.map((v: string) =>
-          BigInt(v),
-        ),
+        predicateClaimNames: inputJson.predicateClaimNames.map((r: string[]) => r.map((v) => BigInt(v))),
+        predicateClaimNameLens: inputJson.predicateClaimNameLens.map((v: string) => BigInt(v)),
+        predicateRhsClaimNames: inputJson.predicateRhsClaimNames.map((r: string[]) => r.map((v) => BigInt(v))),
+        predicateRhsClaimNameLens: inputJson.predicateRhsClaimNameLens.map((v: string) => BigInt(v)),
         predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
         predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
         predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),

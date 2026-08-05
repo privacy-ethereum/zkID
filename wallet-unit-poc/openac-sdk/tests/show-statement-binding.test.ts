@@ -198,7 +198,7 @@ describe("Show statement binding: verifier enforcement", () => {
   });
 
   it("rejects a replay: proof bound to a different nonce", async () => {
-    const result = await verifyWith(publicValuesFor("a-stale-nonce", POLICY, true));
+    const result = await verifyWith(publicValuesFor("a-stale-session-nonce", POLICY, true));
     expect(result.valid).toBe(false);
     expect(result.expressionResult).toBeNull();
     expect(result.error).toMatch(/nonce/i);
@@ -267,9 +267,37 @@ describe("Issuer key reporting", () => {
   });
 
   it("reports no issuer key when verification fails", async () => {
-    const result = await verifyWith(publicValuesFor("a-stale-nonce", POLICY, true));
+    const result = await verifyWith(publicValuesFor("a-stale-session-nonce", POLICY, true));
     expect(result.valid).toBe(false);
     expect(result.issuerKey).toBeNull();
+  });
+
+  it("rejects when trustedIssuers is set and the issuer is not in it (Item 13)", async () => {
+    const result = await verifyWith(
+      publicValuesFor(NONCE, POLICY, true),
+      { ...expected, trustedIssuers: [OTHER_ISSUER] },
+      KNOWN_ISSUER,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/trusted/i);
+  });
+
+  it("accepts when trustedIssuers contains the credential's issuer (Item 13)", async () => {
+    const result = await verifyWith(
+      publicValuesFor(NONCE, POLICY, true),
+      { ...expected, trustedIssuers: [KNOWN_ISSUER] },
+      KNOWN_ISSUER,
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects an expected statement whose nonce is too short (Item 20)", async () => {
+    const result = await verifyWith(publicValuesFor(NONCE, POLICY, true), {
+      ...expected,
+      nonce: "short",
+    });
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/nonce/i);
   });
 
   it("fails closed when the Prepare proof exposes a public IO size no JWT circuit produces", async () => {

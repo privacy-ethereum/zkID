@@ -503,15 +503,9 @@ pub fn verify_single(proof_bytes: &[u8], vk_bytes: &[u8]) -> Result<JsValue, JsE
     }
 }
 
-/// Compare comm_W_shared between two instances (use verify() instead)
-#[wasm_bindgen]
-pub fn compare_comm_w_shared(
-    instance1_bytes: &[u8],
-    instance2_bytes: &[u8],
-) -> Result<bool, JsError> {
-    let instance1: spartan2::r1cs::SplitR1CSInstance<E> = bincode::deserialize(instance1_bytes)
-        .map_err(|e| JsError::new(&format!("Instance1 deserialization failed: {}", e)))?;
-    let instance2: spartan2::r1cs::SplitR1CSInstance<E> = bincode::deserialize(instance2_bytes)
-        .map_err(|e| JsError::new(&format!("Instance2 deserialization failed: {}", e)))?;
-    Ok(instance1.comm_W_shared == instance2.comm_W_shared)
-}
+// Item 18: `compare_comm_w_shared` removed. It compared comm_W_shared read from
+// CALLER-supplied, unauthenticated instance blobs — exactly the input the
+// hardened `verify()` refuses to trust — so a caller composing it to emulate a
+// linkage check could be handed two matching blobs by an attacker. The real
+// linkage check inside `verify()` reads the commitments from the verified
+// proofs. Use `verify()`.

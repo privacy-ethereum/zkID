@@ -446,6 +446,20 @@ fn run_prove_pipeline(
         println!("  expressionResult: {}\n", expression_result);
     }
 
+    // Item 12: linkage. Verifying the two proofs separately is not enough — an
+    // honest Prepare could be paired with an independently-forged Show over
+    // unrelated claim values and a self-chosen device key. Require both to
+    // commit to the same shared witness (comm_W_shared), read from the proofs.
+    let prepare_shared = prepare_proof.comm_W_shared();
+    let show_shared = show_proof.comm_W_shared();
+    let linked =
+        prepare_shared.is_some() && show_shared.is_some() && prepare_shared == show_shared;
+    if linked {
+        println!("✓ comm_W_shared linkage verified\n");
+    } else {
+        println!("✗ comm_W_shared linkage FAILED: Prepare and Show are not the same credential\n");
+    }
+
     let prepare_proving_key_bytes =
         get_file_size(&path_config.key_path(PREPARE_PROVING_KEY).to_string_lossy());
     let prepare_verifying_key_bytes = get_file_size(

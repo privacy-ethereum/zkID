@@ -117,6 +117,13 @@ export interface ExpectedStatement {
    * and `claimFormats`.
    */
   claimNormalization: ClaimNormalization;
+  /**
+   * Optional issuer allow-list. When set (non-empty), `verify()` fails unless the
+   * credential's SNARK-authenticated issuer key (recovered from the Prepare
+   * public IO) matches one of these by (x, y). When omitted, the issuer key is
+   * still reported on the result but no trust decision is enforced (back-compat).
+   */
+  trustedIssuers?: EcdsaPublicKey[];
 }
 
 /**
@@ -353,7 +360,18 @@ export interface PrecomputedCredential {
    */
   claimNormalization: ClaimNormalization;
   timing: PrecomputeTiming;
+  /**
+   * SENSITIVE — exports the bearer credential. The serialized form contains the
+   * raw JWT, every unblinded disclosure, the Prepare witness, and the normalized
+   * claim values — i.e. everything the ZK layer exists NOT to reveal. Anyone who
+   * obtains it can impersonate the holder. Persist only in secure, holder-owned
+   * storage (never a log, cache, or transport a third party can read), and treat
+   * it like the credential itself. Not a presentation — presentations are the
+   * output of `present()`. (Item 19: renamed intent flagged here to avoid a
+   * breaking API change; prefer a hardware-backed/keychain store.)
+   */
   serialize(): Uint8Array;
+  /** SENSITIVE — same contents as {@link serialize}; see its warning. */
   toJSON(): SerializedPrecomputedCredentialJSON;
 }
 

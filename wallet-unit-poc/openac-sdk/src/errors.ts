@@ -19,6 +19,7 @@ export type ErrorCode =
   | "CLAIM_NOT_FOUND"
   | "CLAIM_FORMAT_MISMATCH"
   | "PARAMS_EXCEEDED"
+  | "INVALID_NONCE"
   | "WASM_LOAD_FAILED"
   | "WASM_OOM"
   | "WASM_NOT_INITIALIZED";
@@ -74,7 +75,8 @@ export class InputError extends OpenACError {
       | "BIRTHDAY_NOT_FOUND"
       | "CLAIM_NOT_FOUND"
       | "CLAIM_FORMAT_MISMATCH"
-      | "PARAMS_EXCEEDED",
+      | "PARAMS_EXCEEDED"
+      | "INVALID_NONCE",
     message: string,
     cause?: unknown
   ) {
