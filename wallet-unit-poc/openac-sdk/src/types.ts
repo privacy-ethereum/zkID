@@ -288,14 +288,18 @@ export interface ShowCircuitInputs {
   messageHash: bigint;
   predicateLen: bigint;
   claimValues: bigint[];
-  /** Attribute identity per claim slot; 0 on the JWT path. Shared with Prepare. */
+  /** Attribute identity per claim slot, H(name). Shared with Prepare via comm_W_shared. */
   claimIdentifierHashes: bigint[];
-  /** Public: attribute identity each predicate is bound to; 0 = unbound. */
-  predicateClaimIdentifiers: bigint[];
   predicateClaimRefs: bigint[];
   predicateOps: bigint[];
   predicateRhsIsRef: bigint[];
   predicateRhsValues: bigint[];
+  /** Public: LHS attribute name bytes per predicate; the circuit hashes them. */
+  predicateClaimNames: bigint[][];
+  predicateClaimNameLens: bigint[];
+  /** Public: RHS attribute name bytes per predicate (claim-to-claim compareTo). */
+  predicateRhsClaimNames: bigint[][];
+  predicateRhsClaimNameLens: bigint[];
   tokenTypes: bigint[];
   tokenValues: bigint[];
   exprLen: bigint;
@@ -335,6 +339,12 @@ export interface PrecomputedCredential {
    * internally. Exposed so cached credentials survive serialize/deserialize.
    */
   normalizedClaimValues: bigint[];
+  /**
+   * Per-slot attribute identities H(name), read from the Prepare witness. Carried
+   * into the Show witness so predicate slots bind to attribute names (Items 1+3).
+   * The SDK never computes these (no off-circuit hashing).
+   */
+  claimIdentifierHashes: bigint[];
   /**
    * The per-claim decode flags and formats the JWT circuit ran under when
    * `normalizedClaimValues` was produced. `present()` compares these against
@@ -379,6 +389,7 @@ export interface SerializedPrecomputedCredentialJSON {
   birthdayClaim: string;
   deviceKey: EcdsaPublicKey;
   normalizedClaimValues: string[]; // bigints serialized as decimal strings
+  claimIdentifierHashes?: string[]; // bigints serialized as decimal strings
   claimNormalization: ClaimNormalization;
 }
 

@@ -43,7 +43,10 @@
       "tokenTypes",
       "tokenValues",
       "exprLen",
-      "predicateClaimIdentifiers"
+      "predicateClaimNames",
+      "predicateClaimNameLens",
+      "predicateRhsClaimNames",
+      "predicateRhsClaimNameLens"
     ]
   },
   "ecdsa": {

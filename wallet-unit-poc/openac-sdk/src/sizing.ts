@@ -49,10 +49,25 @@ export const VC_SIZES: readonly VcSize[] = ["1k", "2k", "4k", "8k"] as const;
  * so a recompile that moves these fails loudly.
  */
 export const CLAIM_VALUES_WITNESS_START: Record<VcSize, number> = {
-  "1k": 2472,
+  "1k": 2462,
+  // TODO(items-1+3): 2k/4k/8k shifted when jwt.circom gained the claim-identity
+  // derivation; re-derive from each recompiled .sym before using those sizes.
   "2k": 4020,
   "4k": 7568,
   "8k": 14664,
+};
+
+/**
+ * Witness index of `main.claimIdentifierHashes[0]` in each compiled JWT circuit.
+ * Immediately follows normalizedClaimValues[maxClaims]. Read alongside the claim
+ * values and carried to Show via comm_W_shared to bind slots to attribute names.
+ */
+export const CLAIM_IDENTITY_WITNESS_START: Record<VcSize, number> = {
+  "1k": 2526,
+  // TODO(items-1+3): re-derive for 2k/4k/8k on recompile.
+  "2k": 0,
+  "4k": 0,
+  "8k": 0,
 };
 
 export function selectVcSizeForSigningInput(byteLength: number): VcSize {

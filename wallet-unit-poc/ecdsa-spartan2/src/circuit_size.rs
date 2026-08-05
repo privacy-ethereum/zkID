@@ -89,10 +89,26 @@ impl CircuitSize {
     /// reading the wrong slot.
     pub fn claim_values_witness_start(self) -> usize {
         match self {
-            CircuitSize::Kb1 => 2472,
+            CircuitSize::Kb1 => 2462,
+            // TODO(items-1+3): 2k/4k/8k shifted when jwt.circom gained the
+            // claim-identity derivation; re-derive from each recompiled .sym.
             CircuitSize::Kb2 => 4020,
             CircuitSize::Kb4 => 7568,
             CircuitSize::Kb8 => 14664,
+        }
+    }
+
+    /// Witness index of `main.claimIdentifierHashes[0]` in each compiled JWT
+    /// circuit. Follows normalizedClaimValues[maxClaims] (with the name-extractor
+    /// internal signals in between), and is immediately followed by KeyBindingX/Y.
+    /// Re-derived from each `.sym` by `tests/witness_layout.rs`.
+    pub fn claim_identifier_hashes_witness_start(self) -> usize {
+        match self {
+            CircuitSize::Kb1 => 2526,
+            // TODO(items-1+3): re-derive for 2k/4k/8k on recompile.
+            CircuitSize::Kb2 => 0,
+            CircuitSize::Kb4 => 0,
+            CircuitSize::Kb8 => 0,
         }
     }
 }

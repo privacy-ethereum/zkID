@@ -33,6 +33,23 @@ import { PredicateOp } from "./show-input-builder.js";
 import type { PredicateSpec } from "./show-input-builder.js";
 import type { ShowCircuitParams } from "../types.js";
 
+/** Fixed byte width the circuit hashes an attribute name over (jwt.circom NAME_ID_LEN). */
+export const NAME_ID_LEN = 31;
+
+/** UTF-8 encode a claim name into a fixed NAME_ID_LEN byte buffer + length. */
+export function nameToBuffer(name: string): { bytes: bigint[]; len: bigint } {
+  const raw = Array.from(new TextEncoder().encode(name));
+  if (raw.length > NAME_ID_LEN) {
+    throw new InputError(
+      "PARAMS_EXCEEDED",
+      `Claim name "${name}" is ${raw.length} bytes; max ${NAME_ID_LEN}`,
+    );
+  }
+  const bytes = raw.map((b) => BigInt(b));
+  while (bytes.length < NAME_ID_LEN) bytes.push(0n);
+  return { bytes, len: BigInt(raw.length) };
+}
+
 export interface ShowStatementFields {
   /** Scalar-field-reduced hash of the verifier nonce. */
   messageHash: bigint;
@@ -41,8 +58,12 @@ export interface ShowStatementFields {
   predicateOps: bigint[];
   predicateRhsIsRef: bigint[];
   predicateRhsValues: bigint[];
-  /** Attribute identity the verifier bound each predicate to (0 = unbound). */
-  predicateClaimIdentifiers: bigint[];
+  /** LHS attribute name bytes per predicate (the circuit hashes these). */
+  predicateClaimNames: bigint[][];
+  predicateClaimNameLens: bigint[];
+  /** RHS attribute name bytes per predicate (claim-to-claim compareTo only). */
+  predicateRhsClaimNames: bigint[][];
+  predicateRhsClaimNameLens: bigint[];
   tokenTypes: bigint[];
   tokenValues: bigint[];
   exprLen: bigint;
@@ -82,21 +103,33 @@ export function buildShowStatementFields(
   const predicateOps: bigint[] = Array(params.maxPredicates).fill(BigInt(PredicateOp.EQ));
   const predicateRhsIsRef: bigint[] = Array(params.maxPredicates).fill(0n);
   const predicateRhsValues: bigint[] = Array(params.maxPredicates).fill(0n);
-  // JWT credentials carry no per-attribute identity -- their claims are
-  // disclosure digests, not named elements -- so every slot stays 0. The mdoc
-  // path sets these to the identifier hash the predicate is bound to.
-  const predicateClaimIdentifiers: bigint[] = Array(params.maxPredicates).fill(0n);
+  // The verifier names the attribute each operand must be; the Show circuit
+  // hashes these to the identity it enforces (Items 1+3). Unused slots stay
+  // zero-length (hash of an empty name), never matched by an active predicate.
+  const emptyName = (): bigint[] => Array(NAME_ID_LEN).fill(0n);
+  const predicateClaimNames: bigint[][] = Array.from({ length: params.maxPredicates }, emptyName);
+  const predicateClaimNameLens: bigint[] = Array(params.maxPredicates).fill(0n);
+  const predicateRhsClaimNames: bigint[][] = Array.from({ length: params.maxPredicates }, emptyName);
+  const predicateRhsClaimNameLens: bigint[] = Array(params.maxPredicates).fill(0n);
 
   for (let i = 0; i < predicates.length; i++) {
     const spec = predicates[i]!;
     predicateClaimRefs[i] = BigInt(spec.claimRef);
     predicateOps[i] = BigInt(spec.op);
+
+    const lhs = nameToBuffer(spec.claimName);
+    predicateClaimNames[i] = lhs.bytes;
+    predicateClaimNameLens[i] = lhs.len;
+
     if (spec.rhs.kind === "literal") {
       predicateRhsIsRef[i] = 0n;
       predicateRhsValues[i] = spec.rhs.value;
     } else {
       predicateRhsIsRef[i] = 1n;
       predicateRhsValues[i] = BigInt(spec.rhs.index);
+      const rhs = nameToBuffer(spec.rhs.name);
+      predicateRhsClaimNames[i] = rhs.bytes;
+      predicateRhsClaimNameLens[i] = rhs.len;
     }
   }
 
@@ -114,7 +147,10 @@ export function buildShowStatementFields(
     predicateOps,
     predicateRhsIsRef,
     predicateRhsValues,
-    predicateClaimIdentifiers,
+    predicateClaimNames,
+    predicateClaimNameLens,
+    predicateRhsClaimNames,
+    predicateRhsClaimNameLens,
     tokenTypes,
     tokenValues,
     exprLen: BigInt(logicExpression.length),
@@ -140,7 +176,10 @@ export function buildShowStatementPublicValues(
     ...f.predicateOps,
     ...f.predicateRhsIsRef,
     ...f.predicateRhsValues,
-    ...f.predicateClaimIdentifiers,
+    ...f.predicateClaimNames.flat(),
+    ...f.predicateClaimNameLens,
+    ...f.predicateRhsClaimNames.flat(),
+    ...f.predicateRhsClaimNameLens,
     ...f.tokenTypes,
     ...f.tokenValues,
     f.exprLen,

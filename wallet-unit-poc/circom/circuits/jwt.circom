@@ -8,6 +8,7 @@ include "utils/utils.circom";
 include "components/payload_matcher.circom";
 include "components/ec-extractor.circom";
 include "components/claim-value-extractor.circom";
+include "components/claim-name-extractor.circom";
 include "components/claim-value-normalizer.circom";
 
 /// @title JWT
@@ -180,6 +181,25 @@ template JWT(
     component claimNormalizers[maxClaims];
     signal normalizedClaimValues[maxClaims];
 
+    // Per-slot attribute identity = H(claim_name). The disclosure is
+    // ["salt","name","value"], so the name sits next to the value we already
+    // extract. Hashing it (same Poseidon-to-field the mdoc path uses for its
+    // identifier) binds each slot to an attribute, so a holder cannot answer a
+    // policy over one attribute with a friendlier signed value from another
+    // slot. Carried to Show via comm_W_shared, checked in eval-predicates
+    // against the verifier-supplied predicateClaimIdentifiers. Gated by
+    // decodeFlags so inactive slots are 0 (never matched by a real identity).
+    // NAME_ID_LEN: fixed width the attribute name is hashed over. 31 = one
+    // Poseidon block (HashBytesToFieldWithLen packs 31 bytes/element). Show
+    // recomputes H(name) over this SAME width from the verifier-supplied name,
+    // so the two hashes match by construction with no off-circuit hashing.
+    var NAME_ID_LEN = 31;
+    component claimNameExtractors[maxClaims];
+    component claimNameHashers[maxClaims];
+    component nameFits[maxClaims];
+    signal boundedName[maxClaims][NAME_ID_LEN];
+    signal claimIdentifierHashes[maxClaims];
+
     for (var i = 0; i < maxClaims; i++) {
         claimExtractors[i] = ClaimValueExtractor(decodedLen);
         claimExtractors[i].claim    <== decodedClaims[i];
@@ -191,6 +211,25 @@ template JWT(
         claimNormalizers[i].format      <== claimFormats[i];
 
         normalizedClaimValues[i] <== claimNormalizers[i].normalizedValue;
+
+        claimNameExtractors[i] = ClaimNameExtractor(decodedLen);
+        claimNameExtractors[i].claim    <== decodedClaims[i];
+        claimNameExtractors[i].isActive <== decodeFlags[i];
+
+        // Active names must fit in NAME_ID_LEN so no bytes are dropped before hashing.
+        nameFits[i] = LessEqThan(log2Ceil(decodedLen + 1));
+        nameFits[i].in[0] <== claimNameExtractors[i].nameLength;
+        nameFits[i].in[1] <== NAME_ID_LEN;
+        decodeFlags[i] * (1 - nameFits[i].out) === 0;
+
+        for (var j = 0; j < NAME_ID_LEN; j++) {
+            boundedName[i][j] <== claimNameExtractors[i].name[j];
+        }
+        claimNameHashers[i] = HashBytesToFieldWithLen(NAME_ID_LEN);
+        claimNameHashers[i].in  <== boundedName[i];
+        claimNameHashers[i].len <== claimNameExtractors[i].nameLength;
+
+        claimIdentifierHashes[i] <== claimNameHashers[i].hash * decodeFlags[i];
     }
 
     // The device binding public key is private, for the same reason as the

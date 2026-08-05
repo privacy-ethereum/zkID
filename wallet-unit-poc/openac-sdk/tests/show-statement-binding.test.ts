@@ -17,6 +17,7 @@ import {
   compilePredicateExpression,
   requiredNormalization,
 } from "../src/index.js";
+import { NAME_ID_LEN } from "../src/inputs/show-statement.js";
 import { issuerPublicKeyToPoint } from "../src/inputs/issuer-key.js";
 import { DEFAULT_SHOW_PARAMS } from "../src/types.js";
 import {
@@ -171,10 +172,13 @@ describe("Show statement binding: helpers", () => {
       compiled.predicates,
       compiled.logicExpression,
     );
-    // messageHash + predicateLen + 5*maxPredicates + 2*maxLogicTokens + exprLen
-    // (5 per predicate: claimRef, op, rhsIsRef, rhsValue, claimIdentifier)
+    // messageHash + predicateLen + exprLen (3) + 4 scalars/predicate
+    // (claimRef, op, rhsIsRef, rhsValue) + 2 name buffers/predicate (LHS+RHS,
+    // NAME_ID_LEN bytes each) + 2 name lengths/predicate + 2*maxLogicTokens tokens.
     const p = DEFAULT_SHOW_PARAMS;
-    expect(pv.length).toBe(2 + 5 * p.maxPredicates + 2 * p.maxLogicTokens + 1);
+    expect(pv.length).toBe(
+      3 + 6 * p.maxPredicates + 2 * p.maxPredicates * NAME_ID_LEN + 2 * p.maxLogicTokens,
+    );
     expect(pv[0]).toBe(computeMessageHash(NONCE)); // first element is the nonce hash
   });
 });

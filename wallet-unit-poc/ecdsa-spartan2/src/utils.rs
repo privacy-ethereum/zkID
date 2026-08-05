@@ -102,15 +102,19 @@ pub fn parse_show_inputs(
         ("exprLen", FieldParser::BigIntScalar),
         // Array fields
         ("claimValues", FieldParser::BigIntArray),
-        // Attribute identity per claim slot, shared with the credential circuit,
-        // plus the identity the verifier bound each predicate to (public).
-        // Together they stop a predicate being re-aimed at a different attribute.
+        // Attribute identity per claim slot, shared with the credential circuit.
+        // The verifier-supplied attribute NAME bytes (public) are hashed in-circuit
+        // to the required identity, so a predicate cannot be re-aimed at a different
+        // attribute (Items 1+3). Names are 2D [maxPredicates][NAME_ID_LEN].
         ("claimIdentifierHashes", FieldParser::BigIntArray),
-        ("predicateClaimIdentifiers", FieldParser::BigIntArray),
         ("predicateClaimRefs", FieldParser::BigIntArray),
         ("predicateOps", FieldParser::BigIntArray),
         ("predicateRhsIsRef", FieldParser::BigIntArray),
         ("predicateRhsValues", FieldParser::BigIntArray),
+        ("predicateClaimNames", FieldParser::BigInt2DArray),
+        ("predicateClaimNameLens", FieldParser::BigIntArray),
+        ("predicateRhsClaimNames", FieldParser::BigInt2DArray),
+        ("predicateRhsClaimNameLens", FieldParser::BigIntArray),
         ("tokenTypes", FieldParser::BigIntArray),
         ("tokenValues", FieldParser::BigIntArray),
     ];
@@ -407,6 +411,10 @@ pub struct JwtOutputLayout {
     pub claim_values_start: usize,
     /// Number of normalized claim values, equal to `maxMatches - 2`.
     pub claim_values_len: usize,
+    /// Witness index of `claimIdentifierHashes[0]` (H(name) per slot). Follows the
+    /// claim values (with name-extractor internals in between) and precedes the
+    /// device key. Bound into `comm_W_shared` so predicate slots carry attribute identity.
+    pub claim_identifier_hashes_start: usize,
     pub keybinding_x_index: usize,
     pub keybinding_y_index: usize,
     /// Witness index of the public issuer key coordinate `pubKeyX`.
@@ -422,6 +430,11 @@ pub struct JwtOutputLayout {
 impl JwtOutputLayout {
     pub fn claim_values_range(&self) -> Range<usize> {
         self.claim_values_start..self.claim_values_start + self.claim_values_len
+    }
+
+    pub fn claim_identifier_hashes_range(&self) -> Range<usize> {
+        self.claim_identifier_hashes_start
+            ..self.claim_identifier_hashes_start + self.claim_values_len
     }
 
     pub fn decode_flags_range(&self) -> Range<usize> {
@@ -442,10 +455,12 @@ impl JwtOutputLayout {
     }
 
     /// Witness indices the shared partition must equal, in the order
-    /// `PrepareCircuit::shared` pushes them.
+    /// `PrepareCircuit::shared` pushes them:
+    /// [KeyBindingX, KeyBindingY, claimValues.., claimIdentifierHashes..].
     pub fn shared_witness_indices(&self) -> Vec<usize> {
         let mut idx = vec![self.keybinding_x_index, self.keybinding_y_index];
         idx.extend(self.claim_values_range());
+        idx.extend(self.claim_identifier_hashes_range());
         idx
     }
 }
@@ -454,8 +469,11 @@ impl JwtOutputLayout {
 pub fn calculate_jwt_output_indices(size: CircuitSize) -> JwtOutputLayout {
     let claim_values_start = size.claim_values_witness_start();
     let claim_values_len = size.n_claims();
-    // `jwt.circom` assigns the claim values in a loop, then KeyBindingX/Y.
-    let keybinding_x_index = claim_values_start + claim_values_len;
+    // `jwt.circom` assigns claim values, then (after name-extractor internals)
+    // claimIdentifierHashes[maxClaims], then KeyBindingX/Y. The key is NO LONGER
+    // contiguous with the claim values.
+    let claim_identifier_hashes_start = size.claim_identifier_hashes_witness_start();
+    let keybinding_x_index = claim_identifier_hashes_start + claim_values_len;
     let keybinding_y_index = keybinding_x_index + 1;
     // No public outputs, so the public inputs occupy witness[1..] directly.
     let issuer_key_x_index = 1;
@@ -466,6 +484,7 @@ pub fn calculate_jwt_output_indices(size: CircuitSize) -> JwtOutputLayout {
     JwtOutputLayout {
         claim_values_start,
         claim_values_len,
+        claim_identifier_hashes_start,
         keybinding_x_index,
         keybinding_y_index,
         issuer_key_x_index,
@@ -530,12 +549,14 @@ pub fn check_issuer_key_binding(
 /// and it is always `2` because every JWT size uses `maxMatches = 4`.
 pub const SHOW_MAX_PREDICATES: usize = 2;
 pub const SHOW_MAX_LOGIC_TOKENS: usize = 8;
+/// Fixed byte width an attribute name is hashed over (Show NAME_ID_LEN in show.circom).
+pub const SHOW_NAME_ID_LEN: usize = 31;
 
 /// Number of public IO signals of the Show circuit.
 ///
 /// The verifier statement is bound into the proof's public IO (see
 /// `circom/circuits/main/show.circom`). Circom lays the public signals out as a
-/// contiguous witness prefix `witness[1..=SHOW_NUM_PUBLIC]`, in the order:
+/// contiguous witness prefix `witness[1..=SHOW_NUM_PUBLIC]`, in declaration order:
 ///   [0] expressionResult (output)
 ///   [1] messageHash
 ///   [2] predicateLen
@@ -543,17 +564,22 @@ pub const SHOW_MAX_LOGIC_TOKENS: usize = 8;
 ///          predicateOps[maxPredicates]
 ///          predicateRhsIsRef[maxPredicates]
 ///          predicateRhsValues[maxPredicates]
+///          predicateClaimNames[maxPredicates][NAME_ID_LEN]
+///          predicateClaimNameLens[maxPredicates]
+///          predicateRhsClaimNames[maxPredicates][NAME_ID_LEN]
+///          predicateRhsClaimNameLens[maxPredicates]
 ///          tokenTypes[maxLogicTokens]
 ///          tokenValues[maxLogicTokens]
 ///          exprLen
-///          predicateClaimIdentifiers[maxPredicates]
-/// = 4 + 5*maxPredicates + 2*maxLogicTokens
-///   (with maxPredicates=2, maxLogicTokens=8: 4 + 10 + 16 = 30).
+/// = 4 + 6*maxPredicates + 2*maxPredicates*NAME_ID_LEN + 2*maxLogicTokens
+///   (maxPredicates=2, maxLogicTokens=8, NAME_ID_LEN=31: 4 + 12 + 124 + 16 = 156).
 ///
-/// `predicateClaimIdentifiers` is public so the verifier sees which attribute
-/// each predicate was bound to.
-pub const SHOW_NUM_PUBLIC: usize =
-    4 + 5 * SHOW_MAX_PREDICATES + 2 * SHOW_MAX_LOGIC_TOKENS;
+/// The attribute names are public so the verifier sees (and pins) which attribute
+/// each predicate operand was bound to; the circuit hashes them to the identity.
+pub const SHOW_NUM_PUBLIC: usize = 4
+    + 6 * SHOW_MAX_PREDICATES
+    + 2 * SHOW_MAX_PREDICATES * SHOW_NAME_ID_LEN
+    + 2 * SHOW_MAX_LOGIC_TOKENS;
 
 /// Layout of the Show circuit's witness vector.
 ///

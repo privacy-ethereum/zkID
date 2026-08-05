@@ -217,12 +217,14 @@ export function compilePredicateExpression(
       recordFormat(rhsIdx, p.compareTo.claim, format);
       compiledPredicates.push({
         claimRef: claimIdx,
+        claimName: p.claim,
         op: OP_MAP[p.op],
-        rhs: { kind: "claimRef", index: rhsIdx },
+        rhs: { kind: "claimRef", index: rhsIdx, name: p.compareTo.claim },
       });
     } else {
       compiledPredicates.push({
         claimRef: claimIdx,
+        claimName: p.claim,
         op: OP_MAP[p.op],
         rhs: { kind: "literal", value: normalizeLiteralValue(p.value, format) },
       });

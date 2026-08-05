@@ -38,10 +38,12 @@ export const LogicToken = {
 
 export type PredicateRhs =
   | { kind: "literal"; value: bigint }
-  | { kind: "claimRef"; index: number };
+  | { kind: "claimRef"; index: number; name: string };
 
 export interface PredicateSpec {
   claimRef: number;
+  /** Attribute name of the LHS claim; the circuit hashes it to the bound identity. */
+  claimName: string;
   op: number;
   rhs: PredicateRhs;
 }
@@ -49,6 +51,12 @@ export interface PredicateSpec {
 export interface ShowInputOptions {
   /** Normalized claim values (from JWT circuit output). */
   normalizedClaimValues?: bigint[];
+  /**
+   * Per-slot attribute identities H(name), read from the Prepare (JWT) witness.
+   * Must equal what the credential circuit derived so comm_W_shared matches.
+   * The SDK never computes these (no off-circuit hashing).
+   */
+  claimIdentifierHashes?: bigint[];
   /** Predicate specifications. Defaults to a single EQ predicate on claim 0. */
   predicates?: PredicateSpec[];
   /** Postfix logic expression as [tokenType, tokenValue] pairs. Defaults to REF(0). */
@@ -92,10 +100,18 @@ export function buildShowCircuitInputs(
   const predicates = options.predicates ?? [
     {
       claimRef: 0,
+      claimName: "",
       op: PredicateOp.EQ,
       rhs: { kind: "literal", value: claimValues[0]! },
     },
   ];
+
+  // Per-slot identities come from the Prepare witness (never computed here).
+  const claimIdentifierHashes: bigint[] = Array(params.nClaims).fill(0n);
+  const identities = options.claimIdentifierHashes ?? [];
+  for (let i = 0; i < Math.min(params.nClaims, identities.length); i++) {
+    claimIdentifierHashes[i] = identities[i]!;
+  }
   const logicExpr = options.logicExpression ?? [{ type: LogicToken.REF, value: 0 }];
 
   // Build the verifier statement (messageHash + padded predicate program) via
@@ -111,14 +127,15 @@ export function buildShowCircuitInputs(
     messageHash: statement.messageHash,
     predicateLen: statement.predicateLen,
     claimValues,
-    // Zero on the JWT path: no per-attribute identity exists to bind to. The
-    // Prepare circuit pins the shared identity slots to zero to match.
-    claimIdentifierHashes: Array(params.nClaims).fill(0n),
-    predicateClaimIdentifiers: statement.predicateClaimIdentifiers,
+    claimIdentifierHashes,
     predicateClaimRefs: statement.predicateClaimRefs,
     predicateOps: statement.predicateOps,
     predicateRhsIsRef: statement.predicateRhsIsRef,
     predicateRhsValues: statement.predicateRhsValues,
+    predicateClaimNames: statement.predicateClaimNames,
+    predicateClaimNameLens: statement.predicateClaimNameLens,
+    predicateRhsClaimNames: statement.predicateRhsClaimNames,
+    predicateRhsClaimNameLens: statement.predicateRhsClaimNameLens,
     tokenTypes: statement.tokenTypes,
     tokenValues: statement.tokenValues,
     exprLen: statement.exprLen,
