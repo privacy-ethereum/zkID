@@ -13,6 +13,18 @@ export const LogicToken = {
   PRED_BASE: 6,
 } as const;
 
+/** Fixed byte width the circuit hashes an attribute name over (jwt.circom NAME_ID_LEN). */
+export const NAME_ID_LEN = 31;
+
+/** UTF-8 encode a claim name into a fixed NAME_ID_LEN byte buffer + length. */
+export function nameToBuffer(name: string): { bytes: bigint[]; len: bigint } {
+  const raw = Array.from(new TextEncoder().encode(name));
+  assert.ok(raw.length <= NAME_ID_LEN, `Claim name "${name}" exceeds ${NAME_ID_LEN} bytes`);
+  const bytes = raw.map((b) => BigInt(b));
+  while (bytes.length < NAME_ID_LEN) bytes.push(0n);
+  return { bytes, len: BigInt(raw.length) };
+}
+
 export function predicateToken(j: number): number {
   return LogicToken.PRED_BASE + j;
 }
@@ -85,8 +97,7 @@ export function generateShowInputs(
   normalizedClaimValues: bigint[] = [],
   // Default 0 leaves the binding vacuous for flows with no attribute names (JWT);
   // mdoc callers pass real hashes.
-  claimIdentifierHashes: bigint[] = [],
-  predicateClaimIdentifiers: bigint[] = []
+  claimIdentifierHashes: bigint[] = []
 ): {
   deviceKeyX: bigint;
   deviceKeyY: bigint;
@@ -100,7 +111,10 @@ export function generateShowInputs(
   predicateRhsIsRef: bigint[];
   predicateRhsValues: bigint[];
   claimIdentifierHashes: bigint[];
-  predicateClaimIdentifiers: bigint[];
+  predicateClaimNames: bigint[][];
+  predicateClaimNameLens: bigint[];
+  predicateRhsClaimNames: bigint[][];
+  predicateRhsClaimNameLens: bigint[];
   tokenTypes: bigint[];
   tokenValues: bigint[];
   exprLen: bigint;
@@ -160,13 +174,17 @@ export function generateShowInputs(
   const predicateRhsIsRef = Array(params.maxPredicates).fill(0n);
   const predicateRhsValues = Array(params.maxPredicates).fill(primaryClaimValue);
   const claimIdHashes = Array(params.nClaims).fill(0n);
-  const predicateClaimIds = Array(params.maxPredicates).fill(0n);
   for (let i = 0; i < Math.min(params.nClaims, claimIdentifierHashes.length); i++) {
     claimIdHashes[i] = claimIdentifierHashes[i];
   }
-  for (let i = 0; i < Math.min(params.maxPredicates, predicateClaimIdentifiers.length); i++) {
-    predicateClaimIds[i] = predicateClaimIdentifiers[i];
-  }
+  // Verifier attribute-name inputs (public). The Show circuit hashes them to the
+  // required identity, so the caller sets the name for each active predicate
+  // after the predicate program is filled. Unused slots stay zero-length.
+  const emptyName = (): bigint[] => Array(NAME_ID_LEN).fill(0n);
+  const predicateClaimNames = Array.from({ length: params.maxPredicates }, emptyName);
+  const predicateClaimNameLens = Array(params.maxPredicates).fill(0n);
+  const predicateRhsClaimNames = Array.from({ length: params.maxPredicates }, emptyName);
+  const predicateRhsClaimNameLens = Array(params.maxPredicates).fill(0n);
 
   assert.ok(
     normalizedValues.length <= params.nClaims,
@@ -239,7 +257,10 @@ export function generateShowInputs(
     predicateRhsIsRef,
     predicateRhsValues,
     claimIdentifierHashes: claimIdHashes,
-    predicateClaimIdentifiers: predicateClaimIds,
+    predicateClaimNames,
+    predicateClaimNameLens,
+    predicateRhsClaimNames,
+    predicateRhsClaimNameLens,
     tokenTypes,
     tokenValues,
     exprLen,

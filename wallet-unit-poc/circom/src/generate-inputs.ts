@@ -1,10 +1,24 @@
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import * as nodeCrypto from "crypto";
+// @ts-ignore - snarkjs ships no types
+import * as snarkjs from "snarkjs";
 
 import { generateMockData } from "./mock-vc-generator";
-import { generateShowCircuitParams, generateShowInputs, signDeviceNonce } from "./show";
+import { generateShowCircuitParams, generateShowInputs, signDeviceNonce, nameToBuffer } from "./show";
 import { PredicateFormat } from "./predicate-types";
+
+// Witness index of claimIdentifierHashes[0] per compiled JWT size (.sym column $2).
+// Read from the JWT witness because H(name) can't be computed off-circuit
+// (the circuits are over secq256r1; no JS Poseidon matches). Mirrors
+// CLAIM_IDENTITY_WITNESS_START in openac-sdk/src/sizing.ts.
+const CLAIM_IDENTITY_WITNESS_START: Record<string, number> = {
+  "1k": 2526,
+  "2k": 4074,
+  "4k": 7622,
+  "8k": 14718,
+};
 
 export const CIRCUIT_SIZES: Record<string, number[]> = {
   // "default" matches the params baked into circuits/main/{jwt,show}.circom and writes
@@ -66,12 +80,33 @@ async function generateInputsForSize(sizeName: string): Promise<void> {
   // witness partition, and `comm_W_shared` only matches if the vectors are
   // identical. (Passing just the birthday put it in slot 0 here but slot 1 in
   // the JWT circuit — which went unnoticed while the shared partition was zeros.)
+  // Read per-slot attribute identities H(name) from the JWT witness. They can't
+  // be hashed off-circuit (secq256r1 — no matching JS Poseidon), so we run the
+  // compiled jwt witnesscalc and pull them out. They travel into Show via the
+  // shared partition, so comm_W_shared matches Prepare.
+  let claimIdentifierHashes: bigint[] = [];
+  const identityStart = CLAIM_IDENTITY_WITNESS_START[sizeName];
+  if (identityStart !== undefined) {
+    const jwtName = `jwt_${sizeName}`;
+    const jwtWasm = path.resolve(__dirname, "..", "build", jwtName, `${jwtName}_js`, `${jwtName}.wasm`);
+    const wtnsPath = path.join(os.tmpdir(), `${jwtName}-geninputs.wtns`);
+    await snarkjs.wtns.calculate(mockData.circuitInputs, jwtWasm, wtnsPath);
+    const witness: (bigint | string)[] = await snarkjs.wtns.exportJson(wtnsPath);
+    for (let i = 0; i < showParams.nClaims; i++) {
+      claimIdentifierHashes.push(BigInt(witness[identityStart + i]));
+    }
+    fs.rmSync(wtnsPath, { force: true });
+  }
+
   const showInputs = generateShowInputs(
     showParams,
     nonce,
     deviceSignature,
     mockData.deviceKey,
     mockData.claims,
+    [], // logicExpr (default)
+    [], // normalizedClaimValues (derived from claims)
+    claimIdentifierHashes,
   );
 
   // Show predicate: claim[ROC_BIRTHDAY_SLOT] <= 1070101 (ROC adult cutoff).
@@ -82,6 +117,12 @@ async function generateInputsForSize(sizeName: string): Promise<void> {
   showInputs.tokenTypes[0] = 0n;
   showInputs.tokenValues[0] = 0n;
   showInputs.exprLen = 1n;
+
+  // The predicate names its attribute; Show hashes it to the identity it enforces.
+  // Slot ROC_BIRTHDAY_SLOT is "roc_birthday" (see the mock claims above).
+  const lhsName = nameToBuffer(mockData.claims[ROC_BIRTHDAY_SLOT] ? "roc_birthday" : "");
+  showInputs.predicateClaimNames[0] = lhsName.bytes;
+  showInputs.predicateClaimNameLens[0] = lhsName.len;
 
   const circomDir = path.resolve(__dirname, "..");
   // The "default" pseudo-size writes to inputs/{jwt,show}/default.json directly,
