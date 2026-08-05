@@ -94,6 +94,7 @@ interface WasmPresentResult {
 
 interface WasmVerifyResult {
   valid: boolean;
+  prepare_public_values: string[];
   show_public_values: string[];
   error: string | null;
 }
@@ -149,6 +150,8 @@ export interface PresentationProof {
 
 export interface VerificationResult {
   valid: boolean;
+  /** Prepare public IO: [pubKeyX, pubKeyY, decodeFlags[n], claimFormats[n]]. */
+  preparePublicValues: string[];
   showPublicValues: string[];
   error?: string;
 }
@@ -329,6 +332,7 @@ export class WasmBridge {
       );
       return {
         valid: result.valid,
+        preparePublicValues: result.prepare_public_values,
         showPublicValues: result.show_public_values,
         error: result.error ?? undefined,
       };
@@ -337,6 +341,7 @@ export class WasmBridge {
       const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         valid: false,
+        preparePublicValues: [],
         showPublicValues: [],
         error: errorMessage,
       };

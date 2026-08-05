@@ -177,11 +177,28 @@ impl SpartanCircuit<E> for PrepareCircuit {
         let is_setup_phase = cs_type.contains("ShapeCS");
         let layout = calculate_jwt_output_indices(self.path_config.circuit_size);
 
+        // The shared segment is [KeyBindingX, KeyBindingY, claimValues[..],
+        // claimIdentifierHashes[..]]. Only the prefix maps to JWT witness
+        // signals; the identity tail is pinned to zero (see `shared`).
+        let bound = layout.shared_witness_indices();
+        let (shared_bound, shared_identities) = shared.split_at(bound.len().min(shared.len()));
+        let enforce_zero_identities = |cs: &mut CS| {
+            for (idx, id) in shared_identities.iter().enumerate() {
+                cs.enforce(
+                    || format!("ClaimIdentifierHash{idx} is zero"),
+                    |lc| lc + id.get_variable(),
+                    |lc| lc + CS::one(),
+                    |lc| lc,
+                );
+            }
+        };
+
         if is_setup_phase {
             let r1cs =
                 load_r1cs(&self.r1cs_path()).map_err(|_| SynthesisError::AssignmentMissing)?;
             let vars = synthesize_all_vars(cs, r1cs, None)?;
-            bind_shared(cs, shared, &vars, &layout.shared_witness_indices())?;
+            bind_shared(cs, shared_bound, &vars, &bound)?;
+            enforce_zero_identities(cs);
             return Ok(());
         }
 
@@ -190,7 +207,8 @@ impl SpartanCircuit<E> for PrepareCircuit {
         match load_r1cs::<Scalar>(&self.r1cs_path()) {
             Ok(r1cs) => {
                 let vars = synthesize_all_vars(cs, r1cs, Some(witness))?;
-                bind_shared(cs, shared, &vars, &layout.shared_witness_indices())?;
+                bind_shared(cs, shared_bound, &vars, &bound)?;
+                enforce_zero_identities(cs);
             }
             Err(_) => {
                 // Prepare circuit public signals (in witness order):
@@ -250,8 +268,10 @@ impl SpartanCircuit<E> for PrepareCircuit {
             AllocatedNum::alloc(cs.namespace(|| "KeyBindingY"), || Ok(keybinding_y))?;
 
         // Shared layout (must match `ShowCircuit::shared`):
-        //   [KeyBindingX, KeyBindingY, normalizedClaimValues[0..n_claims]]
-        let mut shared_values = Vec::with_capacity(2 + layout.claim_values_len);
+        //   [KeyBindingX, KeyBindingY,
+        //    normalizedClaimValues[0..n_claims],
+        //    claimIdentifierHashes[0..n_claims]]
+        let mut shared_values = Vec::with_capacity(2 + 2 * layout.claim_values_len);
         shared_values.push(keybinding_x_alloc);
         shared_values.push(keybinding_y_alloc);
 
@@ -265,6 +285,22 @@ impl SpartanCircuit<E> for PrepareCircuit {
                     Ok(claim_scalar)
                 })?;
             shared_values.push(claim_alloc);
+        }
+
+        // A JWT credential has no per-attribute identifier: its claims are
+        // disclosure digests matched by substring, not named mdoc elements. The
+        // identity slots are still part of the shared segment so Prepare and Show
+        // commit to the same vector; `synthesize` constrains them to zero, which
+        // forces Show's `claimIdentifierHashes` to zero on this path so an
+        // mdoc-issued identity cannot be smuggled into a JWT presentation.
+        //
+        // They are allocated here rather than bound to a witness index because
+        // the JWT circuit has no signal to bind them to.
+        for idx in 0..layout.claim_values_len {
+            shared_values.push(AllocatedNum::alloc(
+                cs.namespace(|| format!("ClaimIdentifierHash{idx}")),
+                || Ok(Scalar::ZERO),
+            )?);
         }
 
         Ok(shared_values)

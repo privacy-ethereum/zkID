@@ -45,5 +45,13 @@
     "0",
     "0"
   ],
-  "exprLen": "1"
+  "exprLen": "1",
+  "claimIdentifierHashes": [
+    "0",
+    "0"
+  ],
+  "predicateClaimIdentifiers": [
+    "0",
+    "0"
+  ]
 }

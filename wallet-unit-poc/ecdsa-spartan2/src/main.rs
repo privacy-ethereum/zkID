@@ -425,7 +425,7 @@ fn run_prove_pipeline(
     let prepare_public_values = verify_circuit_with_loaded_data(&prepare_proof, &prepare_vk);
     let verify_prepare_ms = t0.elapsed().as_millis();
     println!("✓ Prepare proof verified: {} ms", verify_prepare_ms);
-    let jwt_layout = calculate_jwt_output_indices(size.max_matches(), 0);
+    let jwt_layout = calculate_jwt_output_indices(size);
     print_public_statement(
         &prepare_public_values,
         jwt_layout.issuer_key_x_index,

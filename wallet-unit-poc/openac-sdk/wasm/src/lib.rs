@@ -50,13 +50,16 @@ pub struct PresentResult {
 
 /// Combined verification result
 ///
-/// Prepare's public values are deliberately not returned. They now hold only
-/// the device key-binding coordinates, but exposing the Prepare public IO to
-/// callers is what leaked normalized claim values (e.g. an exact date of birth)
-/// to verifiers. A verifier's answer is the Show `expressionResult`.
+/// Prepare's public values are returned so the caller can bind the presentation
+/// to an issuer it trusts: they are `[pubKeyX, pubKeyY, decodeFlags[n],
+/// claimFormats[n]]`. Normalized claim values and the device key were removed
+/// from this vector (they now reach Show privately via `comm_W_shared`), so
+/// returning it no longer leaks the holder's attributes or a stable identifier.
+/// Dropping it entirely would leave `valid` meaning "signed by some P-256 key".
 #[derive(Serialize, Deserialize)]
 pub struct VerifyResult {
     pub valid: bool,
+    pub prepare_public_values: Vec<String>,
     pub show_public_values: Vec<String>,
     pub error: Option<String>,
 }
@@ -340,7 +343,7 @@ pub fn present(
 /// - `show_vk_bytes`:          Serialized Show verifying key (from setup())
 /// - `show_instance_bytes`:    Serialized Show instance (from present())
 ///
-/// Returns: VerifyResult { valid, show_public_values, error? }
+/// Returns: VerifyResult { valid, prepare_public_values, show_public_values, error? }
 #[wasm_bindgen]
 pub fn verify(
     prepare_proof_bytes: &[u8],
@@ -373,13 +376,14 @@ pub fn verify(
         bincode::deserialize(show_instance_bytes)
             .map_err(|e| JsError::new(&format!("Show instance deserialization failed: {}", e)))?;
 
-    // Prepare's public values are discarded: verification only needs to know the
-    // proof is valid, and returning its public IO is what leaked claim values.
-    match prepare_proof.verify(&prepare_vk) {
-        Ok(_) => {}
+    // Prepare's public IO carries the issuer key the credential was verified
+    // against; the caller needs it to decide whether to trust the issuer.
+    let prepare_pv = match prepare_proof.verify(&prepare_vk) {
+        Ok(pv) => pv,
         Err(e) => {
             let result = VerifyResult {
                 valid: false,
+                prepare_public_values: vec![],
                 show_public_values: vec![],
                 error: Some(format!("Prepare proof verification failed: {:?}", e)),
             };
@@ -393,6 +397,7 @@ pub fn verify(
         Err(e) => {
             let result = VerifyResult {
                 valid: false,
+                prepare_public_values: vec![],
                 show_public_values: vec![],
                 error: Some(format!("Show proof verification failed: {:?}", e)),
             };
@@ -411,6 +416,7 @@ pub fn verify(
     if !commitment_valid {
         let result = VerifyResult {
             valid: false,
+            prepare_public_values: vec![],
             show_public_values: vec![],
             error: Some("Shared commitment mismatch: prepare and show proofs do not share the same private data".to_string()),
         };
@@ -421,6 +427,7 @@ pub fn verify(
     // All checks passed
     let result = VerifyResult {
         valid: true,
+        prepare_public_values: prepare_pv.iter().map(|s| format!("{:?}", s)).collect(),
         show_public_values: show_pv.iter().map(|s| format!("{:?}", s)).collect(),
         error: None,
     };

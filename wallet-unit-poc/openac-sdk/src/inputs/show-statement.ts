@@ -13,9 +13,15 @@
 //          predicateOps[maxPredicates]
 //          predicateRhsIsRef[maxPredicates]
 //          predicateRhsValues[maxPredicates]
+//          predicateClaimIdentifiers[maxPredicates]
 //          tokenTypes[maxLogicTokens]
 //          tokenValues[maxLogicTokens]
 //          exprLen
+//
+// The order is the input DECLARATION order in circuits/show.circom, not the
+// order of the `public[...]` list in the generated main component -- circom
+// assigns public positions by declaration. `predicateClaimIdentifiers` is
+// declared between predicateRhsValues and tokenTypes, so it flattens there.
 //
 // `buildShowStatementFields` returns the padded arrays; `buildShowStatementPublicValues`
 // flattens them (excluding expressionResult) into the exact order above.
@@ -35,6 +41,8 @@ export interface ShowStatementFields {
   predicateOps: bigint[];
   predicateRhsIsRef: bigint[];
   predicateRhsValues: bigint[];
+  /** Attribute identity the verifier bound each predicate to (0 = unbound). */
+  predicateClaimIdentifiers: bigint[];
   tokenTypes: bigint[];
   tokenValues: bigint[];
   exprLen: bigint;
@@ -74,6 +82,10 @@ export function buildShowStatementFields(
   const predicateOps: bigint[] = Array(params.maxPredicates).fill(BigInt(PredicateOp.EQ));
   const predicateRhsIsRef: bigint[] = Array(params.maxPredicates).fill(0n);
   const predicateRhsValues: bigint[] = Array(params.maxPredicates).fill(0n);
+  // JWT credentials carry no per-attribute identity -- their claims are
+  // disclosure digests, not named elements -- so every slot stays 0. The mdoc
+  // path sets these to the identifier hash the predicate is bound to.
+  const predicateClaimIdentifiers: bigint[] = Array(params.maxPredicates).fill(0n);
 
   for (let i = 0; i < predicates.length; i++) {
     const spec = predicates[i]!;
@@ -102,6 +114,7 @@ export function buildShowStatementFields(
     predicateOps,
     predicateRhsIsRef,
     predicateRhsValues,
+    predicateClaimIdentifiers,
     tokenTypes,
     tokenValues,
     exprLen: BigInt(logicExpression.length),
@@ -127,6 +140,7 @@ export function buildShowStatementPublicValues(
     ...f.predicateOps,
     ...f.predicateRhsIsRef,
     ...f.predicateRhsValues,
+    ...f.predicateClaimIdentifiers,
     ...f.tokenTypes,
     ...f.tokenValues,
     f.exprLen,

@@ -42,7 +42,8 @@
       "predicateRhsValues",
       "tokenTypes",
       "tokenValues",
-      "exprLen"
+      "exprLen",
+      "predicateClaimIdentifiers"
     ]
   },
   "ecdsa": {

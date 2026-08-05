@@ -2,6 +2,7 @@ import { strict as assert } from "assert";
 import type { WitnessTester } from "circomkit";
 import { circomkit } from "../common/index.ts";
 import { buildMdocWitness, MDOC_PARAMS } from "../common/mdoc-fixture.ts";
+import { witnessIndices } from "../common/witness-signals.ts";
 
 const BASE_CLAIMS = {
   family_name: "Smith",
@@ -30,8 +31,10 @@ describe("MDOC integer claim range", () => {
     );
     const witness = await circuit.calculateWitness(inputs);
     await circuit.expectConstraintPass(witness);
-    // Output order: validUntilDate, normalizedClaimValues, deviceKeyX, deviceKeyY.
-    assert.equal(witness.slice(2, 2 + MDOC_PARAMS[2])[0], 12345n);
+    // normalizedClaimValues is private (it reaches Show via comm_W_shared), so
+    // its witness position is compiler-assigned and must be looked up.
+    const [valueIdx] = await witnessIndices(circuit, ["main.normalizedClaimValues[0]"]);
+    assert.equal(witness[valueIdx], 12345n);
   });
 
   it("rejects an integer claim too long to compare soundly", async () => {

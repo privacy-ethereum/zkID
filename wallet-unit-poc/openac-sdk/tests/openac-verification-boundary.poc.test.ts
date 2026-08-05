@@ -3,9 +3,31 @@ import { existsSync, readFileSync } from "fs";
 import { readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { OpenAC } from "../src/index.js";
+import {
+  OpenAC,
+  Credential,
+  compilePredicateExpression,
+  requiredNormalization,
+} from "../src/index.js";
 import { generateDummyCredential } from "../src/testing/index.js";
-import type { KeySet, VerifyingKeys } from "../src/types.js";
+import type { KeySet, VerifyingKeys, ExpectedStatement } from "../src/types.js";
+import type { PredicateExpression } from "../src/predicates.js";
+
+/** The statement a verifier requires: nonce + policy, independent of the proof. */
+function expectedStatement(
+  cred: { jwt: string; disclosures: string[] },
+  nonce: string,
+  predicates: PredicateExpression,
+): ExpectedStatement {
+  const schema = Credential.parse(cred.jwt, cred.disclosures).claims;
+  const compiled = compilePredicateExpression(predicates, schema);
+  return {
+    nonce,
+    predicates: compiled.predicates,
+    logicExpression: compiled.logicExpression,
+    claimNormalization: requiredNormalization(compiled),
+  };
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = join(__dirname, "..", "assets");
@@ -134,8 +156,11 @@ describe("OpenAC verification boundary PoC", () => {
       predicates: predicate,
     });
 
-    const honestA = await openac.verify(proofA, keys.verifyingKeys());
-    const honestB = await openac.verify(proofB, keys.verifyingKeys());
+    const expectedA = expectedStatement(credA, "linkage-A", predicate);
+    const expectedB = expectedStatement(credB, "linkage-B", predicate);
+
+    const honestA = await openac.verify(proofA, keys.verifyingKeys(), expectedA);
+    const honestB = await openac.verify(proofB, keys.verifyingKeys(), expectedB);
     expect(honestA.valid).toBe(true);
     expect(honestB.valid).toBe(true);
 
@@ -145,6 +170,7 @@ describe("OpenAC verification boundary PoC", () => {
       keys.verifyingKeys(),
       proofA.prepareInstance,
       proofB.showInstance,
+      expectedB,
     );
     expect(mismatchedRealInstances.valid).toBe(false);
 
@@ -154,6 +180,7 @@ describe("OpenAC verification boundary PoC", () => {
       keys.verifyingKeys(),
       proofA.prepareInstance,
       proofA.showInstance,
+      expectedB,
     );
 
     // Prepare A and Show B are not linked, even if the caller supplies A's

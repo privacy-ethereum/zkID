@@ -30,6 +30,10 @@ describe("WitnessCalculator", () => {
         messageHash: BigInt(inputJson.messageHash),
         predicateLen: BigInt(inputJson.predicateLen),
         claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
+        claimIdentifierHashes: inputJson.claimIdentifierHashes.map((v: string) => BigInt(v)),
+        predicateClaimIdentifiers: inputJson.predicateClaimIdentifiers.map((v: string) =>
+          BigInt(v),
+        ),
         predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
         predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
         predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),
@@ -43,11 +47,12 @@ describe("WitnessCalculator", () => {
 
       expect(witness[0]).toBe(1n);
       // Witness layout after binding the verifier statement into the public IO:
-      // w[1] = expressionResult, w[2..=28] = messageHash + predicate program
-      // (public), then the private signals: w[29] = deviceKeyX, w[30] = deviceKeyY.
+      // w[1] = expressionResult, w[2..=30] = messageHash + predicate program
+      // (public, now including predicateClaimIdentifiers), then the private
+      // signals: w[31] = deviceKeyX, w[32] = deviceKeyY.
       expect(witness[2]).toBe(BigInt(inputJson.messageHash));
-      expect(witness[29]).toBe(BigInt(inputJson.deviceKeyX));
-      expect(witness[30]).toBe(BigInt(inputJson.deviceKeyY));
+      expect(witness[31]).toBe(BigInt(inputJson.deviceKeyX));
+      expect(witness[32]).toBe(BigInt(inputJson.deviceKeyY));
     }, 30_000);
 
     it("should generate WTNS binary from show inputs", async () => {
@@ -63,6 +68,10 @@ describe("WitnessCalculator", () => {
         messageHash: BigInt(inputJson.messageHash),
         predicateLen: BigInt(inputJson.predicateLen),
         claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
+        claimIdentifierHashes: inputJson.claimIdentifierHashes.map((v: string) => BigInt(v)),
+        predicateClaimIdentifiers: inputJson.predicateClaimIdentifiers.map((v: string) =>
+          BigInt(v),
+        ),
         predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
         predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
         predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),

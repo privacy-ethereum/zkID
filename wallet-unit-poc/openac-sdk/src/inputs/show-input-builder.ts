@@ -111,6 +111,10 @@ export function buildShowCircuitInputs(
     messageHash: statement.messageHash,
     predicateLen: statement.predicateLen,
     claimValues,
+    // Zero on the JWT path: no per-attribute identity exists to bind to. The
+    // Prepare circuit pins the shared identity slots to zero to match.
+    claimIdentifierHashes: Array(params.nClaims).fill(0n),
+    predicateClaimIdentifiers: statement.predicateClaimIdentifiers,
     predicateClaimRefs: statement.predicateClaimRefs,
     predicateOps: statement.predicateOps,
     predicateRhsIsRef: statement.predicateRhsIsRef,

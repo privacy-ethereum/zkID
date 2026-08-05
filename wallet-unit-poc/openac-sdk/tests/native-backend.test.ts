@@ -63,6 +63,8 @@ describe("Age Verification", () => {
       messageHash: BigInt(inputJson.messageHash),
       predicateLen: BigInt(inputJson.predicateLen),
       claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
+      claimIdentifierHashes: inputJson.claimIdentifierHashes.map((v: string) => BigInt(v)),
+      predicateClaimIdentifiers: inputJson.predicateClaimIdentifiers.map((v: string) => BigInt(v)),
       predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
       predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
       predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),

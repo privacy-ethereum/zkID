@@ -86,9 +86,10 @@ function stubBridge(
 
 /**
  * The Prepare public IO a JWT proof with two claim slots exposes:
- * [normalizedClaimValues[2], KeyBindingX, KeyBindingY, pubKeyX, pubKeyY,
- *  decodeFlags[2], claimFormats[2]] = 10 values.
- * Only the issuer key and the normalization are read back, so the rest is filler.
+ * [pubKeyX, pubKeyY, decodeFlags[2], claimFormats[2]] = 6 values (2n + 2).
+ * Claim values and the device key are NOT here: they are private and reach Show
+ * through comm_W_shared, so publishing them would leak the holder's attributes
+ * and a stable per-credential identifier.
  */
 function preparePublicValuesFor(
   point: { x: bigint; y: bigint },
@@ -97,8 +98,6 @@ function preparePublicValuesFor(
   const pad = (a: number[]) =>
     [0, 1].map((i) => BigInt(a[i] ?? 0));
   return [
-    0n, 0n,
-    0n, 0n,
     point.x, point.y,
     ...pad(normalization.decodeFlags),
     ...pad(normalization.claimFormats),
@@ -172,9 +171,10 @@ describe("Show statement binding: helpers", () => {
       compiled.predicates,
       compiled.logicExpression,
     );
-    // messageHash + predicateLen + 4*maxPredicates + 2*maxLogicTokens + exprLen
+    // messageHash + predicateLen + 5*maxPredicates + 2*maxLogicTokens + exprLen
+    // (5 per predicate: claimRef, op, rhsIsRef, rhsValue, claimIdentifier)
     const p = DEFAULT_SHOW_PARAMS;
-    expect(pv.length).toBe(2 + 4 * p.maxPredicates + 2 * p.maxLogicTokens + 1);
+    expect(pv.length).toBe(2 + 5 * p.maxPredicates + 2 * p.maxLogicTokens + 1);
     expect(pv[0]).toBe(computeMessageHash(NONCE)); // first element is the nonce hash
   });
 });

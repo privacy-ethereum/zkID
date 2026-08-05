@@ -288,6 +288,10 @@ export interface ShowCircuitInputs {
   messageHash: bigint;
   predicateLen: bigint;
   claimValues: bigint[];
+  /** Attribute identity per claim slot; 0 on the JWT path. Shared with Prepare. */
+  claimIdentifierHashes: bigint[];
+  /** Public: attribute identity each predicate is bound to; 0 = unbound. */
+  predicateClaimIdentifiers: bigint[];
   predicateClaimRefs: bigint[];
   predicateOps: bigint[];
   predicateRhsIsRef: bigint[];

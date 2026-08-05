@@ -103,14 +103,15 @@ fn jwt_claim_value_offsets_match_sym() {
              CLAIM_VALUES_WITNESS_START in openac-sdk/src/sizing.ts)."
         );
 
-        // The two leaks this change exists to close. The JWT circuit publishes
-        // nothing: claim values would reveal the exact attribute, and the device
-        // key would be a constant identifier that survives reblinding and lets a
-        // verifier recognize a returning holder.
+        // The two leaks this change exists to close. The circuit publishes the
+        // issuer key and the normalization flags (2n + 2 public inputs, no public
+        // outputs), but never claim values -- which would reveal the exact
+        // attribute -- nor the device key, a constant identifier that survives
+        // reblinding and lets a verifier recognize a returning holder.
         assert_eq!(
             layout.num_public(),
-            0,
-            "{size}: the JWT circuit must have no public outputs"
+            2 * layout.claim_values_len + 2,
+            "{size}: JWT public IO must be exactly issuer key + decodeFlags + claimFormats"
         );
         for idx in layout
             .claim_values_range()

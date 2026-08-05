@@ -4,6 +4,7 @@ import { p256 } from "@noble/curves/nist.js";
 import { circomkit } from "../common/index.ts";
 import { generateMockData } from "../../src/mock-vc-generator.ts";
 import { base64urlToBigInt, bigintToBase64url, stringToPaddedBigIntArray } from "../../src/utils.ts";
+import { witnessIndices } from "../common/witness-signals.ts";
 
 // PoC: jwt.circom:124-125 derives the device-binding key location from the
 // unconstrained prover inputs matchIndex[0..1] / matchLength[0..1]. Nothing ties
@@ -38,16 +39,28 @@ function aimSlot(inputs: any, slot: number, payload: string, target: number) {
   inputs.matchSubstring[slot] = stringToPaddedBigIntArray(payload[k], MAX_SUBSTRING_LENGTH);
 }
 
-// circomkit's readWitnessSignals() loads the .sym file, which for this circuit
-// (~1.75M constraints) exceeds Node's max string length. Outputs sit at fixed
-// witness positions instead: w[0]=1, then outputs in declaration order
-// (jwt.circom:131 normalizedClaimValues[2], :147 KeyBindingX, :148 KeyBindingY).
+// As of the "keep claim values and device key out of Prepare public IO" fix,
+// JWT has NO public outputs: normalizedClaimValues and KeyBindingX/Y are private
+// signals reaching Show through comm_W_shared. Their witness positions are
+// compiler-assigned, so they are looked up from the .sym rather than read at a
+// fixed offset. (Being private does not stop this PoC: Show consumes exactly
+// these signals, so a forged device key here is a forged key downstream.)
 const MAX_CLAIMS = CIRCUIT_PARAMS[2] - 2;
-const outputs = (w: bigint[]) => ({
-  normalizedClaimValues: w.slice(1, 1 + MAX_CLAIMS),
-  KeyBindingX: w[1 + MAX_CLAIMS],
-  KeyBindingY: w[2 + MAX_CLAIMS],
-});
+const CIRCUIT_NAME = "JWTKeyPathPoC";
+
+async function outputs(circuit: WitnessTester<any, any>, w: bigint[]) {
+  const names = [
+    "main.KeyBindingX",
+    "main.KeyBindingY",
+    ...Array.from({ length: MAX_CLAIMS }, (_, i) => `main.normalizedClaimValues[${i}]`),
+  ];
+  const idx = await witnessIndices(circuit, names);
+  return {
+    KeyBindingX: w[idx[0]],
+    KeyBindingY: w[idx[1]],
+    normalizedClaimValues: idx.slice(2).map((i) => w[i]),
+  };
+}
 
 /** All 43-char base64url runs in `s`, as [startIndex, run]. */
 function base64urlRuns(s: string, len = 43): Array<[number, string]> {
@@ -64,7 +77,7 @@ describe("OpenAC JWT device-key path binding PoC", () => {
   let circuit!: WitnessTester<any, any>;
 
   before(async () => {
-    circuit = await circomkit.WitnessTester(`JWTKeyPathPoC`, {
+    circuit = await circomkit.WitnessTester(CIRCUIT_NAME, {
       file: "jwt",
       template: "JWT",
       params: CIRCUIT_PARAMS,
@@ -95,7 +108,7 @@ describe("OpenAC JWT device-key path binding PoC", () => {
     assert.equal(honest.matchLength[0], 5);
     const honestWitness = await circuit.calculateWitness(honest);
     await circuit.expectConstraintPass(honestWitness);
-    const honestOut = outputs(honestWitness);
+    const honestOut = await outputs(circuit, honestWitness);
     assert.equal(honestOut.KeyBindingX, base64urlToBigInt(mock.deviceKey.x));
     assert.equal(honestOut.KeyBindingY, base64urlToBigInt(mock.deviceKey.y));
 
@@ -121,7 +134,7 @@ describe("OpenAC JWT device-key path binding PoC", () => {
     // THE BUG: the circuit accepts it.
     await circuit.expectConstraintPass(maliciousWitness);
 
-    const evilOut = outputs(maliciousWitness);
+    const evilOut = await outputs(circuit, maliciousWitness);
     assert.equal(evilOut.KeyBindingX, base64urlToBigInt(atk.x));
     assert.equal(evilOut.KeyBindingY, base64urlToBigInt(atk.y));
     assert.notEqual(evilOut.KeyBindingX, honestOut.KeyBindingX);

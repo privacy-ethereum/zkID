@@ -327,12 +327,13 @@ describe("Show Circuit via SDK", () => {
     // Witness sanity checks
     expect(witness[0]).toBe(1n); // valid constraint system
     // Witness layout after binding the verifier statement into the public IO:
-    // w[1] = expressionResult, w[2..=28] = messageHash + predicate program
-    // (public), then private signals w[29] = deviceKeyX, w[30] = deviceKeyY.
+    // w[1] = expressionResult, w[2..=30] = messageHash + predicate program
+    // (public, now including predicateClaimIdentifiers), then private signals
+    // w[31] = deviceKeyX, w[32] = deviceKeyY.
     // The device key stays in the shared-witness commitment with Prepare.
     expect(witness[2]).toBe(showInputs.messageHash); // messageHash (public)
-    expect(witness[29]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
-    expect(witness[30]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
+    expect(witness[31]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
+    expect(witness[32]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
   }, 30_000);
 
   it("proves and verifies via NativeBackend", async () => {

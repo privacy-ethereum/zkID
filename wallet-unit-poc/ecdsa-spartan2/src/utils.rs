@@ -102,6 +102,11 @@ pub fn parse_show_inputs(
         ("exprLen", FieldParser::BigIntScalar),
         // Array fields
         ("claimValues", FieldParser::BigIntArray),
+        // Attribute identity per claim slot, shared with the credential circuit,
+        // plus the identity the verifier bound each predicate to (public).
+        // Together they stop a predicate being re-aimed at a different attribute.
+        ("claimIdentifierHashes", FieldParser::BigIntArray),
+        ("predicateClaimIdentifiers", FieldParser::BigIntArray),
         ("predicateClaimRefs", FieldParser::BigIntArray),
         ("predicateOps", FieldParser::BigIntArray),
         ("predicateRhsIsRef", FieldParser::BigIntArray),
@@ -553,13 +558,13 @@ pub const SHOW_NUM_PUBLIC: usize =
 /// Layout of the Show circuit's witness vector.
 ///
 /// Verified against `build/show/show.sym` (`Show(2, 2, 8, 64)`), with the
-/// verifier statement made public (`SHOW_NUM_PUBLIC = 28`):
+/// verifier statement made public (`SHOW_NUM_PUBLIC = 30`):
 ///   witness[1]        = main.expressionResult (public output)
-///   witness[2..=28]   = messageHash + predicate program (public inputs)
-///   witness[29]       = main.deviceKeyX       (private, shared via comm_W_shared)
-///   witness[30]       = main.deviceKeyY       (private, shared)
-///   witness[31]       = main.sig_r            (private)
-///   witness[32]       = main.sig_s_inverse    (private)
+///   witness[2..=30]   = messageHash + predicate program (public inputs)
+///   witness[31]       = main.deviceKeyX       (private, shared via comm_W_shared)
+///   witness[32]       = main.deviceKeyY       (private, shared)
+///   witness[33]       = main.sig_r            (private)
+///   witness[34]       = main.sig_s_inverse    (private)
 ///   witness[35..35+n_claims] = main.claimValues[..] (private, shared)
 ///   witness[35+n_claims..]   = main.claimIdentifierHashes[..] (private, shared)
 #[derive(Debug, Clone, Copy)]
@@ -685,8 +690,8 @@ impl MdocOutputLayout {
 ///   witness[1]    = main.validUntilDate  (public output)
 ///   witness[2]    = main.deviceKeyX      (public output)
 ///   witness[3]    = main.deviceKeyY      (public output)
-///   witness[3321] = main.normalizedClaimValues[0] (private, shared)
-///   witness[3325] = main.claimIdentifierHashes[0]  (private, shared)
+///   witness[3036] = main.normalizedClaimValues[0] (private, shared)
+///   witness[3040] = main.claimIdentifierHashes[0]  (private, shared)
 pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
     // Public outputs occupy witness[1..=3]; the public inputs follow.
     let issuer_key_x_index = 4;
@@ -711,11 +716,11 @@ pub fn calculate_mdoc_output_indices(max_claims: usize) -> MdocOutputLayout {
 
 /// Witness index of `main.normalizedClaimValues[0]` in the compiled MDOC circuit.
 /// Re-derived from `build/mdoc/mdoc.sym` by `tests/witness_layout.rs`.
-pub const MDOC_CLAIM_VALUES_WITNESS_START: usize = 3321;
+pub const MDOC_CLAIM_VALUES_WITNESS_START: usize = 3036;
 
 /// Witness index of `main.claimIdentifierHashes[0]` in the compiled MDOC circuit.
 /// Re-derived from `build/mdoc/mdoc.sym` by `tests/witness_layout.rs`.
-pub const MDOC_CLAIM_IDENTIFIER_HASHES_WITNESS_START: usize = 3325;
+pub const MDOC_CLAIM_IDENTIFIER_HASHES_WITNESS_START: usize = 3040;
 
 /// Parse MDOC circuit inputs from JSON.
 ///
@@ -882,13 +887,13 @@ mod issuer_key_binding_tests {
             .collect()
     }
 
-    /// A JWT public-IO vector: 2 claim values, KeyBindingX/Y, the issuer key,
-    /// then decodeFlags and claimFormats.
+    /// A JWT public-IO vector: the issuer key, then decodeFlags and
+    /// claimFormats. Claim values and the device key are private.
     fn jwt_public_values(key_x: u64, key_y: u64) -> Vec<Scalar> {
-        scalars(&[7, 11, 13, 17, key_x, key_y, 1, 1, 1, 3])
+        scalars(&[key_x, key_y, 1, 1, 1, 3])
     }
 
-    const JWT_KEY_INDEX: usize = 5;
+    const JWT_KEY_INDEX: usize = 1;
 
     /// A proof carrying the expected key at the layout's index is accepted,
     /// whatever surrounds it (claim outputs, device key, normalization).
@@ -941,7 +946,7 @@ mod issuer_key_binding_tests {
             BigInt::from(43),
         )
         .expect_err("a vector shorter than the issuer key must be rejected");
-        assert!(err.contains("expected at least 6"), "unexpected error: {err}");
+        assert!(err.contains("expected at least 2"), "unexpected error: {err}");
     }
 
     /// The issuer key sits in the middle of the public IO, not at its end:
@@ -949,7 +954,7 @@ mod issuer_key_binding_tests {
     /// the property that makes locating it by index necessary.
     #[test]
     fn issuer_key_is_not_the_trailing_public_pair() {
-        let jwt = calculate_jwt_output_indices(4, 128);
+        let jwt = calculate_jwt_output_indices(CircuitSize::Kb1);
         assert_eq!(jwt.issuer_key_x_index, JWT_KEY_INDEX);
         assert!(
             jwt.issuer_key_y_index < jwt.num_public(),
@@ -1000,7 +1005,7 @@ mod issuer_key_layout_tests {
         let Some(contents) = read_sym("../circom/build/jwt_1k/jwt_1k.sym") else {
             return;
         };
-        let layout = calculate_jwt_output_indices(4, 128);
+        let layout = calculate_jwt_output_indices(CircuitSize::Kb1);
 
         for (name, expected) in [
             ("main.pubKeyX", layout.issuer_key_x_index),
