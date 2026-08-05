@@ -90,11 +90,9 @@ impl CircuitSize {
     pub fn claim_values_witness_start(self) -> usize {
         match self {
             CircuitSize::Kb1 => 2462,
-            // TODO(items-1+3): 2k/4k/8k shifted when jwt.circom gained the
-            // claim-identity derivation; re-derive from each recompiled .sym.
-            CircuitSize::Kb2 => 4020,
-            CircuitSize::Kb4 => 7568,
-            CircuitSize::Kb8 => 14664,
+            CircuitSize::Kb2 => 4010,
+            CircuitSize::Kb4 => 7558,
+            CircuitSize::Kb8 => 14654,
         }
     }
 
@@ -105,10 +103,9 @@ impl CircuitSize {
     pub fn claim_identifier_hashes_witness_start(self) -> usize {
         match self {
             CircuitSize::Kb1 => 2526,
-            // TODO(items-1+3): re-derive for 2k/4k/8k on recompile.
-            CircuitSize::Kb2 => 0,
-            CircuitSize::Kb4 => 0,
-            CircuitSize::Kb8 => 0,
+            CircuitSize::Kb2 => 4074,
+            CircuitSize::Kb4 => 7622,
+            CircuitSize::Kb8 => 14718,
         }
     }
 }

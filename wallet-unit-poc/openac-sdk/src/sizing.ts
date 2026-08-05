@@ -50,11 +50,9 @@ export const VC_SIZES: readonly VcSize[] = ["1k", "2k", "4k", "8k"] as const;
  */
 export const CLAIM_VALUES_WITNESS_START: Record<VcSize, number> = {
   "1k": 2462,
-  // TODO(items-1+3): 2k/4k/8k shifted when jwt.circom gained the claim-identity
-  // derivation; re-derive from each recompiled .sym before using those sizes.
-  "2k": 4020,
-  "4k": 7568,
-  "8k": 14664,
+  "2k": 4010,
+  "4k": 7558,
+  "8k": 14654,
 };
 
 /**
@@ -64,10 +62,9 @@ export const CLAIM_VALUES_WITNESS_START: Record<VcSize, number> = {
  */
 export const CLAIM_IDENTITY_WITNESS_START: Record<VcSize, number> = {
   "1k": 2526,
-  // TODO(items-1+3): re-derive for 2k/4k/8k on recompile.
-  "2k": 0,
-  "4k": 0,
-  "8k": 0,
+  "2k": 4074,
+  "4k": 7622,
+  "8k": 14718,
 };
 
 export function selectVcSizeForSigningInput(byteLength: number): VcSize {
