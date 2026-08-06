@@ -20,37 +20,37 @@ export type { VcSize } from "./sizing.js";
 // Regenerate with: shasum -a 256 ecdsa-spartan2/keys/*_{proving,verifying}.key
 const KEY_SHA256: Record<string, string> = {
   "1k_prepare_proving.key":
-    "9a071286c62da4d2094ed54e6d7d279b52d9dcd7d6e402759cbff8c02d64b4fc",
+    "fb2332d46798e882dc90945e586fb7840a231ece3b327f4776d304b5abfadf15",
   "1k_prepare_verifying.key":
-    "74513884fba5a8a6e9e74c3bf459ad62abd5e659cd2d86e43e7d398c6e37ab54",
+    "db23e4f330dce944f47c360d32b048fba65ffbc07a6f61f5d41e06cc260fd92f",
   "1k_show_proving.key":
-    "12217b48ee2ee3d74df725ba9c2a767aa0c96dfdd05427027ab656f3a4438deb",
+    "57e44f74260bde4d8db649e7519e72b44d0e8567e91c5bf02ed337f7eea9ad0b",
   "1k_show_verifying.key":
-    "d6c412db5ebe82b2025a4beb5e1869b43733e14286d6fbbef4a2a6e589883a48",
+    "ef923206bc43725b82f5ec56596cf7be1d0f1343d31e608f1e8296b820a2229f",
   "2k_prepare_proving.key":
-    "84f15ec72cc38c645751c867920e49d81eace4516798344e05d56bad7852bffd",
+    "cc8d9a04f29eb37ab419c05f8c5e4ba6ce82684d06614532453b551d6f637129",
   "2k_prepare_verifying.key":
-    "1686135abc409d786a8073f5c65ec3e8afd0161ebdcdcfc88fcb8a4210057f2a",
+    "2f51530ea952d677a080efad79e99bbab053a86abcec79b87984d102b266993e",
   "2k_show_proving.key":
-    "12217b48ee2ee3d74df725ba9c2a767aa0c96dfdd05427027ab656f3a4438deb",
+    "57e44f74260bde4d8db649e7519e72b44d0e8567e91c5bf02ed337f7eea9ad0b",
   "2k_show_verifying.key":
-    "d6c412db5ebe82b2025a4beb5e1869b43733e14286d6fbbef4a2a6e589883a48",
+    "ef923206bc43725b82f5ec56596cf7be1d0f1343d31e608f1e8296b820a2229f",
   "4k_prepare_proving.key":
-    "cbb77d85ec92a94c974e4fe8a164f94209d34615267339c061d6a6a98ea8a034",
+    "3c561a56db02f7a73130d1a7027fb5caf53e383c18ed3bd5a410ca959c90543e",
   "4k_prepare_verifying.key":
-    "930449b7b75f62b7a09b63cf1bfe1ca26e0ce521918f138b9db07280c14894a9",
+    "9ea8a258b4acbb9975e86f98c665902529c206eb87a489a1822247fd1da59318",
   "4k_show_proving.key":
-    "12217b48ee2ee3d74df725ba9c2a767aa0c96dfdd05427027ab656f3a4438deb",
+    "57e44f74260bde4d8db649e7519e72b44d0e8567e91c5bf02ed337f7eea9ad0b",
   "4k_show_verifying.key":
-    "d6c412db5ebe82b2025a4beb5e1869b43733e14286d6fbbef4a2a6e589883a48",
+    "ef923206bc43725b82f5ec56596cf7be1d0f1343d31e608f1e8296b820a2229f",
   "8k_prepare_proving.key":
-    "402fb1284ef89c58e95f2f021e399b5651758d85b3f55157b25dd4661a3fe792",
+    "1e56494afaf51a092543fdfc2cfd1520564756d2c42f92383da1a88d22bc3f04",
   "8k_prepare_verifying.key":
-    "f992184fdc4c1697d5cd798992617c4193a258e88e028f94af998ed867c79c75",
+    "20e39ee2fc66fec543502816e673731daa190eb2823c2b11b03e8b7067618352",
   "8k_show_proving.key":
-    "12217b48ee2ee3d74df725ba9c2a767aa0c96dfdd05427027ab656f3a4438deb",
+    "57e44f74260bde4d8db649e7519e72b44d0e8567e91c5bf02ed337f7eea9ad0b",
   "8k_show_verifying.key":
-    "d6c412db5ebe82b2025a4beb5e1869b43733e14286d6fbbef4a2a6e589883a48",
+    "ef923206bc43725b82f5ec56596cf7be1d0f1343d31e608f1e8296b820a2229f",
 };
 
 async function verifyKeyDigest(
