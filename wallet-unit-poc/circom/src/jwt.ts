@@ -74,13 +74,12 @@ export function generateJwtInputs(
 
   let { claimArray, claimLengths } = encodeClaims(claims, maxClaims, params.maxClaimLength);
 
+  // Decode only claims the caller declared a format for. Decoding a claim
+  // under a defaulted "uint" format normalizes non-numeric bytes into a
+  // meaningless field element, which the normalizer now rejects outright.
   const decodeFlagsOut: number[] = [];
   for (let i = 0; i < maxClaims; i++) {
-    if (i < claims.length) {
-      decodeFlagsOut.push(/[-_]/.test(claims[i]) ? 0 : 1);
-    } else {
-      decodeFlagsOut.push(0);
-    }
+    decodeFlagsOut.push(i < claims.length && i < claimFormats.length ? 1 : 0);
   }
 
   const claimFormatsOut: bigint[] = [];

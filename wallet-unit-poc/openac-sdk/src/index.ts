@@ -18,10 +18,11 @@ import type {
   PrecomputedCredential,
   PresentRequest,
   PresentationProof,
+  ExpectedStatement,
 } from "./types.js";
 
 export const DEFAULT_KEYS_BASE_URL =
-  "https://pub-d941fd6fc0c84bd892810e681a55edcd.r2.dev";
+  "https://pub-d941fd6fc0c84bd892810e681a55edcd.r2.dev/openac-4.0.0";
 
 export class OpenAC {
   private bridge: WasmBridge;
@@ -123,6 +124,7 @@ export class OpenAC {
   async verify(
     proof: PresentationProof,
     keys: VerifyingKeys,
+    expected: ExpectedStatement,
   ): Promise<VerificationResult> {
     return this.verifier.verifyComponents(
       proof.prepareProof,
@@ -130,14 +132,16 @@ export class OpenAC {
       keys,
       proof.prepareInstance,
       proof.showInstance,
+      expected,
     );
   }
 
   async verifyProof(
     proof: SerializedProof,
     keys: VerifyingKeys,
+    expected: ExpectedStatement,
   ): Promise<VerificationResult> {
-    return this.verifier.verifyProof(proof, keys);
+    return this.verifier.verifyProof(proof, keys, expected);
   }
 
   async verifyComponents(
@@ -146,6 +150,7 @@ export class OpenAC {
     keys: VerifyingKeys,
     prepareInstance: Uint8Array,
     showInstance: Uint8Array,
+    expected: ExpectedStatement,
   ): Promise<VerificationResult> {
     return this.verifier.verifyComponents(
       prepareProof,
@@ -153,6 +158,7 @@ export class OpenAC {
       keys,
       prepareInstance,
       showInstance,
+      expected,
     );
   }
 
@@ -190,13 +196,38 @@ function createKeySet(
 
 // Re-exports
 export { Credential } from "./credential.js";
+export type { CredentialProfileOptions } from "./credential.js";
 export { Prover, deserializePrecomputed } from "./prover.js";
 export { Verifier } from "./verifier.js";
 export { WitnessCalculator } from "./witness-calculator.js";
 export { NativeBackend } from "./native-backend.js";
 export type { NativeBackendConfig } from "./native-backend.js";
 // Typed predicate DSL (recommended public API).
-export { compilePredicateExpression } from "./predicates.js";
+export {
+  compilePredicateExpression,
+  assertNormalizationSupports,
+  checkNormalizationSupports,
+  requiredNormalization,
+} from "./predicates.js";
+// Verifier-statement binding helpers (nonce hash + compiled predicate program).
+export {
+  computeMessageHash,
+  buildShowStatementFields,
+  buildShowStatementPublicValues,
+} from "./inputs/show-statement.js";
+// Issuer-key helpers: convert a key to the coordinates the circuits use, and
+// read those coordinates back out of a proof's public values.
+export { issuerPublicKeyToPoint } from "./inputs/issuer-key.js";
+// Readers for the Prepare proof's public IO: the issuer key, and the claim
+// normalization the proof's claim values were produced under.
+export {
+  extractIssuerKeyFromPreparePublicValues,
+  extractClaimNormalizationFromPreparePublicValues,
+} from "./inputs/prepare-public-io.js";
+export type { IssuerKeyPoint } from "./inputs/prepare-public-io.js";
+// Circuit-level predicate program types/constants, for building ExpectedStatement.
+export { PredicateOp, LogicToken } from "./inputs/show-input-builder.js";
+export type { PredicateSpec, PredicateRhs } from "./inputs/show-input-builder.js";
 export type {
   Predicate,
   PredicateExpression,
@@ -218,6 +249,8 @@ export type {
   OpenACConfig,
   ProofPublicValues,
   VerificationResult,
+  ExpectedStatement,
+  ProvenIssuerKey,
   VerifyingKeys,
   KeySet,
   SerializedKeySet,
@@ -231,6 +264,7 @@ export type {
   ErrorCode,
   PrecomputeRequest,
   PrecomputedCredential,
+  ClaimNormalization,
   PrecomputeTiming,
   PresentRequest,
   PresentationProof,

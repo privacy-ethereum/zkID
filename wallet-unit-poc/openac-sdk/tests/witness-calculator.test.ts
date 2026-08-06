@@ -30,6 +30,11 @@ describe("WitnessCalculator", () => {
         messageHash: BigInt(inputJson.messageHash),
         predicateLen: BigInt(inputJson.predicateLen),
         claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
+        claimIdentifierHashes: inputJson.claimIdentifierHashes.map((v: string) => BigInt(v)),
+        predicateClaimNames: inputJson.predicateClaimNames.map((r: string[]) => r.map((v) => BigInt(v))),
+        predicateClaimNameLens: inputJson.predicateClaimNameLens.map((v: string) => BigInt(v)),
+        predicateRhsClaimNames: inputJson.predicateRhsClaimNames.map((r: string[]) => r.map((v) => BigInt(v))),
+        predicateRhsClaimNameLens: inputJson.predicateRhsClaimNameLens.map((v: string) => BigInt(v)),
         predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
         predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
         predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),
@@ -42,10 +47,14 @@ describe("WitnessCalculator", () => {
       const witness = await calculator.calculateShowWitness(inputs);
 
       expect(witness[0]).toBe(1n);
-      // Witness layout (unchanged by the device-key-hiding fix): w[1] = expressionResult,
-      // w[2] = deviceKeyX, w[3] = deviceKeyY. After the fix, only w[1] is verifier-observable.
-      expect(witness[2]).toBe(BigInt(inputJson.deviceKeyX));
-      expect(witness[3]).toBe(BigInt(inputJson.deviceKeyY));
+      // Witness layout after binding the verifier statement into the public IO:
+      // w[1] = expressionResult, w[2..=30] = messageHash + predicate program
+      // (public, now including predicateClaimIdentifiers), then the private
+      // Show now has 156 public signals (names replaced the scalar identifier),
+      // so the private device key sits at witness[157]/[158] (SHOW_NUM_PUBLIC+1).
+      expect(witness[2]).toBe(BigInt(inputJson.messageHash));
+      expect(witness[157]).toBe(BigInt(inputJson.deviceKeyX));
+      expect(witness[158]).toBe(BigInt(inputJson.deviceKeyY));
     }, 30_000);
 
     it("should generate WTNS binary from show inputs", async () => {
@@ -61,6 +70,11 @@ describe("WitnessCalculator", () => {
         messageHash: BigInt(inputJson.messageHash),
         predicateLen: BigInt(inputJson.predicateLen),
         claimValues: inputJson.claimValues.map((v: string) => BigInt(v)),
+        claimIdentifierHashes: inputJson.claimIdentifierHashes.map((v: string) => BigInt(v)),
+        predicateClaimNames: inputJson.predicateClaimNames.map((r: string[]) => r.map((v) => BigInt(v))),
+        predicateClaimNameLens: inputJson.predicateClaimNameLens.map((v: string) => BigInt(v)),
+        predicateRhsClaimNames: inputJson.predicateRhsClaimNames.map((r: string[]) => r.map((v) => BigInt(v))),
+        predicateRhsClaimNameLens: inputJson.predicateRhsClaimNameLens.map((v: string) => BigInt(v)),
         predicateClaimRefs: inputJson.predicateClaimRefs.map((v: string) => BigInt(v)),
         predicateOps: inputJson.predicateOps.map((v: string) => BigInt(v)),
         predicateRhsIsRef: inputJson.predicateRhsIsRef.map((v: string) => BigInt(v)),

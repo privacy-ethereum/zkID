@@ -191,6 +191,33 @@ template HashModScalarField() {
     // checks above only range-check each limb; without this recomposition
     hashNum.out === hashLo + hashHi * (2 ** 128);
 
+    // Recomposition alone is mod P, so hashLo + hashHi*2^128 = hashNum.out + P
+    // also satisfies it whenever that stays under 2^256, shifting the reduced
+    // hash by (P mod q). Pin the recomposed integer to the canonical range.
+    var plo = 0x00000000ffffffffffffffffffffffff;
+    var phi = 0xffffffff000000010000000000000000;
+
+    component canonHi = LessThan(129);
+    canonHi.in[0] <== hashHi;
+    canonHi.in[1] <== phi;
+
+    component canonHiEq = IsEqual();
+    canonHiEq.in[0] <== hashHi;
+    canonHiEq.in[1] <== phi;
+
+    component canonLo = LessThan(129);
+    canonLo.in[0] <== hashLo;
+    canonLo.in[1] <== plo;
+
+    component canonTie = AND();
+    canonTie.a <== canonHiEq.out;
+    canonTie.b <== canonLo.out;
+
+    component isCanonical = OR();
+    isCanonical.a <== canonHi.out;
+    isCanonical.b <== canonTie.out;
+    isCanonical.out === 1;
+
     // hash >= q
     component alpha = GreaterThan(129);
     alpha.in[0] <== hashHi;

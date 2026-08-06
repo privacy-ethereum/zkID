@@ -70,6 +70,44 @@ impl CircuitSize {
     pub fn n_claims(self) -> usize {
         self.max_matches() - 2
     }
+
+    /// Witness index of `main.normalizedClaimValues[0]` in the compiled JWT circuit.
+    ///
+    /// The JWT circuit has **no public outputs**: normalized claim values would
+    /// publish the exact claim (a date of birth), and the device key would
+    /// publish a constant per-credential identifier that survives reblinding and
+    /// lets a verifier recognize a returning holder. Both are private signals
+    /// reaching Show through the shared witness commitment, which puts them
+    /// among the intermediates at offsets that shift with `maxMessageLength` —
+    /// hence the per-size table.
+    ///
+    /// `KeyBindingX/Y` follow immediately after the claim values, matching their
+    /// declaration order in `jwt.circom`.
+    ///
+    /// `tests/witness_layout.rs` re-derives every value from the circuit's `.sym`
+    /// file, so a recompile that moves these fails loudly instead of silently
+    /// reading the wrong slot.
+    pub fn claim_values_witness_start(self) -> usize {
+        match self {
+            CircuitSize::Kb1 => 2462,
+            CircuitSize::Kb2 => 4010,
+            CircuitSize::Kb4 => 7558,
+            CircuitSize::Kb8 => 14654,
+        }
+    }
+
+    /// Witness index of `main.claimIdentifierHashes[0]` in each compiled JWT
+    /// circuit. Follows normalizedClaimValues[maxClaims] (with the name-extractor
+    /// internal signals in between), and is immediately followed by KeyBindingX/Y.
+    /// Re-derived from each `.sym` by `tests/witness_layout.rs`.
+    pub fn claim_identifier_hashes_witness_start(self) -> usize {
+        match self {
+            CircuitSize::Kb1 => 2526,
+            CircuitSize::Kb2 => 4074,
+            CircuitSize::Kb4 => 7622,
+            CircuitSize::Kb8 => 14718,
+        }
+    }
 }
 
 impl Default for CircuitSize {

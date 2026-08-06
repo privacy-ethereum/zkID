@@ -6,8 +6,8 @@ import { createTestMdocCredential } from "./mdoc-fixture";
 import { generateMdocCircuitParams, generateMdocInputs, parseMdocClaims, type MdocClaimType } from "./mdoc";
 import { generateShowInputs, signDeviceNonce } from "./show";
 
-// Mirrors circuits/main/mdoc.circom: MDOC(1792, 256, 4, 32, 64, 64).
-const MDOC_PARAMS: [number, number, number, number, number, number] = [1792, 256, 4, 32, 64, 64];
+// Mirrors circuits/main/mdoc.circom: MDOC(1792, 256, 4, 32, 64).
+const MDOC_PARAMS: [number, number, number, number, number] = [1792, 256, 4, 32, 64];
 
 // Mirrors circuits/main/show.circom: Show(2, 2, 8, 64).
 const SHOW_PARAMS = { nClaims: 2, maxPredicates: 2, maxLogicTokens: 8, valueBits: 64 };
@@ -48,14 +48,14 @@ async function main(): Promise<void> {
   };
 
   const params = generateMdocCircuitParams([...MDOC_PARAMS]);
-  const { claims, deviceKeyPrefixData } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, claimConfig);
+  const { claims, deviceKeyPos } = parseMdocClaims(cred.tbsData, cred.items, cred.deviceKeyX, claimConfig);
   const mdocInputs = generateMdocInputs(
     params,
     cred.tbsData,
     cred.signature,
     cred.issuerPubRaw,
     claims,
-    deviceKeyPrefixData,
+    deviceKeyPos,
   );
 
   const mdocDir = path.join(circomDir, "inputs", "mdoc");

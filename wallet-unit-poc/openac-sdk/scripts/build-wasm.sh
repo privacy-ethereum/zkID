@@ -30,6 +30,10 @@ wasm-pack build \
 echo "=== WASM build complete ==="
 echo "Output: $WASM_DIR/pkg/"
 
+# wasm-pack writes pkg/.gitignore = '*', which also excludes pkg/ from the npm
+# tarball despite files:['wasm/pkg']. Strip it so the bundled WASM actually ships.
+rm -f "$WASM_DIR/pkg/.gitignore"
+
 # Copy circuit artifacts if they exist
 CIRCOM_BUILD="$SDK_DIR/../circom/build"
 ASSETS_DIR="$SDK_DIR/assets"

@@ -35,6 +35,25 @@ template MdocClaimVerifier(maxCredLen, maxPreimageLen, maxIdentifierLen) {
         isActive
     );
 
+    // Range-check the length first so a huge prover-supplied value can't wrap
+    // the position arithmetic below.
+    var ID_POS_BITS = log2Ceil(maxPreimageLen + 1);
+    component idLenLe = LessEqThan(log2Ceil(maxIdentifierLen + 1));
+    idLenLe.in[0] <== identifierLength;
+    idLenLe.in[1] <== maxIdentifierLen;
+    (1 - idLenLe.out) * isActive === 0;
+
+    // Bound the identifier to the SHA-authenticated preimage region. The
+    // substring match above runs over the full maxPreimageLen array, but only
+    // the first preimageLength bytes are covered by the SHA-256 digest the
+    // issuer signed (checked below). Without this bound a prover could plant a
+    // favourable identifier in the un-hashed tail and have it "match", forging
+    // the claim identity that Show now binds predicates to (Item 7).
+    component idEndLe = LessEqThan(ID_POS_BITS);
+    idEndLe.in[0] <== identifierPos + identifierLength;
+    idEndLe.in[1] <== preimageLength;
+    (1 - idEndLe.out) * isActive === 0;
+
     signal sha[256] <== Sha256Bytes(maxPreimageLen)(preimage, preimageLength);
 
     component bits2byte[32];

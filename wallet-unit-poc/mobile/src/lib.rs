@@ -7,7 +7,8 @@ use ecdsa_spartan2::{
     },
     prover::{
         generate_shared_blinds as gen_shared_blinds, prove_circuit, prove_circuit_with_pk, reblind,
-        reblind_with_loaded_data, verify_circuit, verify_circuit_with_loaded_data,
+        reblind_with_loaded_data, try_verify_circuit, verify_circuit_with_loaded_data,
+        verify_linked_paths,
     },
     save_keys,
     setup::{setup_circuit_keys, setup_circuit_keys_no_save},
@@ -376,11 +377,12 @@ pub fn reblind_show(documents_path: String) -> Result<ProofResult, ZkProofError>
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 pub fn verify_jwt(documents_path: String) -> Result<bool, ZkProofError> {
     let config = make_config(&documents_path);
-    verify_circuit(
+    // Item 12: return the REAL result. verify_circuit panicked on an invalid
+    // proof and this always returned Ok(true); try_verify_circuit returns a bool.
+    Ok(try_verify_circuit(
         config.artifact_path(PREPARE_PROOF),
         config.key_path(PREPARE_VERIFYING_KEY),
-    );
-    Ok(true)
+    ))
 }
 
 /// Verify Show circuit proof
@@ -388,11 +390,24 @@ pub fn verify_jwt(documents_path: String) -> Result<bool, ZkProofError> {
 #[cfg_attr(feature = "uniffi", uniffi::export)]
 pub fn verify_show(documents_path: String) -> Result<bool, ZkProofError> {
     let config = make_config(&documents_path);
-    verify_circuit(
+    Ok(try_verify_circuit(
         config.artifact_path(SHOW_PROOF),
         config.key_path(SHOW_VERIFYING_KEY),
-    );
-    Ok(true)
+    ))
+}
+
+/// Verify a full presentation: both proofs verify AND commit to the same shared
+/// witness (Item 12). This is the check a verifier must make — verifying the two
+/// proofs separately does not bind them to the same credential.
+#[cfg_attr(feature = "uniffi", uniffi::export)]
+pub fn verify_presentation(documents_path: String) -> Result<bool, ZkProofError> {
+    let config = make_config(&documents_path);
+    Ok(verify_linked_paths(
+        config.artifact_path(PREPARE_PROOF),
+        config.key_path(PREPARE_VERIFYING_KEY),
+        config.artifact_path(SHOW_PROOF),
+        config.key_path(SHOW_VERIFYING_KEY),
+    ))
 }
 
 // ============================================================================

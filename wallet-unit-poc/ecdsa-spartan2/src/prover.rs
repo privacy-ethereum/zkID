@@ -384,6 +384,72 @@ pub fn verify_circuit_with_loaded_data(
     public_values
 }
 
+/// Path-based single-proof verify that returns a bool instead of panicking
+/// (Item 12): FFI/mobile callers must be able to report a false result rather
+/// than crash across the boundary or return an unconditional `Ok(true)`.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn try_verify_circuit(
+    proof_path: impl AsRef<Path>,
+    vk_path: impl AsRef<Path>,
+) -> bool {
+    let Ok(proof) = load_proof(&proof_path) else {
+        return false;
+    };
+    let Ok(vk) = load_verifying_key(&vk_path) else {
+        return false;
+    };
+    proof.verify(&vk).is_ok()
+}
+
+/// Path-based Prepare+Show linked verify for FFI/mobile: both proofs verify AND
+/// share the same `comm_W_shared`. Returns a plain bool (never panics).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn verify_linked_paths(
+    prepare_proof_path: impl AsRef<Path>,
+    prepare_vk_path: impl AsRef<Path>,
+    show_proof_path: impl AsRef<Path>,
+    show_vk_path: impl AsRef<Path>,
+) -> bool {
+    let (Ok(pp), Ok(pvk), Ok(sp), Ok(svk)) = (
+        load_proof(&prepare_proof_path),
+        load_verifying_key(&prepare_vk_path),
+        load_proof(&show_proof_path),
+        load_verifying_key(&show_vk_path),
+    ) else {
+        return false;
+    };
+    verify_linked(&pp, &pvk, &sp, &svk).is_some()
+}
+
+/// Verify a Prepare + Show proof pair AND their `comm_W_shared` linkage (Item 12).
+///
+/// Returns `Some((prepare_public_values, show_public_values))` only when BOTH
+/// proofs verify and commit to the same shared witness; `None` otherwise.
+/// Unlike `verify_circuit_with_loaded_data`, this never panics on an invalid
+/// proof — it returns `None` — so FFI/mobile/CLI callers can report a real
+/// result instead of `Ok(true)` (or a crash). The linkage is what stops an
+/// honest Prepare being paired with an independently-forged Show over unrelated
+/// claim values and a self-chosen device key.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn verify_linked(
+    prepare_proof: &R1CSSNARK<E>,
+    prepare_vk: &<R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey,
+    show_proof: &R1CSSNARK<E>,
+    show_vk: &<R1CSSNARK<E> as R1CSSNARKTrait<E>>::VerifierKey,
+) -> Option<(Vec<Scalar>, Vec<Scalar>)> {
+    let prepare_public_values = prepare_proof.verify(prepare_vk).ok()?;
+    let show_public_values = show_proof.verify(show_vk).ok()?;
+
+    // Both proofs must commit to the same shared witness. Read the commitments
+    // from the verified proofs (not any caller-supplied instance).
+    let prepare_shared = prepare_proof.comm_W_shared();
+    let show_shared = show_proof.comm_W_shared();
+    if prepare_shared.is_none() || show_shared.is_none() || prepare_shared != show_shared {
+        return None;
+    }
+    Some((prepare_public_values, show_public_values))
+}
+
 /// Generate witness for the Prepare circuit (native builds only).
 /// Returns the full witness vector.
 ///

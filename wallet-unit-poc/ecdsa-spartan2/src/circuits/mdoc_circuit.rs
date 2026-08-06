@@ -1,10 +1,10 @@
-use super::synthesize_witness_only;
+use super::{bind_shared, synthesize_all_vars, synthesize_witness_only};
 use crate::{
     paths::PathConfig, prover::generate_mdoc_witness, utils::calculate_mdoc_output_indices, Scalar,
     E,
 };
 use bellpepper_core::{num::AllocatedNum, ConstraintSystem, SynthesisError};
-use circom_scotia::{reader::load_r1cs, synthesize};
+use circom_scotia::reader::load_r1cs;
 use ff::Field;
 use spartan2::traits::circuit::SpartanCircuit;
 use std::{
@@ -106,17 +106,21 @@ impl SpartanCircuit<E> for MdocCircuit {
     fn synthesize<CS: ConstraintSystem<Scalar>>(
         &self,
         cs: &mut CS,
-        _: &[AllocatedNum<Scalar>],
+        shared: &[AllocatedNum<Scalar>],
         _: &[AllocatedNum<Scalar>],
         _: Option<&[Scalar]>,
     ) -> Result<(), SynthesisError> {
         let cs_type = type_name::<CS>();
         let is_setup_phase = cs_type.contains("ShapeCS");
+        let layout = calculate_mdoc_output_indices(MDOC_MAX_CLAIMS);
+        let shared_claims = MDOC_SHARED_CLAIMS.min(layout.claim_values_len);
+        let shared_indices = layout.shared_witness_indices(shared_claims);
 
         if is_setup_phase {
             let r1cs =
                 load_r1cs(&self.r1cs_path()).map_err(|_| SynthesisError::AssignmentMissing)?;
-            synthesize(cs, r1cs, None)?;
+            let vars = synthesize_all_vars(cs, r1cs, None)?;
+            bind_shared(cs, shared, &vars, &shared_indices)?;
             return Ok(());
         }
 
@@ -124,10 +128,10 @@ impl SpartanCircuit<E> for MdocCircuit {
 
         match load_r1cs::<Scalar>(&self.r1cs_path()) {
             Ok(r1cs) => {
-                synthesize(cs, r1cs, Some(witness))?;
+                let vars = synthesize_all_vars(cs, r1cs, Some(witness))?;
+                bind_shared(cs, shared, &vars, &shared_indices)?;
             }
             Err(_) => {
-                let layout = calculate_mdoc_output_indices(MDOC_MAX_CLAIMS);
                 synthesize_witness_only(cs, &witness, layout.num_public())?;
             }
         }
@@ -157,11 +161,13 @@ impl SpartanCircuit<E> for MdocCircuit {
             let cache = self.cached_witness.lock().unwrap();
             cache.clone()
         }
-        .or_else(|| {
-            self.input_path
-                .as_ref()
-                .and_then(|_| self.get_or_generate_witness().ok())
-        });
+        // Not gated on `input_path`: it is `None` on every native pipeline path,
+        // which used to leave the shared partition all zeros while `synthesize`
+        // used the real witness. Nothing caught it because the shared variables
+        // were unconstrained, so `comm_W_shared` compared commitments to zeros
+        // and matched trivially. `bind_shared` now constrains these, so they
+        // must come from the same witness `synthesize` sees.
+        .or_else(|| self.get_or_generate_witness().ok());
 
         let device_key_x = witness
             .as_ref()
@@ -176,9 +182,11 @@ impl SpartanCircuit<E> for MdocCircuit {
         let dk_y_alloc = AllocatedNum::alloc(cs.namespace(|| "deviceKeyY"), || Ok(device_key_y))?;
 
         // Shared layout (must match `ShowCircuit::shared`):
-        //   [deviceKeyX, deviceKeyY, normalizedClaimValues[0..MDOC_SHARED_CLAIMS]]
+        //   [deviceKeyX, deviceKeyY,
+        //    normalizedClaimValues[0..MDOC_SHARED_CLAIMS],
+        //    claimIdentifierHashes[0..MDOC_SHARED_CLAIMS]]
         let shared_claims = MDOC_SHARED_CLAIMS.min(layout.claim_values_len);
-        let mut shared_values = Vec::with_capacity(2 + shared_claims);
+        let mut shared_values = Vec::with_capacity(2 + 2 * shared_claims);
         shared_values.push(dk_x_alloc);
         shared_values.push(dk_y_alloc);
 
@@ -192,6 +200,18 @@ impl SpartanCircuit<E> for MdocCircuit {
                     Ok(claim_scalar)
                 })?;
             shared_values.push(claim_alloc);
+        }
+
+        for idx in 0..shared_claims {
+            let id_scalar = witness
+                .as_ref()
+                .map(|w| w[layout.claim_identifier_hashes_start + idx])
+                .unwrap_or(Scalar::ZERO);
+            let id_alloc = AllocatedNum::alloc(
+                cs.namespace(|| format!("ClaimIdentifierHash{idx}")),
+                move || Ok(id_scalar),
+            )?;
+            shared_values.push(id_alloc);
         }
 
         Ok(shared_values)

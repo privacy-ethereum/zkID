@@ -1,0 +1,16 @@
+{
+  "name": "openac-wasm",
+  "type": "module",
+  "description": "WASM bindings for OpenAC zero-knowledge proving system",
+  "version": "0.1.0",
+  "files": [
+    "openac_wasm_bg.wasm",
+    "openac_wasm.js",
+    "openac_wasm.d.ts"
+  ],
+  "main": "openac_wasm.js",
+  "types": "openac_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
