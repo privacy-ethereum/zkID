@@ -6,7 +6,10 @@ import { generateMockData } from "../../src/mock-vc-generator.ts";
 import { base64urlToBigInt, bigintToBase64url, stringToPaddedBigIntArray } from "../../src/utils.ts";
 import { witnessIndices } from "../common/witness-signals.ts";
 
-// PoC: jwt.circom:124-125 derives the device-binding key location from the
+// PoC (FIXED: jwt.circom now pins match slots 0/1 to the '"x":"' / '"y":"'
+// literals, so the re-aiming below is rejected; the test asserts the fix).
+//
+// Original finding: jwt.circom:124-125 derived the device-binding key location from the
 // unconstrained prover inputs matchIndex[0..1] / matchLength[0..1]. Nothing ties
 // matchSubstring[0]/[1] to the literals '"x":"' / '"y":"' (that is only an SDK
 // convention, openac-sdk/src/inputs/jwt-input-builder.ts:171), so the prover can
@@ -86,7 +89,7 @@ describe("OpenAC JWT device-key path binding PoC", () => {
     console.log("#constraints:", await circuit.getConstraintCount());
   });
 
-  it("accepts a witness that re-aims KeyBindingX/Y at an attacker-planted base64url run", async () => {
+  it("rejects a witness that re-aims KeyBindingX/Y at an attacker-planted base64url run", async () => {
     const atk = attackerKey();
 
     // The holder controls its own `sub` identifier. Planting the attacker's
@@ -130,19 +133,14 @@ describe("OpenAC JWT device-key path binding PoC", () => {
     assert.deepEqual(malicious.claims, honest.claims);
     assert.equal(malicious.matchesCount, honest.matchesCount);
 
-    const maliciousWitness = await circuit.calculateWitness(malicious);
-    // THE BUG: the circuit accepts it.
-    await circuit.expectConstraintPass(maliciousWitness);
-
-    const evilOut = await outputs(circuit, maliciousWitness);
-    assert.equal(evilOut.KeyBindingX, base64urlToBigInt(atk.x));
-    assert.equal(evilOut.KeyBindingY, base64urlToBigInt(atk.y));
-    assert.notEqual(evilOut.KeyBindingX, honestOut.KeyBindingX);
-    assert.notEqual(evilOut.KeyBindingY, honestOut.KeyBindingY);
-
-    // Both witnesses also produce identical claim outputs: the verifier sees the
-    // same credential, bound to a key whose private half the attacker holds.
-    assert.deepEqual(evilOut.normalizedClaimValues, honestOut.normalizedClaimValues);
+    // THE FIX: jwt.circom pins match slots 0/1 to the literal '"x":"' / '"y":"'
+    // anchors (matchLength === 5 plus fixed bytes), so the length-1 re-aiming
+    // trick no longer satisfies the circuit.
+    await assert.rejects(
+      () => circuit.calculateWitness(malicious),
+      /Assert Failed/,
+      "re-aimed device-key witness must be rejected",
+    );
   });
 
   // --- Negative PoC: precondition boundary --------------------------------

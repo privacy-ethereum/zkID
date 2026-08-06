@@ -3,6 +3,7 @@ import { circomkit } from "../common/index.ts";
 import { generateMockData } from "../../src/mock-vc-generator.ts";
 import { LogicToken, generateShowCircuitParams, generateShowInputs, predicateToken, signDeviceNonce } from "../../src/show.ts";
 import { base64ToBigInt, base64urlToBase64 } from "../../src/utils.ts";
+import { bindPredicateName, bindPredicateRhsName } from "../common/claim-identity.ts";
 import assert from "assert";
 import { p256 } from "@noble/curves/nist.js";
 
@@ -50,6 +51,7 @@ describe("Show Circuit - Device Binding Verification", () => {
 
       const params = generateShowCircuitParams(mockData.circuitParams);
       const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, [], [], [0n]);
+      await bindPredicateName(inputs, 0, 0, "name");
 
       const witness = await circuit.calculateWitness(inputs);
       await circuit.expectConstraintPass(witness);
@@ -89,6 +91,7 @@ describe("Show Circuit - Device Binding Verification", () => {
           const deviceSignature = signDeviceNonce(nonce, devicePrivateKey);
           const params = generateShowCircuitParams(mockData.circuitParams);
           const inputs = generateShowInputs(params, nonce, deviceSignature, mockData.deviceKey, [], [], [0n]);
+          await bindPredicateName(inputs, 0, 0, "name");
 
           const witness = await circuit.calculateWitness(inputs);
           await circuit.expectConstraintPass(witness);
@@ -114,6 +117,7 @@ describe("Show Circuit - Device Binding Verification", () => {
 
       const params = generateShowCircuitParams(mockData.circuitParams);
       const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, [], [], [0n]);
+      await bindPredicateName(inputs, 0, 0, "name");
 
       const witness = await circuit.calculateWitness(inputs);
       await circuit.expectConstraintPass(witness);
@@ -153,6 +157,8 @@ describe("Show Circuit - Device Binding Verification", () => {
       inputs.predicateClaimRefs[1] = 1n;
       inputs.predicateOps[1] = 2n;
       inputs.predicateRhsValues[1] = 1n;
+      await bindPredicateName(inputs, 0, 0, "claim_a");
+      await bindPredicateName(inputs, 1, 1, "claim_b");
 
       const witness = await circuit.calculateWitness(inputs);
       await circuit.expectConstraintPass(witness);
@@ -181,6 +187,7 @@ describe("Show Circuit - Device Binding Verification", () => {
       const adultClaim = encodeClaim("roc_birthday", "0570605");
       const params = generateShowCircuitParams(mockData.circuitParams);
       const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, [adultClaim], [], [570605n]);
+      await bindPredicateName(inputs, 0, 0, "roc_birthday");
 
       // pred0: claimValue <= 970331
       inputs.predicateOps[0] = 0n;
@@ -204,6 +211,7 @@ describe("Show Circuit - Device Binding Verification", () => {
       const underageClaim = encodeClaim("roc_birthday", "1040605");
       const params = generateShowCircuitParams(mockData.circuitParams);
       const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, [underageClaim], [], [1040605n]);
+      await bindPredicateName(inputs, 0, 0, "roc_birthday");
 
       // pred0: claimValue <= 970331
       inputs.predicateOps[0] = 0n;
@@ -233,6 +241,7 @@ describe("Show Circuit - Device Binding Verification", () => {
       const scoreClaim = encodeClaim("score", "12345");
       const params = generateShowCircuitParams(mockData.circuitParams);
       const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, [scoreClaim], [], [12345n]);
+      await bindPredicateName(inputs, 0, 0, "score");
 
       // pred0: claimValue >= 10000
       inputs.predicateOps[0] = 1n;
@@ -268,6 +277,7 @@ describe("Show Circuit - Device Binding Verification", () => {
 
       const params = generateShowCircuitParams(mockData.circuitParams);
       const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, [nationalityClaim], [], [packedNationality]);
+      await bindPredicateName(inputs, 0, 0, "nationality");
 
       // pred0: claimValue == pack("TW")
       inputs.predicateOps[0] = 2n;
@@ -292,6 +302,7 @@ describe("Show Circuit - Device Binding Verification", () => {
 
       const params = generateShowCircuitParams(mockData.circuitParams);
       const inputs = generateShowInputs(params, verifierNonce, deviceSignature, mockData.deviceKey, [boolClaim], [], [1n]);
+      await bindPredicateName(inputs, 0, 0, "is_over_18");
 
       // pred0: claimValue == 1
       inputs.predicateOps[0] = 2n;
@@ -343,6 +354,8 @@ describe("Show Circuit - Device Binding Verification", () => {
       inputs.predicateOps[1] = 1n;
       inputs.predicateRhsValues[1] = 10000n;
       inputs.predicateLen = 2n;
+      await bindPredicateName(inputs, 0, 0, "roc_birthday");
+      await bindPredicateName(inputs, 1, 1, "score");
 
       // Expression: pred0 pred1 AND
       inputs.tokenTypes[0] = 0n;
@@ -387,6 +400,8 @@ describe("Show Circuit - Device Binding Verification", () => {
       inputs.predicateOps[0] = 1n;
       inputs.predicateRhsIsRef[0] = 1n;
       inputs.predicateRhsValues[0] = 1n;
+      await bindPredicateName(inputs, 0, 0, "age_now");
+      await bindPredicateRhsName(inputs, 0, 1, "required_age");
 
       // Expression: pred0
       inputs.tokenTypes[0] = 0n;

@@ -6,6 +6,7 @@ import { MDOC_PARAMS, ymdToYyyymmdd } from "../common/mdoc-fixture.ts";
 import { createTestMdocCredential } from "../../src/mdoc-fixture.ts";
 import { generateMdocCircuitParams, generateMdocInputs, parseMdocClaims } from "../../src/mdoc.ts";
 import { generateShowInputs, signDeviceNonce } from "../../src/show.ts";
+import { bindPredicateName, hashClaimName } from "../common/claim-identity.ts";
 import { uint8ArrayToBigIntArray } from "../../src/utils.ts";
 
 const SHOW_PARAMS = [2, 2, 8, 64] as const;
@@ -69,10 +70,7 @@ function buildShowInputs(
   cred: Awaited<ReturnType<typeof createTestMdocCredential>>,
   nonce: string,
   normalizedClaimValues: bigint[],
-  // Both default to 0, reproducing the pre-fix behaviour where a slot carried
-  // no attribute identity.
   claimIdentifierHashes: bigint[] = [],
-  predicateClaimIdentifiers: bigint[] = [],
 ): ShowInputs {
   return generateShowInputs(
     SHOW_PARAM_OBJ,
@@ -83,7 +81,6 @@ function buildShowInputs(
     [],
     normalizedClaimValues,
     claimIdentifierHashes,
-    predicateClaimIdentifiers,
   );
 }
 
@@ -180,20 +177,14 @@ describe("OpenAC mdoc semantic binding PoC", () => {
     const birthValue = ymdToYyyymmdd("2015-01-01");
     await assertMdocNormalizes(mdocCircuit, birthInputs, birthValue);
 
-    // Stand-ins for MDOC's HashBytesToFieldWithLen(identifierCbor). Show only
-    // checks the slot identity equals the policy's; the real hashes are bound
-    // to these slots by the fold's shared segment.
-    const BIRTH_ID = 111111n;
-    const ISSUE_ID = 222222n;
+    // Show hashes the policy's attribute name in-circuit; the slot identity is
+    // the same H(name) on the credential side, bound to the slot by the fold's
+    // shared segment.
+    const ISSUE_ID = await hashClaimName("issue_date");
 
-    const honestShow = buildShowInputs(
-      cred,
-      "mdoc-honest-birth-date-slot",
-      [birthValue, 0n],
-      [BIRTH_ID, 0n],
-      [BIRTH_ID, 0n],
-    );
+    const honestShow = buildShowInputs(cred, "mdoc-honest-birth-date-slot", [birthValue, 0n]);
     setSingleLePredicate(honestShow, verifierCutoff);
+    await bindPredicateName(honestShow, 0, 0, "birth_date");
     await showCircuit.expectPass(honestShow, { expressionResult: 0n });
 
     const wrongIdentifier = cloneInputs(issueInputs);
@@ -202,14 +193,10 @@ describe("OpenAC mdoc semantic binding PoC", () => {
 
     // Slot 0 holds issue_date but the policy names birth_date. This used to
     // return expressionResult=1 and satisfy an age policy the credential fails.
-    const maliciousShow = buildShowInputs(
-      cred,
-      "mdoc-wrong-identifier-slot",
-      [issueValue, 0n],
-      [ISSUE_ID, 0n],
-      [BIRTH_ID, 0n],
-    );
+    const maliciousShow = buildShowInputs(cred, "mdoc-wrong-identifier-slot", [issueValue, 0n]);
     setSingleLePredicate(maliciousShow, verifierCutoff);
+    await bindPredicateName(maliciousShow, 0, 0, "birth_date");
+    maliciousShow.claimIdentifierHashes[0] = ISSUE_ID;
     await showCircuit.expectFail(maliciousShow);
   });
 });

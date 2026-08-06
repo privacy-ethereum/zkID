@@ -6,6 +6,7 @@ import { buildMdocWitness, MDOC_PARAMS, packString, ymdToYyyymmdd } from "../com
 import { createTestMdocCredential } from "../../src/mdoc-fixture.ts";
 import { generateMdocCircuitParams, generateMdocInputs, parseMdocClaims } from "../../src/mdoc.ts";
 import { generateShowInputs, signDeviceNonce } from "../../src/show.ts";
+import { bindPredicateName } from "../common/claim-identity.ts";
 
 const SHOW_PARAMS = [2, 2, 8, 64] as const;
 const SHOW_PARAM_OBJ = {
@@ -89,6 +90,7 @@ describe("Complete Flow: Register (MDOC) → Show Circuit", () => {
 
     // born on or before 2000-01-01 (YYYYMMDD 20000101)
     setSinglePredicate(showInputs, { claimRef: 0n, op: 0n, rhs: 20000101n });
+    await bindPredicateName(showInputs, 0, 0, "birth_date");
 
     await showCircuit.expectPass(showInputs, { expressionResult: 1n });
   });
@@ -119,6 +121,7 @@ describe("Complete Flow: Register (MDOC) → Show Circuit", () => {
 
     // force a false condition: birthDate <= (birthDate - 1)
     setSinglePredicate(showInputs, { claimRef: 0n, op: 0n, rhs: birthDate - 1n });
+    await bindPredicateName(showInputs, 0, 0, "birth_date");
 
     await showCircuit.expectPass(showInputs, { expressionResult: 0n });
   });
