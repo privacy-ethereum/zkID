@@ -3,11 +3,7 @@ import { sha256 } from "@noble/hashes/sha2";
 import { Field } from "@noble/curves/abstract/modular";
 
 import {
-  base64urlToBase64,
   base64Decode,
-  base64ToBigInt,
-  base64urlEncode,
-  bytesToBigInt,
   uint8ArrayToBigIntArray,
   stringToPaddedBigIntArray,
   sha256Pad,
@@ -17,76 +13,20 @@ import {
 } from "../utils.js";
 import { InputError } from "../errors.js";
 import { Credential } from "../credential.js";
+import { issuerPublicKeyToPoint } from "./issuer-key.js";
+import {
+  assertUnambiguousPayload,
+  DEVICE_KEY_ANCHORS,
+} from "./payload-anchors.js";
 import type {
   JwtCircuitParams,
   JwtCircuitInputs,
-  EcdsaPublicKey,
-  PemPublicKey,
   IssuerPublicKey,
 } from "../types.js";
 
 const Fq = Field(
   BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"),
 );
-
-/**
- * Convert a PEM-encoded ECDSA P-256 public key to JWK format.
- * Handles SubjectPublicKeyInfo (SPKI) format commonly used in X.509 certificates.
- */
-function pemToJwk(pem: string): EcdsaPublicKey {
-  // Remove PEM headers and whitespace
-  const base64 = pem
-    .replace(/-----BEGIN PUBLIC KEY-----/, "")
-    .replace(/-----END PUBLIC KEY-----/, "")
-    .replace(/-----BEGIN EC PUBLIC KEY-----/, "")
-    .replace(/-----END EC PUBLIC KEY-----/, "")
-    .replace(/\s/g, "");
-
-  const der = base64Decode(base64);
-
-  // Find the uncompressed point in the DER structure
-  // P-256 uncompressed points are 65 bytes: 0x04 || 32-byte X || 32-byte Y
-  // In SPKI format, this appears after the algorithm identifier
-  let pointStart = -1;
-  for (let i = 0; i < der.length - 64; i++) {
-    if (der[i] === 0x04 && der.length - i >= 65) {
-      // Verify this looks like a valid uncompressed point position
-      // The byte before 0x04 in SPKI should be the BIT STRING content
-      pointStart = i;
-      break;
-    }
-  }
-
-  if (pointStart === -1) {
-    throw new InputError(
-      "INVALID_KEY",
-      "Could not parse PEM public key: uncompressed point marker (0x04) not found",
-    );
-  }
-
-  const x = der.slice(pointStart + 1, pointStart + 33);
-  const y = der.slice(pointStart + 33, pointStart + 65);
-
-  // Validate the point is on the P-256 curve
-  const xBigInt = bytesToBigInt(x);
-  const yBigInt = bytesToBigInt(y);
-
-  try {
-    p256.ProjectivePoint.fromAffine({ x: xBigInt, y: yBigInt });
-  } catch {
-    throw new InputError(
-      "INVALID_KEY",
-      "PEM public key is not a valid P-256 curve point",
-    );
-  }
-
-  return {
-    kty: "EC",
-    crv: "P-256",
-    x: base64urlEncode(x),
-    y: base64urlEncode(y),
-  };
-}
 
 export function buildJwtCircuitInputs(
   credential: Credential,
@@ -122,25 +62,9 @@ export function buildJwtCircuitInputs(
   const sigDecoded = p256.Signature.fromCompact(sigHex);
   const sigSInverse = Fq.inv(sigDecoded.s);
 
-  // decode public key
-  let pubKeyX: bigint;
-  let pubKeyY: bigint;
-
-  if ("pem" in issuerPublicKey) {
-    const jwk = pemToJwk((issuerPublicKey as PemPublicKey).pem);
-    pubKeyX = base64ToBigInt(base64urlToBase64(jwk.x));
-    pubKeyY = base64ToBigInt(base64urlToBase64(jwk.y));
-  } else {
-    const jwk = issuerPublicKey as EcdsaPublicKey;
-    if (jwk.kty !== "EC" || jwk.crv !== "P-256") {
-      throw new InputError(
-        "INVALID_KEY",
-        "Issuer public key must be P-256 EC key",
-      );
-    }
-    pubKeyX = base64ToBigInt(base64urlToBase64(jwk.x));
-    pubKeyY = base64ToBigInt(base64urlToBase64(jwk.y));
-  }
+  // Decode the issuer public key. These coordinates are public inputs of the
+  // circuit, so they also appear in the proof's public IO.
+  const { x: pubKeyX, y: pubKeyY } = issuerPublicKeyToPoint(issuerPublicKey);
 
   // verify signature off-chain
   const pubkey = p256.ProjectivePoint.fromAffine({ x: pubKeyX, y: pubKeyY });
@@ -167,8 +91,13 @@ export function buildJwtCircuitInputs(
   // payload matching
   const decodedPayload = utf8Decode(base64Decode(b64Payload));
 
+  // The circuit matches these patterns anywhere in the payload, so it can only
+  // extract the intended values when each pattern has a single possible
+  // position. Reject the payload otherwise.
+  assertUnambiguousPayload(credential, decodedPayload, additionalMatches);
+
   // first two patterns are always "x":" and "y":" for device key extraction
-  const patterns = ['"x":"', '"y":"', ...additionalMatches];
+  const patterns = [...DEVICE_KEY_ANCHORS, ...additionalMatches];
 
   if (patterns.length > params.maxMatches) {
     throw new InputError(

@@ -3,6 +3,7 @@ export type ErrorCode =
   | "SETUP_NOT_SUPPORTED"
   | "KEYS_NOT_FOUND"
   | "KEY_LOAD_FAILED"
+  | "KEY_INTEGRITY_FAILED"
   | "PROOF_GENERATION_FAILED"
   | "WITNESS_GENERATION_FAILED"
   | "REBLIND_FAILED"
@@ -10,12 +11,15 @@ export type ErrorCode =
   | "INVALID_PROOF_FORMAT"
   | "COMMITMENT_MISMATCH"
   | "INVALID_JWT"
+  | "AMBIGUOUS_PAYLOAD"
   | "INVALID_KEY"
   | "INVALID_SIGNATURE"
   | "MISSING_DISCLOSURE"
   | "BIRTHDAY_NOT_FOUND"
   | "CLAIM_NOT_FOUND"
+  | "CLAIM_FORMAT_MISMATCH"
   | "PARAMS_EXCEEDED"
+  | "INVALID_NONCE"
   | "WASM_LOAD_FAILED"
   | "WASM_OOM"
   | "WASM_NOT_INITIALIZED";
@@ -64,12 +68,15 @@ export class InputError extends OpenACError {
   constructor(
     code:
       | "INVALID_JWT"
+      | "AMBIGUOUS_PAYLOAD"
       | "INVALID_KEY"
       | "INVALID_SIGNATURE"
       | "MISSING_DISCLOSURE"
       | "BIRTHDAY_NOT_FOUND"
       | "CLAIM_NOT_FOUND"
-      | "PARAMS_EXCEEDED",
+      | "CLAIM_FORMAT_MISMATCH"
+      | "PARAMS_EXCEEDED"
+      | "INVALID_NONCE",
     message: string,
     cause?: unknown
   ) {
@@ -80,7 +87,7 @@ export class InputError extends OpenACError {
 
 export class WasmError extends OpenACError {
   constructor(
-    code: "WASM_LOAD_FAILED" | "WASM_OOM" | "WASM_NOT_INITIALIZED" | "KEY_LOAD_FAILED" | "SETUP_NOT_SUPPORTED",
+    code: "WASM_LOAD_FAILED" | "WASM_OOM" | "WASM_NOT_INITIALIZED" | "KEY_LOAD_FAILED" | "KEY_INTEGRITY_FAILED" | "SETUP_NOT_SUPPORTED",
     message: string,
     cause?: unknown
   ) {

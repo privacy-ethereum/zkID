@@ -48,24 +48,8 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
         isActive
     );
 
-    // Offset between label and value: 13 (label itself) to 18 (label + up to
-    // 5 B of CBOR header for tagged dates).
     signal offset <== valueStart - elementValueLabelPos;
     var OFFSET_BITS = log2Ceil(maxPreimageLen + 1);
-
-    // Range-check offset so a valueStart < labelPos underflow can't wrap past LessEqThan.
-    component offsetBits = Num2Bits(OFFSET_BITS);
-    offsetBits.in <== offset;
-
-    component offsetGe13 = GreaterEqThan(OFFSET_BITS);
-    offsetGe13.in[0] <== offset;
-    offsetGe13.in[1] <== LABEL_LEN;
-    (1 - offsetGe13.out) * isActive === 0;
-
-    component offsetLe18 = LessEqThan(OFFSET_BITS);
-    offsetLe18.in[0] <== offset;
-    offsetLe18.in[1] <== LABEL_LEN + 5;
-    (1 - offsetLe18.out) * isActive === 0;
 
     signal dataLen <== valueEnd - valueStart;
 
@@ -86,6 +70,76 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
     valueEndLe.in[0] <== valueEnd;
     valueEndLe.in[1] <== preimageLength;
     (1 - valueEndLe.out) * isActive === 0;
+
+    // Bind dataLen AND valueStart to the signed CBOR header.
+    //
+    // Reading the header at preimage[valueStart-1] was circular: valueStart chose
+    // the byte that then defined dataLen, so a prover shifted the window onto any
+    // byte that happened to parse as a text header. At offset 13 that was the
+    // label's own trailing 'e' (0x65 = text(5)), available on every claim of every
+    // credential; at offsets 15-18 it was any value byte in 0x60..0x77, i.e. any
+    // ASCII 'a'..'w'.
+    //
+    // The header is instead read at a fixed distance from elementValueLabelPos,
+    // which CheckSubstrInclusionPoly above pins to the 13-byte label constant. The
+    // form of that header then *determines* valueStart rather than following from
+    // it, so there is no window left to re-aim.
+    var HDR_LEN = 4;
+    signal hdrStart <== elementValueLabelPos + LABEL_LEN;
+    component hdrShifter = VarShiftLeft(maxPreimageLen, HDR_LEN);
+    hdrShifter.in <== preimage;
+    hdrShifter.shift <== hdrStart;
+
+    signal hdr[HDR_LEN];
+    for (var i = 0; i < HDR_LEN; i++) {
+        hdr[i] <== hdrShifter.out[i];
+    }
+
+    component cborLenLt24 = LessThan(OFFSET_BITS);
+    cborLenLt24.in[0] <== dataLen;
+    cborLenLt24.in[1] <== 24;
+
+    // Form A -- bare text(n), n < 24: one header byte, value at label + 14.
+    component shortHdrOk = IsZero();
+    shortHdrOk.in <== hdr[0] - 0x60 - dataLen;
+    signal caseShort <== cborLenLt24.out * shortHdrOk.out;
+
+    // Form B -- bare text(n), 24 <= n <= 255: 0x78 then the length, value at + 15.
+    component longPfxOk = IsZero();
+    longPfxOk.in <== hdr[0] - 0x78;
+    component longLenOk = IsZero();
+    longLenOk.in <== hdr[1] - dataLen;
+    signal longHdrOk <== longPfxOk.out * longLenOk.out;
+    signal caseLong <== (1 - cborLenLt24.out) * longHdrOk;
+
+    // Form C -- tag(1004) full-date then text(n), n < 24: value at label + 17.
+    // This is what the mdoc encoder emits for birth_date and friends.
+    component dateTagOk[3];
+    var DATE_TAG[3] = [0xd9, 0x03, 0xec];
+    signal dateTagAcc[4];
+    dateTagAcc[0] <== 1;
+    for (var i = 0; i < 3; i++) {
+        dateTagOk[i] = IsZero();
+        dateTagOk[i].in <== hdr[i] - DATE_TAG[i];
+        dateTagAcc[i + 1] <== dateTagAcc[i] * dateTagOk[i].out;
+    }
+    component dateTextOk = IsZero();
+    dateTextOk.in <== hdr[3] - 0x60 - dataLen;
+    signal dateHdrOk <== dateTagAcc[3] * dateTextOk.out;
+    signal caseDate <== cborLenLt24.out * dateHdrOk;
+
+    // hdr[0] is one determined byte, and the three forms need it to be
+    // 0x60..0x77, 0x78 and 0xd9 respectively, so at most one case can hold.
+    // Unrecognised header forms must reject, not fall through to a free dataLen.
+    isActive * (1 - caseShort - caseLong - caseDate) === 0;
+
+    // The matched form fixes where the value starts. This is the constraint the
+    // old offset range check [13,18] was standing in for -- it allowed six
+    // positions where only one is correct for a given header.
+    signal expectedOffset <== caseShort * (LABEL_LEN + 1)
+                            + caseLong  * (LABEL_LEN + 2)
+                            + caseDate  * (LABEL_LEN + 4);
+    isActive * (offset - expectedOffset) === 0;
 
     component formatEq[4];
     for (var i = 0; i < 4; i++) {
@@ -113,6 +167,30 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
     signal dateDay   <== (value[8] - 48) * 10 + (value[9] - 48);
     signal dateValue <== dateYear * 10000 + dateMonth * 100 + dateDay;
 
+    // Same reasoning as the uint branch below, for the fixed date positions.
+    // A signed value shorter than "YYYY-MM-DD" leaves value[dataLen..9] reading
+    // whatever CBOR follows, and any byte below '0' makes (value[i] - 48) wrap
+    // to a huge residue that satisfies LessEqThan(64) against any comparison
+    // value. Pin the width to the CBOR-bound dataLen and the alphabet to digits.
+    signal isDateActive <== formatEq[0].out * isActive;
+    isDateActive * (dataLen - 10) === 0;
+
+    var DATE_DIGIT_POS[8] = [0, 1, 2, 3, 5, 6, 8, 9];
+    component dateGe48[8];
+    component dateLe57[8];
+    for (var i = 0; i < 8; i++) {
+        dateGe48[i] = GreaterEqThan(9);
+        dateGe48[i].in[0] <== value[DATE_DIGIT_POS[i]];
+        dateGe48[i].in[1] <== 48;
+
+        dateLe57[i] = LessEqThan(9);
+        dateLe57[i].in[0] <== value[DATE_DIGIT_POS[i]];
+        dateLe57[i].in[1] <== 57;
+
+        isDateActive * (1 - dateGe48[i].out) === 0;
+        isDateActive * (1 - dateLe57[i].out) === 0;
+    }
+
     signal strAccum[maxValueLen + 1];
     strAccum[maxValueLen] <== 0;
 
@@ -134,18 +212,97 @@ template MdocValueExtractor(maxPreimageLen, maxValueLen) {
     uintAccum[0] <== 0;
 
     component uintLenGt[maxValueLen];
+    signal uintScaled[maxValueLen];
     for (var i = 0; i < maxValueLen; i++) {
         uintLenGt[i] = GreaterThan(log2Ceil(maxValueLen + 1));
         uintLenGt[i].in[0] <== dataLen;
         uintLenGt[i].in[1] <== i;
 
-        uintAccum[i + 1] <== uintAccum[i] * 10 + (value[i] - 48) * uintLenGt[i].out;
+        // Scale by 10 only within dataLen; past the value the multiplier is 1
+        // so trailing padding does not inflate the result by 10^(maxValueLen - dataLen).
+        uintScaled[i] <== uintAccum[i] * (9 * uintLenGt[i].out + 1);
+        uintAccum[i + 1] <== uintScaled[i] + (value[i] - 48) * uintLenGt[i].out;
     }
     signal uintValue <== uintAccum[maxValueLen];
+
+    // Same field-wrap reasoning as ClaimValueNormalizer: bound the digit count
+    // so no partial product can exceed 10^19 - 1 < 2^64 < q, and constrain
+    // each active byte to be an ASCII digit so no term aliases mod q.
+    var maxUintDigits = maxValueLen < 19 ? maxValueLen : 19;
+    signal isUintActive <== formatEq[2].out * isActive;
+
+    component uintLenLe = LessEqThan(OFFSET_BITS);
+    uintLenLe.in[0] <== dataLen;
+    uintLenLe.in[1] <== maxUintDigits;
+    isUintActive * (1 - uintLenLe.out) === 0;
+
+    component digitGe48[maxUintDigits];
+    component digitLe57[maxUintDigits];
+    signal digitActive[maxUintDigits];
+    for (var i = 0; i < maxUintDigits; i++) {
+        digitActive[i] <== isUintActive * uintLenGt[i].out;
+
+        digitGe48[i] = GreaterEqThan(9);
+        digitGe48[i].in[0] <== value[i];
+        digitGe48[i].in[1] <== 48;
+
+        digitLe57[i] = LessEqThan(9);
+        digitLe57[i].in[0] <== value[i];
+        digitLe57[i].in[1] <== 57;
+
+        digitActive[i] * (1 - digitGe48[i].out) === 0;
+        digitActive[i] * (1 - digitLe57[i].out) === 0;
+    }
+
+    // The string branch packs bytes at base 256, so 32+ bytes wrap the 254-bit
+    // field and two distinct signed values can share a residue under `==`.
+    signal isStrActive <== formatEq[1].out * isActive;
+    component strLenLe31 = LessEqThan(OFFSET_BITS);
+    strLenLe31.in[0] <== dataLen;
+    strLenLe31.in[1] <== 31;
+    isStrActive * (1 - strLenLe31.out) === 0;
 
     // Inactive claims feed a dummy padded-zero input to Sha256Bytes.
     signal input digestInputPadded[maxValueLen];
     signal input digestInputPaddedLen;
+
+    // Pin every byte of the SHA input: message bytes to value[i], then the 0x80
+    // marker, zeros, and the big-endian bit length. Free padding would let the
+    // holder vary the length field and prove a suffix-extension of the slice.
+    // Single-block layout only -- a longer input moves the length field.
+    assert(maxValueLen == 64);
+
+    signal isDigestActive <== formatEq[3].out * isActive;
+
+    // 55 message bytes + 0x80 + 8-byte length = one 64 B block
+    component digestLenLe55 = LessEqThan(OFFSET_BITS);
+    digestLenLe55.in[0] <== dataLen;
+    digestLenLe55.in[1] <== 55;
+    isDigestActive * (1 - digestLenLe55.out) === 0;
+    isDigestActive * (digestInputPaddedLen - 64) === 0;
+
+    // (dataLen > i) is monotone decreasing, so (dataLen == i) is the drop
+    // between neighbours -- no IsEqual components needed.
+    signal prevLenGt[56];
+    prevLenGt[0] <== 1;                       // (dataLen > -1) is always true
+    for (var i = 1; i < 56; i++) {
+        prevLenGt[i] <== uintLenGt[i - 1].out;
+    }
+
+    signal msgByte[56];
+    signal expectedByte[56];
+    for (var i = 0; i < 56; i++) {
+        msgByte[i] <== uintLenGt[i].out * value[i];
+        expectedByte[i] <== msgByte[i] + (prevLenGt[i] - uintLenGt[i].out) * 128;
+        isDigestActive * (digestInputPadded[i] - expectedByte[i]) === 0;
+    }
+
+    // dataLen <= 55 so the bit length fits the low two bytes; Sha256Bytes
+    // range-checks each byte, making the split unique.
+    for (var i = 56; i < 62; i++) {
+        isDigestActive * digestInputPadded[i] === 0;
+    }
+    isDigestActive * (digestInputPadded[62] * 256 + digestInputPadded[63] - dataLen * 8) === 0;
 
     signal digestSha[256] <== Sha256Bytes(maxValueLen)(digestInputPadded, digestInputPaddedLen);
 

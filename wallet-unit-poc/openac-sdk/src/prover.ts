@@ -15,11 +15,14 @@ import {
   DEFAULT_SHOW_PARAMS,
 } from "./types.js";
 import {
+  CLAIM_VALUES_WITNESS_START,
+  CLAIM_IDENTITY_WITNESS_START,
   JWT_PARAMS_BY_SIZE,
   selectVcSizeForSigningInput,
   type VcSize,
 } from "./sizing.js";
 import {
+  assertNormalizationSupports,
   compilePredicateExpression,
   type CompiledPredicates,
 } from "./predicates.js";
@@ -35,6 +38,7 @@ import type {
   PresentationTiming,
   SerializedPrecomputedCredentialJSON,
   EcdsaPublicKey,
+  ClaimNormalization,
 } from "./types.js";
 
 const SDK_VERSION = "0.1.0";
@@ -53,7 +57,11 @@ export class Prover {
     const timing: Partial<PrecomputeTiming> = {};
 
     let t1 = performance.now();
-    const credential = Credential.parse(request.jwt, request.disclosures);
+    const credential = Credential.parse(
+      request.jwt,
+      request.disclosures,
+      request.profile,
+    );
     timing.parseCredentialMs = performance.now() - t1;
 
     const deviceKey = credential.deviceBindingKey;
@@ -107,21 +115,31 @@ export class Prover {
     timing.prepareWitnessMs = performance.now() - t1;
 
     // Extract normalized claim values from the JWT witness so present() doesn't
-    // have to recompute them. The witness lays out claim values at positions
-    // [1, 1 + maxClaims). Done in parallel with the SNARK prove below.
+    // have to recompute them. They are private signals (see
+    // CLAIM_VALUES_WITNESS_START) — the public IO holds only KeyBindingX/Y.
+    // Done in parallel with the SNARK prove below.
     const maxClaims = jwtParams.maxMatches - 2;
-    const normalizedClaimValuesPromise = this.witnessCalculator
-      ? this.calculateJwtWitness(jwtInputsJson, vcSize).then((w) => w.slice(1, 1 + maxClaims))
-      : Promise.resolve<bigint[]>([]);
+    const claimStart = CLAIM_VALUES_WITNESS_START[vcSize];
+    const identityStart = CLAIM_IDENTITY_WITNESS_START[vcSize];
+    // Read normalized values AND per-slot attribute identities H(name) from the
+    // same JWT witness. Identities are carried to Show via comm_W_shared to bind
+    // predicate slots to attribute names (Items 1+3); the SDK never hashes.
+    const witnessSlicesPromise = this.witnessCalculator
+      ? this.calculateJwtWitness(jwtInputsJson, vcSize).then((w) => ({
+          normalizedClaimValues: w.slice(claimStart, claimStart + maxClaims),
+          claimIdentifierHashes: w.slice(identityStart, identityStart + maxClaims),
+        }))
+      : Promise.resolve({ normalizedClaimValues: [] as bigint[], claimIdentifierHashes: [] as bigint[] });
 
     t1 = performance.now();
     const prepareResult = await this.bridge.precomputeFromWitness(
       request.keys.prepareProvingKey,
       prepareWitnessBytes,
+      vcSize,
     );
     timing.prepareProveMs = performance.now() - t1;
 
-    const normalizedClaimValues = await normalizedClaimValuesPromise;
+    const { normalizedClaimValues, claimIdentifierHashes } = await witnessSlicesPromise;
     timing.totalMs = performance.now() - startTime;
 
     return this.buildPrecomputedCredential(
@@ -133,6 +151,15 @@ export class Prover {
       birthdayClaim.raw,
       deviceKey,
       normalizedClaimValues,
+      claimIdentifierHashes,
+      // Taken from the built inputs rather than from `compiled`: the builder
+      // pads or truncates both arrays to the circuit's claim slot count, so
+      // these are what the circuit actually ran on and what its public IO
+      // reports.
+      {
+        decodeFlags: jwtInputs.decodeFlags,
+        claimFormats: jwtInputs.claimFormats.map((v) => Number(v)),
+      },
       timing as PrecomputeTiming,
     );
   }
@@ -147,8 +174,14 @@ export class Prover {
     const parsed = Credential.parse(
       precomputed.credential.jwt,
       precomputed.credential.disclosures,
+      request.profile,
     );
     const compiled = compilePredicateExpression(request.predicates, parsed.claims);
+
+    // The normalized values below were produced by an earlier precompute() run.
+    // They are only valid inputs to these predicates if that run decoded the
+    // same claims under the same formats.
+    assertNormalizationSupports(precomputed.claimNormalization, compiled);
 
     const showInputs = buildShowCircuitInputs(
       DEFAULT_SHOW_PARAMS,
@@ -157,6 +190,7 @@ export class Prover {
       precomputed.deviceKey,
       {
         normalizedClaimValues: precomputed.normalizedClaimValues,
+        claimIdentifierHashes: precomputed.claimIdentifierHashes,
         predicates: compiled.predicates,
         logicExpression: compiled.logicExpression,
       },
@@ -193,10 +227,7 @@ export class Prover {
       expressionResult = showWitness[1] === 1n;
     }
 
-    const publicValues: ProofPublicValues = {
-      expressionResult,
-      normalizedClaimValues: [],
-    };
+    const publicValues: ProofPublicValues = { expressionResult };
 
     return this.buildPresentationProof(
       presentResult.prepareProof,
@@ -273,6 +304,8 @@ export class Prover {
     birthdayClaim: string,
     deviceKey: EcdsaPublicKey,
     normalizedClaimValues: bigint[],
+    claimIdentifierHashes: bigint[],
+    claimNormalization: ClaimNormalization,
     timing: PrecomputeTiming,
   ): PrecomputedCredential {
     const result: PrecomputedCredential = {
@@ -288,6 +321,8 @@ export class Prover {
       birthdayClaim,
       deviceKey,
       normalizedClaimValues,
+      claimIdentifierHashes,
+      claimNormalization,
       timing,
 
       serialize(): Uint8Array {
@@ -305,6 +340,11 @@ export class Prover {
           birthdayClaim: result.birthdayClaim,
           deviceKey: result.deviceKey,
           normalizedClaimValues: result.normalizedClaimValues.map((v) => v.toString()),
+          claimIdentifierHashes: result.claimIdentifierHashes.map((v) => v.toString()),
+          claimNormalization: {
+            decodeFlags: [...result.claimNormalization.decodeFlags],
+            claimFormats: [...result.claimNormalization.claimFormats],
+          },
         };
       },
     };
@@ -433,6 +473,22 @@ export function deserializePrecomputed(data: Uint8Array): PrecomputedCredential 
     new TextDecoder().decode(data),
   );
 
+  // Blobs written before claimNormalization existed carry normalized values
+  // with no record of the formats that produced them, so present() cannot tell
+  // whether they answer its predicates. Reject rather than guess.
+  const claimNormalization = json.claimNormalization;
+  if (
+    !claimNormalization ||
+    !Array.isArray(claimNormalization.decodeFlags) ||
+    !Array.isArray(claimNormalization.claimFormats)
+  ) {
+    throw new InputError(
+      "CLAIM_FORMAT_MISMATCH",
+      "Precomputed credential has no claim normalization metadata. " +
+        "It was serialized by an older SDK version; run precompute() again.",
+    );
+  }
+
   const result: PrecomputedCredential = {
     prepareProof: base64Decode(json.prepareProof),
     prepareInstance: base64Decode(json.prepareInstance),
@@ -442,6 +498,11 @@ export function deserializePrecomputed(data: Uint8Array): PrecomputedCredential 
     birthdayClaim: json.birthdayClaim,
     deviceKey: json.deviceKey,
     normalizedClaimValues: (json.normalizedClaimValues ?? []).map((s) => BigInt(s)),
+    claimIdentifierHashes: (json.claimIdentifierHashes ?? []).map((s) => BigInt(s)),
+    claimNormalization: {
+      decodeFlags: [...claimNormalization.decodeFlags],
+      claimFormats: [...claimNormalization.claimFormats],
+    },
     timing: {
       parseCredentialMs: 0,
       buildInputsMs: 0,

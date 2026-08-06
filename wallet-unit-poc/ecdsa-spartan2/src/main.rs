@@ -28,10 +28,12 @@ use ecdsa_spartan2::{
     },
     prove_circuit, prove_circuit_with_pk, reblind, reblind_with_loaded_data, run_circuit,
     save_keys, setup_circuit_keys, setup_circuit_keys_no_save, verify_circuit,
-    verify_circuit_with_loaded_data, MdocCircuit, PathConfig, PrepareCircuit, ShowCircuit, E,
+    verify_circuit_with_loaded_data, MdocCircuit, PathConfig, PrepareCircuit, Scalar, ShowCircuit,
+    E,
 };
+use ecdsa_spartan2::utils::{calculate_jwt_output_indices, calculate_mdoc_output_indices};
 use ff::Field;
-use std::{env::args, fs, path::PathBuf, process, time::Instant};
+use std::{env::args, fs, ops::Range, path::PathBuf, process, time::Instant};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -248,6 +250,50 @@ fn print_comparison_table(results: &[BenchmarkResults]) {
     );
 }
 
+/// Print the issuer key a credential proof was built under, plus how each claim
+/// value in its public IO was normalized.
+///
+/// `public_values[i]` is `witness[i + 1]`, so the 1-based layout indices are
+/// shifted by one here.
+///
+/// Printed rather than checked: this pipeline has no trust store or policy to
+/// compare against. Applications that do have one can use
+/// `utils::check_issuer_key_binding` and compare the normalization against the
+/// formats their predicates expect.
+fn print_public_statement(
+    public_values: &[Scalar],
+    issuer_key_x_index: usize,
+    flags: Range<usize>,
+    formats: Range<usize>,
+) {
+    let at = |i: usize| public_values.get(i.wrapping_sub(1));
+
+    match (at(issuer_key_x_index), at(issuer_key_x_index + 1)) {
+        (Some(x), Some(y)) => println!("  issuer key: x={x:?}\n              y={y:?}"),
+        _ => println!("  issuer key: <unavailable: proof exposed too few public values>"),
+    }
+
+    // Flags and format codes are small integers; print the trailing hex digits
+    // of each scalar rather than all 64.
+    let render = |range: Range<usize>| {
+        range
+            .map(|i| match at(i) {
+                Some(v) => {
+                    let s = format!("{v:?}");
+                    format!("0x{}", s.trim_start_matches("0x").trim_start_matches('0'))
+                }
+                None => "?".to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    println!(
+        "  claim normalization: decoded=[{}] formats=[{}]\n",
+        render(flags),
+        render(formats),
+    );
+}
+
 /// Prove + reblind + verify pipeline using pre-existing keys on disk.
 fn run_prove_pipeline(
     path_config: &PathConfig,
@@ -376,9 +422,16 @@ fn run_prove_pipeline(
 
     info!("Verifying Prepare proof...");
     let t0 = Instant::now();
-    let _prepare_public_values = verify_circuit_with_loaded_data(&prepare_proof, &prepare_vk);
+    let prepare_public_values = verify_circuit_with_loaded_data(&prepare_proof, &prepare_vk);
     let verify_prepare_ms = t0.elapsed().as_millis();
-    println!("✓ Prepare proof verified: {} ms\n", verify_prepare_ms);
+    println!("✓ Prepare proof verified: {} ms", verify_prepare_ms);
+    let jwt_layout = calculate_jwt_output_indices(size);
+    print_public_statement(
+        &prepare_public_values,
+        jwt_layout.issuer_key_x_index,
+        jwt_layout.decode_flags_range(),
+        jwt_layout.claim_formats_range(),
+    );
 
     let show_proof =
         load_proof(path_config.artifact_path(SHOW_PROOF)).expect("load show proof failed");
@@ -391,6 +444,20 @@ fn run_prove_pipeline(
     if !show_public_values.is_empty() {
         let expression_result = show_public_values[0] == Field::ONE;
         println!("  expressionResult: {}\n", expression_result);
+    }
+
+    // Item 12: linkage. Verifying the two proofs separately is not enough — an
+    // honest Prepare could be paired with an independently-forged Show over
+    // unrelated claim values and a self-chosen device key. Require both to
+    // commit to the same shared witness (comm_W_shared), read from the proofs.
+    let prepare_shared = prepare_proof.comm_W_shared();
+    let show_shared = show_proof.comm_W_shared();
+    let linked =
+        prepare_shared.is_some() && show_shared.is_some() && prepare_shared == show_shared;
+    if linked {
+        println!("✓ comm_W_shared linkage verified\n");
+    } else {
+        println!("✗ comm_W_shared linkage FAILED: Prepare and Show are not the same credential\n");
     }
 
     let prepare_proving_key_bytes =
@@ -558,9 +625,17 @@ fn run_mdoc_prove_pipeline(
         load_proof(path_config.artifact_path(MDOC_PROOF)).expect("load mdoc proof failed");
     info!("Verifying MDOC proof...");
     let t0 = Instant::now();
-    let _mdoc_public_values = verify_circuit_with_loaded_data(&mdoc_proof, &mdoc_vk);
+    let mdoc_public_values = verify_circuit_with_loaded_data(&mdoc_proof, &mdoc_vk);
     let verify_mdoc_ms = t0.elapsed().as_millis();
-    println!("✓ MDOC proof verified: {} ms\n", verify_mdoc_ms);
+    println!("✓ MDOC proof verified: {} ms", verify_mdoc_ms);
+    let mdoc_layout =
+        calculate_mdoc_output_indices(ecdsa_spartan2::circuits::mdoc_circuit::MDOC_MAX_CLAIMS);
+    print_public_statement(
+        &mdoc_public_values,
+        mdoc_layout.issuer_key_x_index,
+        mdoc_layout.value_types_range(),
+        mdoc_layout.claim_flags_range(),
+    );
 
     let show_proof =
         load_proof(path_config.artifact_path(SHOW_PROOF)).expect("load show proof failed");

@@ -2,6 +2,7 @@ import type { WitnessTester } from "circomkit";
 import { circomkit } from "../common/index.ts";
 import { generateMockData } from "../../src/mock-vc-generator.ts";
 import { generateShowCircuitParams, generateShowInputs, signDeviceNonce } from "../../src/show.ts";
+import { bindPredicateName } from "../common/claim-identity.ts";
 import assert from "assert";
 import { p256 } from "@noble/curves/nist.js";
 
@@ -96,6 +97,7 @@ describe("Complete Flow: Register (JWT) → Show Circuit", () => {
       showInputs.tokenTypes[0] = 0n;
       showInputs.tokenValues[0] = 0n;
       showInputs.exprLen = 1n;
+      await bindPredicateName(showInputs, 0, 0, "roc_birthday");
 
       await showCircuit.expectPass(showInputs, { expressionResult: 1n });
     });

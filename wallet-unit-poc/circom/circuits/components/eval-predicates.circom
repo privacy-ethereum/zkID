@@ -23,7 +23,21 @@ template EvalPredicates(N_CLAIMS, MAX_PREDICATES, VALUE_BITS) {
     signal input predicateRhsIsRef[MAX_PREDICATES]; // Right-hand side (RHS) mode: 0=literal, 1=claim reference.
     signal input predicateRhsValues[MAX_PREDICATES]; // RHS operand: claim index when predicateRhsIsRef is 1, literal value when 0.
 
+    // A claim slot is otherwise just a number, so a holder could satisfy a
+    // policy using a different signed attribute with a friendlier value.
+    signal input claimIdentifierHashes[N_CLAIMS]; // Attribute identity per slot.
+    signal input predicateClaimIdentifiers[MAX_PREDICATES]; // Identity the LHS operand requires.
+    signal input predicateRhsClaimIdentifiers[MAX_PREDICATES]; // Identity the RHS operand requires (claim-to-claim compareTo).
+
     signal output predicateResults[MAX_PREDICATES];
+
+    signal idProduct[MAX_PREDICATES][N_CLAIMS];
+    signal idAccum[MAX_PREDICATES][N_CLAIMS + 1];
+    // RHS operand identity accumulation, mirroring the LHS one-hot selector.
+    signal rhsIdProduct[MAX_PREDICATES][N_CLAIMS];
+    signal rhsIdAccum[MAX_PREDICATES][N_CLAIMS + 1];
+    component lhsIdZero[MAX_PREDICATES];
+    component rhsIdZero[MAX_PREDICATES];
 
     component claimRefEq[MAX_PREDICATES][N_CLAIMS];
     signal refSelected[MAX_PREDICATES][N_CLAIMS];
@@ -67,6 +81,8 @@ template EvalPredicates(N_CLAIMS, MAX_PREDICATES, VALUE_BITS) {
 
         refCount[i][0] <== 0;
         refAccum[i][0] <== 0;
+        idAccum[i][0] <== 0;
+        rhsIdAccum[i][0] <== 0;
         rhsRefCount[i][0] <== 0;
         rhsRefAccum[i][0] <== 0;
 
@@ -80,6 +96,10 @@ template EvalPredicates(N_CLAIMS, MAX_PREDICATES, VALUE_BITS) {
             refCount[i][j + 1] <== refCount[i][j] + refSelected[i][j];
             refAccum[i][j + 1] <== refAccum[i][j] + refProduct[i][j];
 
+            // Same one-hot selector, applied to the slot's identity.
+            idProduct[i][j] <== refSelected[i][j] * claimIdentifierHashes[j];
+            idAccum[i][j + 1] <== idAccum[i][j] + idProduct[i][j];
+
             rhsRefEq[i][j] = IsEqual();
             rhsRefEq[i][j].in[0] <== predicateRhsValues[i];
             rhsRefEq[i][j].in[1] <== j;
@@ -88,12 +108,34 @@ template EvalPredicates(N_CLAIMS, MAX_PREDICATES, VALUE_BITS) {
             rhsRefProduct[i][j] <== rhsRefSelected[i][j] * claimValues[j];
             rhsRefCount[i][j + 1] <== rhsRefCount[i][j] + rhsRefSelected[i][j];
             rhsRefAccum[i][j + 1] <== rhsRefAccum[i][j] + rhsRefProduct[i][j];
+
+            // Same one-hot RHS selector, applied to the slot's identity.
+            rhsIdProduct[i][j] <== rhsRefSelected[i][j] * claimIdentifierHashes[j];
+            rhsIdAccum[i][j + 1] <== rhsIdAccum[i][j] + rhsIdProduct[i][j];
         }
 
         // Active predicates must reference exactly one valid claim index.
         // Inactive predicates must reference none (count 0).
         refCount[i][N_CLAIMS] - isActive[i] === 0;
         rhsRefCount[i][N_CLAIMS] - rhsRefActive[i] === 0;
+
+        // The referenced (LHS) slot must hold the attribute the policy names.
+        isActive[i] * (idAccum[i][N_CLAIMS] - predicateClaimIdentifiers[i]) === 0;
+        // Identity 0 is the inactive/padding sentinel (claimIdentifierHashes is
+        // gated to 0 on undecoded slots). A zero requirement would therefore
+        // wildcard-match any padding slot, so active predicates must name a
+        // non-zero identity.
+        lhsIdZero[i] = IsZero();
+        lhsIdZero[i].in <== predicateClaimIdentifiers[i];
+        isActive[i] * lhsIdZero[i].out === 0;
+
+        // The RHS operand of a claim-to-claim compareTo must likewise hold the
+        // attribute the policy names for it. Only enforced when the RHS is a
+        // ref (rhsRefActive), and its identity must also be non-zero.
+        rhsRefActive[i] * (rhsIdAccum[i][N_CLAIMS] - predicateRhsClaimIdentifiers[i]) === 0;
+        rhsIdZero[i] = IsZero();
+        rhsIdZero[i].in <== predicateRhsClaimIdentifiers[i];
+        rhsRefActive[i] * rhsIdZero[i].out === 0;
 
         selectedClaimValues[i] <== refAccum[i][N_CLAIMS];
         selectedRhsRefValues[i] <== rhsRefAccum[i][N_CLAIMS];

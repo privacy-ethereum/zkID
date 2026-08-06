@@ -313,12 +313,16 @@ describe("Show Circuit via SDK", () => {
     const signature = signDeviceNonce(VERIFIER_NONCE, data.devicePrivateKeyHex);
 
     // Build Show circuit inputs via SDK with a simple predicate
+    // Empty policy: no active predicate, so the claim-identity binding (which
+    // needs real H(name) from the Prepare witness, unavailable in this isolated
+    // Show-only smoke test) is gated off. This just checks the SDK builds a
+    // witness-satisfiable Show input.
     const showInputs = buildShowCircuitInputs(
       DEFAULT_SHOW_PARAMS,
       VERIFIER_NONCE,
       signature,
       data.devicePublicKey,
-      { normalizedClaimValues: [42n] },
+      { normalizedClaimValues: [42n], predicates: [] },
     );
 
     // Calculate witness via SDK WitnessCalculator
@@ -326,12 +330,13 @@ describe("Show Circuit via SDK", () => {
 
     // Witness sanity checks
     expect(witness[0]).toBe(1n); // valid constraint system
-    // Witness layout unchanged by the device-key-hiding fix:
-    // w[1] = expressionResult, w[2] = deviceKeyX, w[3] = deviceKeyY.
-    // After the fix only w[1] is verifier-observable; w[2]/w[3] still appear
-    // in the witness vector (and the shared-witness commitment with Prepare).
-    expect(witness[2]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
-    expect(witness[3]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
+    // Witness layout: w[1] = expressionResult, w[2..=156] = messageHash +
+    // predicate program + verifier attribute names (156 public signals now that
+    // names replaced the scalar identifier), then private signals: w[157] =
+    // deviceKeyX, w[158] = deviceKeyY (they stay in comm_W_shared with Prepare).
+    expect(witness[2]).toBe(showInputs.messageHash); // messageHash (public)
+    expect(witness[157]).toBe(base64urlToBigInt(data.devicePublicKey.x)); // deviceKeyX
+    expect(witness[158]).toBe(base64urlToBigInt(data.devicePublicKey.y)); // deviceKeyY
   }, 30_000);
 
   it("proves and verifies via NativeBackend", async () => {
@@ -385,13 +390,23 @@ describe("JWT (Prepare) Circuit via SDK", () => {
 
     // Witness sanity checks
     expect(witness[0]).toBe(1n); // valid constraint system
-    // JWT circuit (maxMatches=4, maxClaims=2):
-    //   w[1..2] = normalizedClaimValues[0..1], w[3] = KeyBindingX, w[4] = KeyBindingY
-    expect(witness.length).toBeGreaterThan(4);
+    // The JWT circuit has no public outputs. Claim values would reveal the exact
+    // attribute; the device key would be a constant identifier linking every
+    // presentation. Both are private, reaching Show via comm_W_shared, and sit
+    // at CLAIM_VALUES_WITNESS_START with KeyBindingX/Y immediately after.
+    // This exercises the default `jwt` circuit (maxMessageLength 1920), not a
+    // VcSize variant, so it needs its own offset — verified against
+    // circom/build/jwt/jwt.sym.
+    const claimStart = 3817;
+    const maxClaims = DEFAULT_JWT_PARAMS.maxMatches - 2;
+    expect(witness.length).toBeGreaterThan(claimStart + maxClaims + 1);
 
-    // KeyBindingX and KeyBindingY should be the device public key
-    expect(witness[3]).toBe(base64urlToBigInt(data.devicePublicKey.x));
-    expect(witness[4]).toBe(base64urlToBigInt(data.devicePublicKey.y));
+    expect(witness[claimStart + maxClaims]).toBe(
+      base64urlToBigInt(data.devicePublicKey.x),
+    );
+    expect(witness[claimStart + maxClaims + 1]).toBe(
+      base64urlToBigInt(data.devicePublicKey.y),
+    );
   }, 120_000);
 
   it("proves and verifies via NativeBackend", async () => {
@@ -484,10 +499,12 @@ describe("Full Pipeline via SDK (Prepare + Show with Shared Blinds)", () => {
     expect(showResult.valid).toBe(true);
     expect(showResult.output).toContain("Verification successful");
 
-    // Step 8: Cross-circuit consistency: device key from JWT must match Show
-    // JWT circuit (maxMatches=4): w[3] = KeyBindingX, w[4] = KeyBindingY
-    expect(jwtWitness[3]).toBe(showWitness[2]); // KeyBindingX
-    expect(jwtWitness[4]).toBe(showWitness[3]); // KeyBindingY
+    // Step 8: Cross-circuit consistency: device key from JWT must match Show.
+    // JWT circuit (maxMatches=4): w[3] = KeyBindingX, w[4] = KeyBindingY.
+    // In Show, the verifier statement occupies the public prefix (w[1..=28]),
+    // so the device key sits at w[29] = deviceKeyX, w[30] = deviceKeyY.
+    expect(jwtWitness[3]).toBe(showWitness[29]); // KeyBindingX
+    expect(jwtWitness[4]).toBe(showWitness[30]); // KeyBindingY
 
     // Step 9: Expression evaluation result
     expect(typeof showWitness[1]).toBe("bigint"); // expressionResult

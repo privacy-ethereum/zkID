@@ -126,6 +126,41 @@ template K_add() {
     signal slo <-- s & (2 ** (128) - 1);
     signal shi <-- s >> 128;
 
+
+    component sloBits = Num2Bits(128);
+    sloBits.in <== slo;
+    component shiBits = Num2Bits(128);
+    shiBits.in <== shi;
+    s === slo + shi * (2 ** 128);
+
+    // The two range checks and the recomposition above still admit a second
+    // encoding: the limbs reach 2^256 - 1 while the native modulus stops at P,
+    // so slo + shi*2^128 = s + P satisfies all three and shifts every bit below
+    // by (P mod q).
+    var plo = 0x00000000ffffffffffffffffffffffff;
+    var phi = 0xffffffff000000010000000000000000;
+
+    component canonHi = LessThan(129);
+    canonHi.in[0] <== shi;
+    canonHi.in[1] <== phi;
+
+    component canonHiEq = IsEqual();
+    canonHiEq.in[0] <== shi;
+    canonHiEq.in[1] <== phi;
+
+    component canonLo = LessThan(129);
+    canonLo.in[0] <== slo;
+    canonLo.in[1] <== plo;
+
+    component canonTie = AND();
+    canonTie.a <== canonHiEq.out;
+    canonTie.b <== canonLo.out;
+
+    component isCanonical = OR();
+    isCanonical.a <== canonHi.out;
+    isCanonical.b <== canonTie.out;
+    isCanonical.out === 1;
+
     // Get carry bit of (slo + tQlo)
 
     component inBits = Num2Bits(128 + 1);

@@ -18,6 +18,9 @@ template ExpressionEvaluator(N_CLAIMS, MAX_PREDICATES, MAX_EXPR_TOKENS, VALUE_BI
     signal input predicateOps[MAX_PREDICATES]; // Operator per predicate: 0<=, 1>=, 2==.
     signal input predicateRhsIsRef[MAX_PREDICATES]; // Right-hand side (RHS) mode: 0=literal, 1=claim reference.
     signal input predicateRhsValues[MAX_PREDICATES]; // RHS operand: claim index when predicateRhsIsRef is 1, literal value when 0.
+    signal input claimIdentifierHashes[N_CLAIMS]; // Attribute identity per slot.
+    signal input predicateClaimIdentifiers[MAX_PREDICATES]; // Identity the LHS operand requires.
+    signal input predicateRhsClaimIdentifiers[MAX_PREDICATES]; // Identity the RHS operand requires.
 
     // Postfix expression token arrays.
     // tokenTypes[i]: 0=REF, 1=AND, 2=OR, 3=NOT
@@ -36,6 +39,9 @@ template ExpressionEvaluator(N_CLAIMS, MAX_PREDICATES, MAX_EXPR_TOKENS, VALUE_BI
     predicatePhase.predicateOps <== predicateOps;
     predicatePhase.predicateRhsIsRef <== predicateRhsIsRef;
     predicatePhase.predicateRhsValues <== predicateRhsValues;
+    predicatePhase.claimIdentifierHashes <== claimIdentifierHashes;
+    predicatePhase.predicateClaimIdentifiers <== predicateClaimIdentifiers;
+    predicatePhase.predicateRhsClaimIdentifiers <== predicateRhsClaimIdentifiers;
 
     predicateResults <== predicatePhase.predicateResults;
 

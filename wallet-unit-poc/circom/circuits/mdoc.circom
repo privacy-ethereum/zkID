@@ -13,12 +13,14 @@ template MDOC(
     maxPreimageLen,
     maxClaims,
     maxIdentifierLen,
-    maxValueLen,
-    maxDeviceKeyPrefixLen
+    maxValueLen
 ) {
     signal input message[maxCredLen];
     signal input messageLength;
 
+    // Issuer public key the ES256 check runs against. Declared public on the main
+    // component, so it appears in the proof's public IO and a verifier can compare
+    // it against the issuers it trusts.
     signal input pubKeyX;
     signal input pubKeyY;
 
@@ -27,10 +29,9 @@ template MDOC(
 
     signal input validUntilPrefixPos;
 
-    signal input deviceKeyPrefix[maxDeviceKeyPrefixLen];
-    signal input deviceKeyPrefixLen;
-    signal input deviceKeyPrefixPos;
-    signal input yPrefixLen;
+    // Position of the COSE `-2: bytes(32)` marker that precedes the device key's
+    // x coordinate. The marker bytes themselves are circuit constants.
+    signal input deviceKeyPos;
 
     signal input preimages[maxClaims][maxPreimageLen];
     signal input preimageLengths[maxClaims];
@@ -42,6 +43,11 @@ template MDOC(
     signal input elementValueLabelPositions[maxClaims];
     signal input valueStarts[maxClaims];
     signal input valueEnds[maxClaims];
+    // valueTypes and claimFlags decide how each value in normalizedClaimValues was
+    // produced, so they are public inputs of the main component: a verifier reading
+    // those values needs them to know what the values mean. A slot with claimFlags 0
+    // holds 0 rather than the claim, and a slot extracted under one value type is not
+    // comparable to a literal in another.
     signal input valueTypes[maxClaims];    // 0=date, 1=string, 2=integer, 3=reveal_digest
     signal input claimFlags[maxClaims];
 
@@ -49,10 +55,21 @@ template MDOC(
     signal input digestInputsPaddedLen[maxClaims];
 
     signal output validUntilDate;
-    signal output normalizedClaimValues[maxClaims];
+    // Private — see the note in jwt.circom: these are predicate operands that
+    // reach Show via comm_W_shared, not values the verifier is meant to learn.
+    signal normalizedClaimValues[maxClaims];
 
-    signal output deviceKeyX;
-    signal output deviceKeyY;
+    // Carried to Show alongside the values so a predicate can be bound to the
+    // requested attribute. Inactive slots are 0 so padding cannot impersonate one.
+    signal claimIdentifierHashes[maxClaims];
+
+    // Private, for the same reason as normalizedClaimValues above: the device key
+    // reaches Show through comm_W_shared, and the verifier never needs to read it.
+    // As a main output it would be public regardless of the `public[...]` list, and
+    // it is a per-credential constant that survives reblinding — so two verifiers
+    // could join on it and correlate every presentation from one credential.
+    signal deviceKeyX;
+    signal deviceKeyY;
 
     // CHECK 1: ECDSA-P256 signature
     ES256(maxCredLen)(message, messageLength, sig_r, sig_s_inverse, pubKeyX, pubKeyY);
@@ -64,12 +81,17 @@ template MDOC(
 
     // CHECK 3: per-claim preimage authenticity + value extraction
     signal preimageHashesPoseidon[maxClaims];
+    signal idHash[maxClaims];
 
     for (var i = 0; i < maxClaims; i++) {
         // claimFlags[i] must be 0 or 1; fractional values bypass gated assertions.
         claimFlags[i] * (1 - claimFlags[i]) === 0;
 
         preimageHashesPoseidon[i] <== HashBytesToFieldWithLen(maxPreimageLen)(preimages[i], preimageLengths[i]);
+
+        // MdocClaimVerifier already proved this identifier is in the signed preimage.
+        idHash[i] <== HashBytesToFieldWithLen(maxIdentifierLen)(identifierCbor[i], identifierLengths[i]);
+        claimIdentifierHashes[i] <== idHash[i] * claimFlags[i];
 
         MdocClaimVerifier(maxCredLen, maxPreimageLen, maxIdentifierLen)(
             message,
@@ -101,13 +123,9 @@ template MDOC(
     }
 
     // CHECK 4: device key extraction
-    (deviceKeyX, deviceKeyY) <== MdocDeviceKeyExtractor(maxCredLen, maxDeviceKeyPrefixLen)(
+    (deviceKeyX, deviceKeyY) <== MdocDeviceKeyExtractor(maxCredLen)(
         message,
-        messageHash,
         messageLength,
-        deviceKeyPrefix,
-        deviceKeyPrefixLen,
-        deviceKeyPrefixPos,
-        yPrefixLen
+        deviceKeyPos
     );
 }
