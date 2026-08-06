@@ -37,13 +37,13 @@ SIZE=1k
 
 # 1. One-time setup per size (slow, writes large proving/verifying keys)
 cargo run --release -- prepare setup --size $SIZE --input ../circom/inputs/jwt/$SIZE/default.json
-cargo run --release -- show    setup --size $SIZE --input ../circom/inputs/show/default.json
+cargo run --release -- show    setup --size $SIZE --input ../circom/inputs/show/$SIZE/default.json
 
 # 2. Per-presentation flow
 cargo run --release -- generate_shared_blinds --size $SIZE
 cargo run --release -- prepare prove   --size $SIZE --input ../circom/inputs/jwt/$SIZE/default.json
 cargo run --release -- prepare reblind --size $SIZE
-cargo run --release -- show    prove   --size $SIZE --input ../circom/inputs/show/default.json
+cargo run --release -- show    prove   --size $SIZE --input ../circom/inputs/show/$SIZE/default.json
 cargo run --release -- show    reblind --size $SIZE
 
 # 3. Verify

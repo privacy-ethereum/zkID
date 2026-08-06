@@ -51,11 +51,11 @@ jobs:
         run: |
           cd wallet-unit-poc/ecdsa-spartan2
           cargo run --release -- prepare setup --size 1k --input ../circom/inputs/jwt/1k/default.json
-          cargo run --release -- show setup --size 1k --input ../circom/inputs/show/default.json
+          cargo run --release -- show setup --size 1k --input ../circom/inputs/show/1k/default.json
           cargo run --release -- generate_shared_blinds --size 1k
           cargo run --release -- prepare prove --size 1k --input ../circom/inputs/jwt/1k/default.json
           RUST_LOG=info cargo run --release -- prepare reblind --size 1k
-          RUST_LOG=info cargo run --release -- show prove --size 1k --input ../circom/inputs/show/default.json
+          RUST_LOG=info cargo run --release -- show prove --size 1k --input ../circom/inputs/show/1k/default.json
           RUST_LOG=info cargo run --release -- show reblind --size 1k
           cargo run --release -- prepare verify --size 1k
           cargo run --release -- show verify --size 1k
