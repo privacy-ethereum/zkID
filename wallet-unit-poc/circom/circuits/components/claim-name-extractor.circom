@@ -38,6 +38,23 @@ template ClaimNameExtractor(decodedLen) {
     // Exactly 6 quotes in ["salt","name","value"] (only enforced for active slots).
     isActive * (quoteCount[decodedLen - 1] - 6) === 0;
 
+    // Forbid backslash bytes so every counted quote is a real JSON string
+    // delimiter, never the raw 0x22 byte inside an escaped \" sequence -
+    // otherwise an escaped quote in one field shifts which bytes this
+    // extractor treats as another field's boundaries.
+    component isBackslashCmp[decodedLen];
+    signal isBackslash[decodedLen];
+    signal backslashCount[decodedLen];
+
+    for (var i = 0; i < decodedLen; i++) {
+        isBackslashCmp[i] = IsEqual();
+        isBackslashCmp[i].in[0] <== claim[i];
+        isBackslashCmp[i].in[1] <== 92;
+        isBackslash[i] <== isBackslashCmp[i].out;
+        backslashCount[i] <== (i == 0 ? 0 : backslashCount[i - 1]) + isBackslash[i];
+    }
+    isActive * backslashCount[decodedLen - 1] === 0;
+
     // Step 2: locate the 3rd quote (name open) and 4th quote (name close).
     component isThirdQuote[decodedLen];
     component isFourthQuote[decodedLen];

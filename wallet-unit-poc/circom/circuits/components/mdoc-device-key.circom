@@ -72,6 +72,12 @@ template MdocDeviceKeyExtractor(maxCredLen) {
         yBytes[i] <== win[Y_OFF + i];
     }
 
+    // The anchor bytes above pin where the coordinates are read from, but not
+    // that they are the canonical <P encoding; without this, x and x+P are two
+    // different signed device keys that collapse to the same field element.
+    CheckBytesInRangeP256(32)(xBytes);
+    CheckBytesInRangeP256(32)(yBytes);
+
     deviceKeyX <== BytesToNumberBE(32)(xBytes);
     deviceKeyY <== BytesToNumberBE(32)(yBytes);
 }

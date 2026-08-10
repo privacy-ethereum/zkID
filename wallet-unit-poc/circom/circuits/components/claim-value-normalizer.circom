@@ -183,6 +183,22 @@ template ClaimValueNormalizer(valueLen) {
     strLenLe8.in[1] <== 8;
     isStringFormat * (1 - strLenLe8.out) === 0;
 
+    // Big-endian packing erases leading zero bytes, so "\0A" packs to the same
+    // integer as "A" and "\0" packs to 0 like the empty string and an inactive
+    // slot. Predicates compare the packed integer alone, so a leading NUL would
+    // let one signed value satisfy a policy written for a different string.
+    // A legitimate string claim never starts with NUL, so require the first
+    // byte to be non-zero whenever the value is non-empty.
+    component strHasBytes = GreaterThan(log2Ceil(valueLen + 1));
+    strHasBytes.in[0] <== valueLength;
+    strHasBytes.in[1] <== 0;
+
+    component strFirstByteZero = IsZero();
+    strFirstByteZero.in <== value[0];
+
+    signal strLeadingNul <== strHasBytes.out * strFirstByteZero.out;
+    isStringFormat * strLeadingNul === 0;
+
     // Scale by 256 only within valueLength; past the value the multiplier is 1
     // so trailing padding does not inflate the packed integer.
     component strLenGt[valueLen];

@@ -41,6 +41,14 @@ template ECPublicKeyExtractor(maxPayloadLength, valueCharLen, expectedB64Len, co
     decodeY.sdBytes <== yExtractor.value;
     decodeY.sdLen <== yExtractor.valueLength;
 
+    // Coordinates must be the canonical <P encoding, otherwise x and x+P are
+    // two different signed JWKs that bind to the same in-circuit key.
+    component xInRange = CheckBytesInRangeP256(coordinateByteLen);
+    xInRange.in <== decodeX.base64Out;
+
+    component yInRange = CheckBytesInRangeP256(coordinateByteLen);
+    yInRange.in <== decodeY.base64Out;
+
     component xToNumber = BytesToNumberBE(coordinateByteLen);
     xToNumber.in <== decodeX.base64Out;
 
@@ -77,6 +85,13 @@ template ECPublicKeyExtractor_Optimized(maxPayloadLength, coordinateByteLen) {
     component decodeY = DecodeSD(44, coordinateByteLen);
     decodeY.sdBytes <== yBase64;
     decodeY.sdLen <== 43;
+
+    // Canonical <P encoding, same reason as the non-optimized variant above.
+    component xInRange = CheckBytesInRangeP256(coordinateByteLen);
+    xInRange.in <== decodeX.base64Out;
+
+    component yInRange = CheckBytesInRangeP256(coordinateByteLen);
+    yInRange.in <== decodeY.base64Out;
 
     component xToNumber = BytesToNumberBE(coordinateByteLen);
     xToNumber.in <== decodeX.base64Out;

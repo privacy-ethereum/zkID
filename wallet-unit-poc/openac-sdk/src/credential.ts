@@ -205,6 +205,19 @@ function parseDisclosure(raw: string, index: number): DisclosedClaim {
     );
   }
 
+  // The claim extractors locate each field by counting raw 0x22 bytes and
+  // reject any backslash, so a disclosure carrying a JSON escape cannot be
+  // proven. Fail here with a clear error rather than deep inside witness
+  // generation. Raw UTF-8 is fine (continuation bytes are 0x80-0xBF); only
+  // escape sequences such as \" or \uXXXX are refused.
+  if (decoded.includes("\\")) {
+    throw new InputError(
+      "INVALID_ENCODING",
+      `Disclosure at index ${index} contains a JSON escape sequence; ` +
+        `the credential circuits only accept escape-free disclosures`,
+    );
+  }
+
   let parsed: unknown[];
   try {
     parsed = JSON.parse(decoded);
