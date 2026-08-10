@@ -5,15 +5,23 @@ import { Field } from "@noble/curves/abstract/modular";
 import { base64urlToBigInt } from "../utils.js";
 import { InputError } from "../errors.js";
 import { buildShowStatementFields } from "./show-statement.js";
-import type { ShowCircuitParams, ShowCircuitInputs, EcdsaPublicKey, EcdsaPrivateKey } from "../types.js";
+import type {
+  ShowCircuitParams,
+  ShowCircuitInputs,
+  EcdsaPublicKey,
+  EcdsaPrivateKey,
+} from "../types.js";
 
-const Fq = Field(BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"));
+const Fq = Field(
+  BigInt("0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"),
+);
 
-export function signDeviceNonce(nonce: string, privateKey: EcdsaPrivateKey): string {
+export function signDeviceNonce(
+  nonce: string,
+  privateKey: EcdsaPrivateKey,
+): string {
   const privateKeyBytes =
-    typeof privateKey === "string"
-      ? hexToBytes(privateKey)
-      : privateKey;
+    typeof privateKey === "string" ? hexToBytes(privateKey) : privateKey;
 
   const messageHash = sha256(new TextEncoder().encode(nonce));
   const signature = p256.sign(messageHash, privateKeyBytes);
@@ -83,12 +91,26 @@ export function buildShowCircuitInputs(
   const deviceKeyX = base64urlToBigInt(deviceKey.x);
   const deviceKeyY = base64urlToBigInt(deviceKey.y);
 
-  const pubkey = p256.ProjectivePoint.fromAffine({ x: deviceKeyX, y: deviceKeyY });
+  const pubkey = p256.ProjectivePoint.fromAffine({
+    x: deviceKeyX,
+    y: deviceKeyY,
+  });
+  try {
+    pubkey.assertValidity();
+  } catch {
+    throw new InputError(
+      "INVALID_KEY",
+      "Device key is not a valid P-256 curve point",
+    );
+  }
   const msgHash = sha256(new TextEncoder().encode(nonce));
   const sigForVerify = sigDecoded.toDERRawBytes();
   const isValid = p256.verify(sigForVerify, msgHash, pubkey.toRawBytes());
   if (!isValid) {
-    throw new InputError("INVALID_SIGNATURE", "Device signature verification failed");
+    throw new InputError(
+      "INVALID_SIGNATURE",
+      "Device signature verification failed",
+    );
   }
 
   const normalizedValues = options.normalizedClaimValues ?? [0n];
@@ -112,12 +134,19 @@ export function buildShowCircuitInputs(
   for (let i = 0; i < Math.min(params.nClaims, identities.length); i++) {
     claimIdentifierHashes[i] = identities[i]!;
   }
-  const logicExpr = options.logicExpression ?? [{ type: LogicToken.REF, value: 0 }];
+  const logicExpr = options.logicExpression ?? [
+    { type: LogicToken.REF, value: 0 },
+  ];
 
   // Build the verifier statement (messageHash + padded predicate program) via
   // the shared helper so the prover and verifier compute byte-identical public
   // values.
-  const statement = buildShowStatementFields(params, nonce, predicates, logicExpr);
+  const statement = buildShowStatementFields(
+    params,
+    nonce,
+    predicates,
+    logicExpr,
+  );
 
   return {
     deviceKeyX,
@@ -165,7 +194,8 @@ function base64Decode(input: string): Uint8Array {
 }
 
 function bytesToBase64url(bytes: Uint8Array): string {
-  const B64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const B64_CHARS =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   let result = "";
   for (let i = 0; i < bytes.length; i += 3) {
     const a = bytes[i]!;

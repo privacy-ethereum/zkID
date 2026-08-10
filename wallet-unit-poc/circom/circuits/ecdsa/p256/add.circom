@@ -64,13 +64,29 @@ template Secp256r1AddComplete() {
 
     component isXpZero = IsZero();
     isXpZero.in <== xP;
- 
+
+    component isYpZero = IsZero();
+    isYpZero.in <== yP;
+
     component isXqZero = IsZero();
     isXqZero.in <== xQ;
 
+    component isYqZero = IsZero();
+    isYqZero.in <== yQ;
+
+    // (0,0) is the only infinity encoding - x==0 alone is not infinity,
+    // since P-256's b is a QR mod p, so (0, y) with y^2=b is a real point.
+    component isPInf = AND();
+    isPInf.a <== isXpZero.out;
+    isPInf.b <== isYpZero.out;
+
+    component isQInf = AND();
+    isQInf.a <== isXqZero.out;
+    isQInf.b <== isYqZero.out;
+
     component isXEitherZero = IsZero();
-    isXEitherZero.in <== (1 - isXpZero.out) * (1 - isXqZero.out);
-    
+    isXEitherZero.in <== (1 - isPInf.out) * (1 - isQInf.out);
+
     // dx = xQ - xP
     // dy = xP != xQ ? yQ - yP : 0
     // lambdaA = xP != xQ ? (yQ - yP) / (xQ - xP) : 0
@@ -95,23 +111,26 @@ template Secp256r1AddComplete() {
     signal outBx <== outAx * (1 - isXEitherZero.out);
     signal outBy <== outAy * (1 - isXEitherZero.out);
 
-    //(outCx, outCy) = xP = 0 ? (xQ, yQ) : (0, 0)
-    signal outCx <== isXpZero.out * xQ;
-    signal outCy <== isXpZero.out * yQ;
+    //(outCx, outCy) = P infinity ? (xQ, yQ) : (0, 0)
+    signal outCx <== isPInf.out * xQ;
+    signal outCy <== isPInf.out * yQ;
 
-    // (outDx, outDy) = xQ = 0 ? (xP, yP) : (0, 0)
-    signal outDx <== isXqZero.out * xP;
-    signal outDy <== isXqZero.out * yP;
+    // (outDx, outDy) = Q infinity ? (xP, yP) : (0, 0)
+    signal outDx <== isQInf.out * xP;
+    signal outDy <== isQInf.out * yP;
 
     // zeroizeA = (xP = xQ and yP = -yQ) ? 1 : 0
-    component zeroizeA = IsEqual();
-    zeroizeA.in[0] <== isXEqual.out;
-    zeroizeA.in[1] <== 1 - (yP + yQ);
+    component isYSumZero = IsZero();
+    isYSumZero.in <== yP + yQ;
 
-    // zeroizeB = (xP = 0 and xQ = 0) ? 1 : 0
+    component zeroizeA = AND();
+    zeroizeA.a <== isXEqual.out;
+    zeroizeA.b <== isYSumZero.out;
+
+    // zeroizeB = (P infinity and Q infinity) ? 1 : 0
     component zeroizeB = AND();
-    zeroizeB.a <== isXpZero.out;
-    zeroizeB.b <== isXqZero.out;
+    zeroizeB.a <== isPInf.out;
+    zeroizeB.b <== isQInf.out;
 
     // zeroize = (xP = xQ and yP = -yQ) or (xP = 0 and xQ = 0) ? 1 : 0
     // for this case we want to output the point at infinity (0, 0)
