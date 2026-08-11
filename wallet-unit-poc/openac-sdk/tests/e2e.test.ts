@@ -392,19 +392,22 @@ describe("JWT (Prepare) Circuit via SDK", () => {
     expect(witness[0]).toBe(1n); // valid constraint system
     // The JWT circuit has no public outputs. Claim values would reveal the exact
     // attribute; the device key would be a constant identifier linking every
-    // presentation. Both are private, reaching Show via comm_W_shared, and sit
-    // at CLAIM_VALUES_WITNESS_START with KeyBindingX/Y immediately after.
-    // This exercises the default `jwt` circuit (maxMessageLength 1920), not a
-    // VcSize variant, so it needs its own offset — verified against
-    // circom/build/jwt/jwt.sym.
-    const claimStart = 3817;
+    // presentation. Both are private and reach Show via comm_W_shared.
+    // `identifierStart` is the witness index of claimIdentifierHashes[0], which
+    // is followed by KeyBindingX/Y. This exercises the default `jwt` circuit
+    // (maxMessageLength 1920), not a VcSize variant, so it needs its own offset.
+    // These are private signals, so circom assigns their positions and they move
+    // whenever the constraint system changes. Re-derive after any circuit edit:
+    //   grep -m1 'main.claimIdentifierHashes\[0\]' circom/build/jwt/jwt.sym
+    // (field 2 of that line is the witness index).
+    const identifierStart = 3871;
     const maxClaims = DEFAULT_JWT_PARAMS.maxMatches - 2;
-    expect(witness.length).toBeGreaterThan(claimStart + maxClaims + 1);
+    expect(witness.length).toBeGreaterThan(identifierStart + maxClaims + 1);
 
-    expect(witness[claimStart + maxClaims]).toBe(
+    expect(witness[identifierStart + maxClaims]).toBe(
       base64urlToBigInt(data.devicePublicKey.x),
     );
-    expect(witness[claimStart + maxClaims + 1]).toBe(
+    expect(witness[identifierStart + maxClaims + 1]).toBe(
       base64urlToBigInt(data.devicePublicKey.y),
     );
   }, 120_000);

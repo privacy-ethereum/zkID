@@ -22,7 +22,7 @@ import type {
 } from "./types.js";
 
 export const DEFAULT_KEYS_BASE_URL =
-  "https://pub-d941fd6fc0c84bd892810e681a55edcd.r2.dev/openac-4.0.0";
+  "https://pub-d941fd6fc0c84bd892810e681a55edcd.r2.dev/openac-5.0.0";
 
 export class OpenAC {
   private bridge: WasmBridge;

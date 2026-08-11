@@ -5,9 +5,30 @@ include "../../node_modules/circomlib/circuits/bitify.circom";
 
 
 /**
+ *  PointOnP256
+ *  ===========
+ *
+ *  Asserts (x, y) satisfies P-256's curve equation y^2 = x^3 - 3x + b mod p
+ *  (native-field check, no bigint limbs needed since circuit arithmetic is
+ *  already done in P-256's base field). secp256r1 has prime order, so no
+ *  affine point has y = 0 - this also rejects the (0,0) infinity sentinel
+ *  and any (+-1, 0) degenerate point, without a separate check.
+ */
+template PointOnP256() {
+    signal input x;
+    signal input y;
+    var b = 0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b;
+
+    signal xSq <== x * x;
+    signal xCu <== xSq * x;
+    signal ySq <== y * y;
+    ySq === xCu - 3 * x + b;
+}
+
+/**
  *  ECDSA
  *  ====================
- *  
+ *
  *  Implements ECDSA verification. Each Secp256r1Mul takes 3k constraints, however adding checked wrong field multiplication
  *  costs 4k constraints and so instead of doing the s_inverse * m and s_inverse * r mod n where n is the order of the secp256r1
  *  we just do scalar mults which use the native field of secp256r1.
@@ -25,6 +46,22 @@ template ECDSA() {
     component check0 = IsZero();
     check0.in <== s_inverse;
     check0.out === 0;
+
+    // r == 0 must be unreachable regardless of the lambdaB accident at
+    // Secp256r1AddComplete (see PointOnP256 above) - r is a public input the
+    // prover fully controls, so this needs an explicit constraint.
+    component checkR = IsZero();
+    checkR.in <== r;
+    checkR.out === 0;
+
+    // Reject any off-curve pubkey. Without this, the incomplete/complete
+    // addition formulas in Secp256r1Mul are valid group-law arithmetic on
+    // *any* point sharing P-256's `a` coefficient regardless of `b`, so an
+    // attacker can pick Q off-curve and still satisfy r === R.outX for an
+    // arbitrary message.
+    component pubKeyOnCurve = PointOnP256();
+    pubKeyOnCurve.x <== pubKeyX;
+    pubKeyOnCurve.y <== pubKeyY;
 
     // TODO - Its shocking that this is more efficient than big number multiply, perhaps we should double check
 

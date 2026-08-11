@@ -1,11 +1,18 @@
 import { sha256 } from "@noble/hashes/sha2";
 
+import { InputError } from "./errors.js";
+
 // secp256r1 (P-256) scalar field order
 export const P256_SCALAR_ORDER = BigInt(
   "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"
 );
 
 const B64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+const B64_LOOKUP = new Uint8Array(128).fill(0xff);
+for (let i = 0; i < B64_CHARS.length; i++) {
+  B64_LOOKUP[B64_CHARS.charCodeAt(i)] = i;
+}
 
 export function base64urlToBase64(b64url: string): string {
   let b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
@@ -19,12 +26,6 @@ export function base64ToBase64url(b64: string): string {
 
 export function base64Decode(b64: string): Uint8Array {
   const normalized = base64urlToBase64(b64);
-
-  const lookup = new Uint8Array(128);
-  for (let i = 0; i < B64_CHARS.length; i++) {
-    lookup[B64_CHARS.charCodeAt(i)] = i;
-  }
-
   const stripped = normalized.replace(/=+$/, "");
   const outLen = Math.floor((stripped.length * 3) / 4);
   const out = new Uint8Array(outLen);
@@ -34,7 +35,12 @@ export function base64Decode(b64: string): Uint8Array {
   let outIdx = 0;
 
   for (let i = 0; i < stripped.length; i++) {
-    value = (value << 6) | lookup[stripped.charCodeAt(i)]!;
+    const charCode = stripped.charCodeAt(i);
+    const decoded = charCode < 128 ? B64_LOOKUP[charCode]! : 0xff;
+    if (decoded === 0xff) {
+      throw new InputError("INVALID_ENCODING", `Invalid base64 character '${stripped[i]}'`);
+    }
+    value = (value << 6) | decoded;
     bits += 6;
     if (bits >= 8) {
       bits -= 8;

@@ -161,6 +161,31 @@ template K_add() {
     isCanonical.b <== canonTie.out;
     isCanonical.out === 1;
 
+    // p is only ~2^38 larger than q (the curve order n above), so the <P
+    // check alone still admits s in [q, p) - a scalar that aliases with
+    // s - q under this template's mod-q reduction below, but is not a valid
+    // ECDSA scalar per r,s in [1, n-1]. Reject it explicitly.
+    component canonHiQ = LessThan(129);
+    canonHiQ.in[0] <== shi;
+    canonHiQ.in[1] <== qhi;
+
+    component canonHiEqQ = IsEqual();
+    canonHiEqQ.in[0] <== shi;
+    canonHiEqQ.in[1] <== qhi;
+
+    component canonLoQ = LessThan(129);
+    canonLoQ.in[0] <== slo;
+    canonLoQ.in[1] <== qlo;
+
+    component canonTieQ = AND();
+    canonTieQ.a <== canonHiEqQ.out;
+    canonTieQ.b <== canonLoQ.out;
+
+    component isCanonicalQ = OR();
+    isCanonicalQ.a <== canonHiQ.out;
+    isCanonicalQ.b <== canonTieQ.out;
+    isCanonicalQ.out === 1;
+
     // Get carry bit of (slo + tQlo)
 
     component inBits = Num2Bits(128 + 1);
