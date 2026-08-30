@@ -1,0 +1,84 @@
+[package]
+name = "openac-mdoc-mobile-app"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bin]]
+name = "flutter"
+path = "src/bin/flutter.rs"
+required-features = ["flutter"]
+
+[[bin]]
+name = "ios"
+path = "src/bin/ios.rs"
+required-features = ["uniffi"]
+
+[[bin]]
+name = "android"
+path = "src/bin/android.rs"
+required-features = ["uniffi"]
+
+# Adapters for different proof systems
+[features]
+# native-zk enables the witnesscalc C++ witness generator (requires GMP).
+# Excluded from the "flutter" feature so that flutter_rust_bridge_codegen's
+# `cargo expand` step can compile without needing the C++ toolchain.
+default = ["uniffi", "native-zk"]
+uniffi = ["mopro-ffi/uniffi"]
+flutter = ["mopro-ffi/flutter"]
+native-zk = ["ecdsa-spartan2/native-witness"]
+# Never enabled here — this app is iOS-only and has no `web` bin target. Kept
+# because mopro_ffi::app!() expands to code gated on it, and dropping it makes
+# every build warn about an unexpected `wasm` cfg value.
+wasm = []
+
+[dependencies]
+mopro-ffi = "0.3.5"
+thiserror = "2.0.12"
+anyhow = "1.0.99"
+ecdsa-spartan2 = { path = "../ecdsa-spartan2", default-features = false }
+
+# SPARTAN2_DEPENDENCIES
+spartan2 = { git = "https://github.com/0xVikasRushi/Spartan2.git", branch = "openac-sdk", default-features = false }
+bellpepper-core = "0.4.0"
+bellpepper = "0.4.0"
+ff = { version = "0.13.0", features = ["derive"] }
+digest = "0.10"
+sha2 = "0.10.7"
+sha3 = "0.10"
+rayon = "1.10.0"
+rand_core = { version = "0.6", default-features = false, features = ["getrandom"] }
+itertools = "0.14.0"
+subtle = "2.5"
+generic-array = "0.14"
+num-bigint = { version = "0.4", features = ["serde", "rand"] }
+num-traits = "0.2"
+num-integer = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+bincode = "1.3"
+flate2 = "1.0"
+bitvec = "1.0"
+byteorder = "1.4.3"
+halo2curves = { version = "0.9.0", features = ["derive_serde", "std"] }
+group = "0.13.0"
+once_cell = "1.18.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "time"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3.8"
+mopro-ffi = { version = "0.3.5", features = ["uniffi-tests"] }
+
+[build-dependencies]
+spartan2 = { git = "https://github.com/0xVikasRushi/Spartan2.git", branch = "openac-sdk", default-features = false }
+
+[profile.release]
+opt-level = 3       # Optimize for performance
+lto = "thin"        # Enable thin Link-Time Optimization for better cross-crate optimization
+strip = true        # Strip debug symbols from release binaries
+debug = false       # Disable debug info in release builds
+codegen-units = 1   # Better optimization at the cost of longer compile time
