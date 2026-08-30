@@ -1,0 +1,820 @@
+<title>Example Social</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Example Social — a demo age-gated sign-up flow verified by an openacmdoc wallet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f2f2f3;
+    --surface: #e9e9ea;
+    --text: #1d1f20;
+    --muted: #6b6f73;
+    --brand: #1C4587;
+    --accent: #5980a6;
+    --chip-bg: #1d2d3d;
+    --chip-fg: #94bce3;
+    --divider: #d2d3d6;
+    --radius: 10px;
+    --green: #1e7d4a;
+    --green-bg: #e3f3ea;
+    --red: #a02f2f;
+    --red-bg: #f6e6e6;
+    --privacy-bg: #E9EFF7;
+
+    /* Type scale as custom properties: mobile literals by default, raised
+       via clamp() at the stage breakpoint below, so the ≤640px phone
+       presentation never has to be duplicated. */
+    --fs-h1: 26px;
+    --fs-badge: 22px;
+    --fs-copy: 16px;
+    --fs-eyebrow: 13px;
+    --fs-btn: 17px;
+    --fs-result-heading: 24px;
+    --fs-stats: 15px;
+    --fs-check-item: 16px;
+    --fs-check-icon: 12px;
+    --fs-label: 16px;
+    --fs-micro: 13px;
+    --fs-privacy: 15px;
+    --fs-link-reset: 15px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  body {
+    font-family: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-weight: 400;
+    line-height: 1.45;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 28px 16px 48px;
+  }
+
+  .heading-font {
+    font-family: "Barlow Condensed", system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  main {
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+  }
+
+  /* Views cross-fade instead of snapping via [hidden]. The outgoing view
+     is pulled out of flow so it can overlay the incoming one while both
+     opacities animate; see showView() for the choreography. */
+  .view {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  .view.fade-out {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .view.fade-in-start {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  .card {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 28px 24px 32px;
+    box-shadow: 0 1px 2px rgba(29, 31, 32, 0.06), 0 8px 24px rgba(29, 31, 32, 0.06);
+  }
+
+  .masthead {
+    font-size: var(--fs-eyebrow);
+    color: var(--muted);
+    text-align: center;
+    margin: 0 0 4px;
+  }
+
+  h1 {
+    margin: 0 0 20px;
+    text-align: center;
+    font-size: var(--fs-h1);
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .badge-row {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+
+  .badge {
+    background: var(--chip-bg);
+    color: var(--chip-fg);
+    font-family: "Barlow Condensed", system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: var(--fs-badge);
+    letter-spacing: 0.03em;
+    padding: 8px 22px;
+    border-radius: 999px;
+  }
+
+  .copy {
+    text-align: center;
+    font-size: var(--fs-copy);
+    margin: 0 0 8px;
+  }
+
+  .fine-print {
+    text-align: center;
+    font-size: var(--fs-eyebrow);
+    color: var(--muted);
+    margin: 0 0 24px;
+  }
+
+  .how-it-works {
+    list-style: none;
+    margin: 20px 0 8px;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--divider);
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: var(--fs-label);
+    color: var(--text);
+  }
+
+  .how-it-works-subline {
+    text-align: center;
+    font-size: var(--fs-micro);
+    color: var(--muted);
+    margin: 0 0 22px;
+  }
+
+  .step-num {
+    font-family: "Barlow Condensed", system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    color: var(--brand);
+    margin-right: 4px;
+  }
+
+  button, .btn {
+    display: block;
+    width: 100%;
+    border: none;
+    border-radius: var(--radius);
+    font-family: inherit;
+    font-size: var(--fs-btn);
+    font-weight: 600;
+    padding: 16px 20px;
+    min-height: 52px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    box-sizing: border-box;
+  }
+
+  .btn-primary {
+    background: var(--brand);
+    color: #ffffff;
+  }
+
+  .btn-primary:active {
+    background: #163a70;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .waiting {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 18px;
+    font-size: var(--fs-copy);
+    color: var(--muted);
+  }
+
+  .waiting[hidden] { display: none; }
+
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--divider);
+    border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+    flex: none;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .result-icon {
+    display: block;
+    margin: 4px auto 16px;
+  }
+
+  .result-heading {
+    text-align: center;
+    font-size: var(--fs-result-heading);
+    margin: 0 0 8px;
+  }
+
+  .result-heading.ok { color: var(--green); }
+  .result-heading.bad { color: var(--red); }
+
+  .result-copy {
+    text-align: center;
+    font-size: var(--fs-copy);
+    margin: 0 0 4px;
+  }
+
+  .learned-panel {
+    margin: 22px 0;
+    padding: 16px;
+    background: var(--bg);
+    border: 1px solid var(--divider);
+    border-radius: var(--radius);
+  }
+
+  .learned-panel-header {
+    margin: 0 0 10px;
+    font-family: "Barlow Condensed", system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: var(--fs-micro);
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .learned-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: var(--fs-label);
+    padding: 6px 0;
+  }
+
+  .learned-icon {
+    flex: none;
+    width: 18px;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .learned-row.ok .learned-icon { color: var(--green); }
+
+  /* Shared with the sign-up subline; the icon inherits the brand color. */
+  .privacy-callout {
+    background: var(--privacy-bg);
+    border-left: 3px solid var(--brand);
+    border-radius: var(--radius-sm, 6px);
+    padding: 10px 14px;
+    color: var(--brand);
+    font-weight: 600;
+    font-size: var(--fs-privacy);
+  }
+
+  .stats {
+    margin: 22px 0;
+    padding: 16px;
+    background: var(--bg);
+    border: 1px solid var(--divider);
+    border-radius: var(--radius);
+    font-size: var(--fs-stats);
+  }
+
+  .stats div + div {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--divider);
+  }
+
+  .openac-mark {
+    text-align: center;
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    margin: 0 0 4px;
+  }
+
+  .tech-footer {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: var(--fs-micro);
+    word-break: break-word;
+    color: var(--muted);
+    text-align: center;
+    margin: 8px 0 0;
+  }
+
+  .watch-footer {
+    text-align: center;
+    font-size: var(--fs-eyebrow);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    margin: 20px 0 0;
+  }
+
+  .checklist {
+    list-style: none;
+    margin: 22px 0 4px;
+    padding: 0;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    font-size: var(--fs-check-item);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+
+  .check-item + .check-item {
+    border-top: 1px solid var(--divider);
+  }
+
+  .check-item.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .check-icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--fs-check-icon);
+    font-weight: 700;
+    background: var(--divider);
+    color: var(--muted);
+  }
+
+  .check-item.ok .check-icon {
+    background: var(--green-bg);
+    color: var(--green);
+  }
+
+  .check-item.bad .check-icon {
+    background: var(--red-bg);
+    color: var(--red);
+  }
+
+  .check-item.skipped .check-label {
+    color: var(--muted);
+  }
+
+  .check-label {
+    flex: 1;
+  }
+
+  a.link-reset {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: var(--brand);
+    font-size: var(--fs-link-reset);
+    font-weight: 600;
+    text-decoration: none;
+    padding: 8px;
+  }
+
+  a.link-reset:active { opacity: 0.7; }
+
+  [hidden] { display: none !important; }
+
+  @media (min-width: 640px) {
+    :root {
+      --fs-h1: clamp(36px, 19px + 3vw, 72px);
+      --fs-badge: clamp(24px, 16px + 1.2vw, 34px);
+      --fs-copy: clamp(17px, 13px + 0.8vw, 24px);
+      --fs-eyebrow: clamp(13px, 11px + 0.4vw, 16px);
+      --fs-btn: clamp(18px, 14px + 0.8vw, 22px);
+      --fs-result-heading: clamp(32px, 14px + 3vw, 64px);
+      --fs-stats: clamp(16px, 10px + 1vw, 26px);
+      --fs-check-item: clamp(20px, 10px + 1.8vw, 40px);
+      --fs-check-icon: clamp(13px, 10px + 0.5vw, 18px);
+      --fs-label: clamp(17px, 12px + 1.1vw, 28px);
+      --fs-micro: clamp(13px, 11px + 0.45vw, 18px);
+      --fs-privacy: clamp(18px, 13px + 1.2vw, 30px);
+      --fs-link-reset: clamp(16px, 13px + 0.5vw, 19px);
+    }
+
+    body { align-items: center; padding: 40px 24px; }
+
+    main { max-width: min(920px, 92vw); }
+
+    .card { padding: 48px clamp(32px, 4vw, 72px) 56px; }
+
+    .how-it-works { flex-direction: row; padding: 18px 20px; }
+    .how-it-works li { flex: 1; text-align: center; padding: 0 14px; }
+    .how-it-works li + li { border-left: 1px solid var(--divider); }
+
+    .check-item { gap: 14px; padding: 14px 0; }
+    .check-icon { width: 28px; height: 28px; }
+
+    .result-icon { width: 76px; height: 76px; }
+
+    .stats { padding: 20px 24px; }
+    .stats div + div { margin-top: 12px; padding-top: 12px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .view,
+    .check-item {
+      transition: none;
+    }
+  }
+</style>
+
+<main>
+  <section id="view-signup" class="card view">
+    <p class="masthead">social.example.com</p>
+    <h1 class="heading-font">Example Social Platform</h1>
+    <div class="badge-row">
+      <span class="badge">18+</span>
+    </div>
+    <p class="copy">This community is restricted to adults.</p>
+    <p class="fine-print" id="requirement-line">Verification requirement: Age 18 or older</p>
+    <ol class="how-it-works">
+      <li><span class="step-num">1</span> This site asks for one fact</li>
+      <li><span class="step-num">2</span> Your phone proves it in zero knowledge</li>
+      <li><span class="step-num">3</span> This site verifies the proof</li>
+    </ol>
+    <p class="how-it-works-subline privacy-callout">Your birth date never leaves your phone.</p>
+    <button id="verify-btn" type="button" class="btn-primary">Verify Age</button>
+    <p id="waiting" class="waiting" hidden>
+      <span class="spinner" aria-hidden="true"></span>
+      Waiting for the wallet…
+    </p>
+  </section>
+
+  <section id="view-watch-waiting" class="card view" hidden>
+    <p class="masthead">social.example.com</p>
+    <h1 class="heading-font">Example Social Platform</h1>
+    <p class="waiting">
+      <span class="spinner" aria-hidden="true"></span>
+      Waiting for the wallet…
+    </p>
+  </section>
+
+  <section id="view-checking" class="card view" hidden>
+    <h2 class="result-heading heading-font" style="color: var(--text)">Checking your proof…</h2>
+    <ul class="checklist" id="checklist">
+      <li class="check-item"><span class="check-icon" aria-hidden="true"></span><span class="check-label"></span></li>
+      <li class="check-item"><span class="check-icon" aria-hidden="true"></span><span class="check-label"></span></li>
+      <li class="check-item"><span class="check-icon" aria-hidden="true"></span><span class="check-label"></span></li>
+      <li class="check-item"><span class="check-icon" aria-hidden="true"></span><span class="check-label"></span></li>
+    </ul>
+  </section>
+
+  <section id="view-success" class="card view" hidden>
+    <svg class="result-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="11" fill="#e3f3ea" stroke="#1e7d4a" stroke-width="1.5"/>
+      <path d="M7 12.5l3 3 7-7.5" stroke="#1e7d4a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h2 class="result-heading ok heading-font">Success!</h2>
+    <div class="learned-panel">
+      <p class="learned-panel-header">WHAT THIS SITE LEARNED</p>
+      <div class="learned-row ok">
+        <span class="learned-icon" aria-hidden="true">✓</span>
+        <span id="learned-policy"></span>
+      </div>
+      <div class="learned-row ok">
+        <span class="learned-icon" aria-hidden="true">✓</span>
+        <span>Proof genuine: issued on a valid credential</span>
+      </div>
+      <p class="privacy-callout">The verifier does not learn your birth date, name, or any PII. Just that you are 18 or older.</p>
+    </div>
+    <div class="stats">
+      <div id="stat-time"></div>
+      <div id="stat-proofs"></div>
+    </div>
+    <p class="openac-mark">Verified with OpenAC</p>
+    <p class="tech-footer" id="tech-footer"></p>
+    <button id="register-btn" type="button" class="btn-primary">Register</button>
+    <p class="watch-footer" id="watch-footer-success" hidden>Live verification view</p>
+  </section>
+
+  <section id="view-failed" class="card view" hidden>
+    <svg class="result-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="11" fill="#f6e6e6" stroke="#a02f2f" stroke-width="1.5"/>
+      <path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#a02f2f" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <h2 class="result-heading bad heading-font">Verification failed</h2>
+    <p class="result-copy" id="failed-note">We couldn't verify your age. Please try again.</p>
+    <a href="#" id="try-again" class="link-reset">Try again</a>
+    <p class="watch-footer" id="watch-footer-failed" hidden>Live verification view</p>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var viewSignup = document.getElementById('view-signup');
+  var viewWatchWaiting = document.getElementById('view-watch-waiting');
+  var viewChecking = document.getElementById('view-checking');
+  var viewSuccess = document.getElementById('view-success');
+  var viewFailed = document.getElementById('view-failed');
+  var verifyBtn = document.getElementById('verify-btn');
+  var waiting = document.getElementById('waiting');
+  var tryAgain = document.getElementById('try-again');
+  var failedNote = document.getElementById('failed-note');
+  var requirementLine = document.getElementById('requirement-line');
+  var checkItems = document.querySelectorAll('#checklist .check-item');
+
+  var POLL_INTERVAL_MS = 1000;
+  var POLL_TIMEOUT_MS = 5 * 60 * 1000;
+  var CHECK_STAGGER_MS = 700;
+  var CROSSFADE_MS = 300;
+
+  var params = new URLSearchParams(location.search);
+  var watchParam = params.get('watch');
+  var watchMode = !!watchParam;
+  var session = watchMode ? null : params.get('session');
+  var pollTimer = null;
+  var pollDeadline = null;
+  var checklistTimers = [];
+  var fadeTimer = null;
+
+  // Watch mode never shows the sign-up card — flip the initial view and
+  // the success/failed footers before first paint, so a spectator never
+  // sees a flash of the Register flow they can't use.
+  var activeView = viewSignup;
+  if (watchMode) {
+    viewSignup.hidden = true;
+    viewWatchWaiting.hidden = false;
+    activeView = viewWatchWaiting;
+    document.getElementById('register-btn').hidden = true;
+    document.getElementById('watch-footer-success').hidden = false;
+    tryAgain.hidden = true;
+    document.getElementById('watch-footer-failed').hidden = false;
+  }
+
+  function showView(view) {
+    if (view === activeView) return;
+    var outgoing = activeView;
+    activeView = view;
+    clearTimeout(fadeTimer);
+
+    outgoing.classList.add('fade-out');
+    view.hidden = false;
+    view.classList.add('fade-in-start');
+    void view.offsetWidth; // force layout so fade-in has a start state to transition from
+    view.classList.remove('fade-in-start');
+
+    fadeTimer = setTimeout(function () {
+      outgoing.hidden = true;
+      outgoing.classList.remove('fade-out');
+    }, CROSSFADE_MS);
+  }
+
+  function showWaiting() {
+    if (watchMode) return;
+    waiting.hidden = false;
+    verifyBtn.disabled = true;
+  }
+
+  function hideWaiting() {
+    if (watchMode) return;
+    waiting.hidden = true;
+    verifyBtn.disabled = false;
+  }
+
+  function schedule(fn, ms) {
+    clearTimeout(pollTimer);
+    pollTimer = setTimeout(fn, ms);
+  }
+
+  function clearChecklistTimers() {
+    checklistTimers.forEach(clearTimeout);
+    checklistTimers = [];
+  }
+
+  function resetToSignup() {
+    clearTimeout(pollTimer);
+    pollTimer = null;
+    pollDeadline = null;
+    session = null;
+    clearChecklistTimers();
+    history.replaceState(null, '', location.pathname);
+    hideWaiting();
+    showView(viewSignup);
+  }
+
+  function startPolling() {
+    showWaiting();
+    pollDeadline = Date.now() + POLL_TIMEOUT_MS;
+    clearTimeout(pollTimer);
+    poll();
+  }
+
+  function poll() {
+    if (!session) return;
+
+    if (Date.now() > pollDeadline) {
+      renderFailed(null, true);
+      return;
+    }
+
+    fetch('/api/session/' + encodeURIComponent(session))
+      .then(function (res) {
+        if (res.status === 404) {
+          // A watched session id that hasn't been created yet looks the
+          // same as a pending one from here — keep waiting instead of
+          // bouncing to the (hidden, non-interactive) sign-up view.
+          if (watchMode) {
+            schedule(poll, POLL_INTERVAL_MS);
+          } else {
+            resetToSignup();
+          }
+          return null;
+        }
+        if (!res.ok) {
+          // Transient server hiccup: keep polling rather than giving up.
+          schedule(poll, POLL_INTERVAL_MS);
+          return null;
+        }
+        return res.json();
+      })
+      .then(function (body) {
+        if (!body) return;
+        if (body.status === 'pending') {
+          schedule(poll, POLL_INTERVAL_MS);
+          return;
+        }
+        clearTimeout(pollTimer);
+        hideWaiting();
+        if (body.status === 'verified') {
+          playChecklist(body, function () { renderSuccess(body); });
+        } else {
+          playChecklist(body, function () { renderFailed(body, false); });
+        }
+      })
+      .catch(function () {
+        // The phone may briefly drop Wi-Fi while switching to the wallet
+        // app; keep polling until the overall timeout above trips.
+        schedule(poll, POLL_INTERVAL_MS);
+      });
+  }
+
+  // Resolves `?watch=latest` to a concrete session id, then hands off to
+  // the same poll() used by every other mode.
+  function pollLatestSession() {
+    fetch('/api/session/latest')
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (body) {
+        if (!body) {
+          schedule(pollLatestSession, POLL_INTERVAL_MS);
+          return;
+        }
+        session = String(body.id);
+        startPolling();
+      })
+      .catch(function () {
+        schedule(pollLatestSession, POLL_INTERVAL_MS);
+      });
+  }
+
+  function toKB(bytes) {
+    return Math.round(bytes / 1024);
+  }
+
+  // Turns `birth_date <= YYYYMMDD` into `birth_date ≤ YYYY-MM-DD`. Falls
+  // back to the raw policy string for anything else, since the policy
+  // language isn't guaranteed to stay this simple.
+  function formatPolicy(policy) {
+    var m = /^birth_date\s*<=\s*(\d{4})(\d{2})(\d{2})$/.exec(policy);
+    return m ? 'birth_date ≤ ' + m[1] + '-' + m[2] + '-' + m[3] : policy;
+  }
+
+  // Stages the four checks at a fixed cadence for legibility. The stagger
+  // is purely presentational — real per-check timings aren't available,
+  // so verify_ms (the only timing the server reports) is shown once, in
+  // the success block, never per item.
+  function playChecklist(body, done) {
+    var checks = body.checks || {};
+    var items = [
+      {
+        label: 'Proofs received: ' + toKB(body.mdoc_proof_bytes) + ' KB + ' +
+          toKB(body.show_proof_bytes) + ' KB',
+        ok: true
+      },
+      { label: 'Proofs verified: cryptographically linked', ok: checks.linked },
+      { label: 'Issuer & credential data pinned', ok: checks.mdoc_publics },
+      { label: 'Age policy validated: ' + body.policy_display, ok: checks.show_publics }
+    ];
+
+    var failedAt = -1;
+    for (var i = 0; i < items.length; i++) {
+      if (!items[i].ok) {
+        failedAt = i;
+        break;
+      }
+    }
+
+    clearChecklistTimers();
+    checkItems.forEach(function (el) {
+      el.className = 'check-item';
+      el.querySelector('.check-icon').textContent = '';
+      el.querySelector('.check-label').textContent = '';
+    });
+    showView(viewChecking);
+
+    items.forEach(function (item, i) {
+      // Once a check fails, later items are unreached — grey them out
+      // rather than reveal their underlying (and now moot) boolean.
+      var skipped = failedAt !== -1 && i > failedAt;
+      var el = checkItems[i];
+      checklistTimers.push(setTimeout(function () {
+        el.querySelector('.check-label').textContent = item.label;
+        el.classList.add('visible', skipped ? 'skipped' : (item.ok ? 'ok' : 'bad'));
+        el.querySelector('.check-icon').textContent = skipped ? '' : (item.ok ? '✓' : '✗');
+      }, i * CHECK_STAGGER_MS));
+    });
+
+    checklistTimers.push(setTimeout(done, items.length * CHECK_STAGGER_MS + 300));
+  }
+
+  function renderSuccess(body) {
+    document.getElementById('stat-time').textContent =
+      'Verified in ' + body.verify_ms + ' ms';
+    document.getElementById('stat-proofs').textContent =
+      'Proofs: ' + toKB(body.mdoc_proof_bytes) + ' + ' + toKB(body.show_proof_bytes) + ' KB';
+    document.getElementById('learned-policy').textContent = body.policy_display + ': true';
+    document.getElementById('tech-footer').textContent = 'circuit predicate: ' + formatPolicy(body.policy);
+    showView(viewSuccess);
+  }
+
+  function renderFailed(body, timedOut) {
+    failedNote.textContent = timedOut
+      ? "We didn't hear back from your wallet in time. Please try again."
+      : "We couldn't verify your age. Please try again.";
+    showView(viewFailed);
+  }
+
+  function verifyAge() {
+    showWaiting();
+    fetch('/api/session', { method: 'POST' })
+      .then(function (res) { return res.json(); })
+      .then(function (s) {
+        session = s.session_id;
+        requirementLine.textContent = 'Verification requirement: ' + s.policy_display;
+        history.replaceState(null, '', '?session=' + encodeURIComponent(session));
+        startPolling();
+        location.href = s.wallet_link;
+      })
+      .catch(function () {
+        hideWaiting();
+        failedNote.textContent = 'Could not reach the server. Check your connection and try again.';
+        showView(viewFailed);
+      });
+  }
+
+  verifyBtn.addEventListener('click', verifyAge);
+  tryAgain.addEventListener('click', function (e) {
+    e.preventDefault();
+    resetToSignup();
+  });
+
+  if (watchMode) {
+    if (watchParam === 'latest') {
+      pollLatestSession();
+    } else {
+      session = watchParam;
+      startPolling();
+    }
+  } else if (session) {
+    startPolling();
+  }
+})();
+</script>
