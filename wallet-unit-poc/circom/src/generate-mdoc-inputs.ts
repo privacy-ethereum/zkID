@@ -15,6 +15,13 @@ const SHOW_PARAMS = { nClaims: 2, maxPredicates: 2, maxLogicTokens: 8, valueBits
 
 const OP_LE = 0;
 
+// 18+ policy per generalized-predicates/README.md: born on or before today − 18y.
+const cutoff = (() => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 18);
+  return BigInt(d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate());
+})();
+
 function ymdToYyyymmdd(ymd: string): bigint {
   const [y, m, d] = ymd.split("-").map(Number);
   return BigInt(y * 10000 + m * 100 + d);
@@ -91,7 +98,7 @@ async function main(): Promise<void> {
   showInputs.predicateLen = 1n;
   showInputs.predicateClaimRefs[0] = 0n;
   showInputs.predicateOps[0] = BigInt(OP_LE);
-  showInputs.predicateRhsValues[0] = 20000101n;
+  showInputs.predicateRhsValues[0] = cutoff;
   showInputs.tokenTypes[0] = 0n;
   showInputs.tokenValues[0] = 0n;
   showInputs.exprLen = 1n;
